@@ -11,6 +11,7 @@ const ALLOWED_ORIGINS: readonly string[] = [
     // Production
     "https://erp.rotero.mx",
     "https://tracking.rotero.mx",
+    "https://roterowlsbeta.netlify.app",
     // Staging
     "https://staging.rotero.mx",
     // Development

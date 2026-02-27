@@ -76,12 +76,29 @@ const ReportsPage = () => {
     }
 
     // Safeblocks
-    const fin = finances!;
-    const pip = pipeline!;
-    const inv = inventory!;
-    const ops = operations!;
+    if (!finances || !pipeline || !inventory || !operations) {
+        return (
+            <div className="flex flex-col items-center justify-center p-20 min-h-[50vh] text-slate-400 gap-4">
+                <div className="bg-amber-50 p-3 rounded-full text-amber-500 mb-2">
+                    <PieChart size={32} />
+                </div>
+                <p className="text-sm font-bold text-slate-600">Datos insuficientes para reportes</p>
+                <p className="text-xs max-w-md text-center">
+                    Aún no hay suficiente historial consolidado. Ingresa más operaciones, negociaciones o movimientos de inventario para generar el cubo de datos.
+                </p>
+                <button onClick={fetchData} className="mt-4 px-5 py-2bg-white border top-2 border-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors">
+                    Actualizar
+                </button>
+            </div>
+        );
+    }
 
-    const maxChartValue = fin.revenue_by_month.length > 0 ? Math.max(...fin.revenue_by_month) : 100;
+    const fin = finances;
+    const pip = pipeline;
+    const inv = inventory;
+    const ops = operations;
+
+    const maxChartValue = fin.revenue_by_month?.length > 0 ? Math.max(...fin.revenue_by_month) : 100;
 
     return (
         <div className="space-y-6 relative">
