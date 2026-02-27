@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BI &amp; Profitability Reports - ROTERO ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0f2b5c",
+                        "primary-light": "#1e4d8c", 
+                        "primary-subtle": "#e7effc",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#121720",
+                        "success": "#16a34a",
+                        "danger": "#dc2626",
+                        "text-main": "#0f172a",
+                        "text-secondary": "#64748b",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 6px -1px rgba(15, 43, 92, 0.05), 0 2px 4px -1px rgba(15, 43, 92, 0.03)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for horizontal scrolling areas */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Simple chart bar animation */
+        @keyframes growWidth {
+            from { width: 0; }
+            to { width: var(--w); }
+        }
+        .animate-bar {
+            animation: growWidth 1s ease-out forwards;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-text-main antialiased selection:bg-primary selection:text-white">
+<div class="relative flex h-full min-h-screen w-full flex-col max-w-md mx-auto bg-background-light dark:bg-background-dark shadow-2xl overflow-hidden border-x border-slate-200 dark:border-slate-800">
+<!-- Header Section -->
+<header class="sticky top-0 z-20 bg-white/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 px-4 pt-4 pb-3">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-primary/10" data-alt="User profile picture of a male executive" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAbKpa9AFB54upjPI85BY7X4idC5ZY-9ALPuRDQs3SzxqIjJUkflRX2Lw34RrDfpJ7LK5K7TSaquCNYfxM1gmjfxsVUIJeRPneHgpB3ghpAU16tMWnWlhJD1oJVg2x_V733lDupBLbPJHHxCbae7YYIbv-Q1seYstdzE3Uh-GUsw6FBmYnRwpySEtlNVHl737NU6O8iIqb4E4ttXwkNbYykdGi-8tojRhMBM6owgMBkdBOlR612o15tm5B1h35_vibXb6eyeVOxCTV1");'></div>
+<span class="absolute bottom-0 right-0 size-2.5 bg-success rounded-full ring-2 ring-white dark:ring-background-dark"></span>
+</div>
+<div>
+<h2 class="text-text-main dark:text-white text-lg font-bold leading-tight">BI Dashboard</h2>
+<p class="text-xs text-text-secondary dark:text-slate-400 font-medium">ROTERO ERP</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex items-center justify-center size-10 rounded-full bg-slate-50 dark:bg-slate-800 text-text-main dark:text-white hover:bg-slate-100 transition-colors relative">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+<span class="absolute top-2 right-2.5 size-2 bg-danger rounded-full ring-2 ring-white dark:ring-background-dark"></span>
+</button>
+<button class="flex items-center justify-center size-10 rounded-full bg-primary text-white shadow-soft hover:bg-primary-light transition-colors">
+<span class="material-symbols-outlined text-[20px]">ios_share</span>
+</button>
+</div>
+</div>
+<!-- Scrollable Filters -->
+<div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary text-white pl-4 pr-3 shadow-soft text-xs font-semibold">
+<span>This Month</span>
+<span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-text-main dark:text-white pl-4 pr-3 text-xs font-medium">
+<span>Unit: All</span>
+<span class="material-symbols-outlined text-[16px] text-text-secondary">expand_more</span>
+</button>
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-text-main dark:text-white pl-4 pr-3 text-xs font-medium">
+<span>Client: All</span>
+<span class="material-symbols-outlined text-[16px] text-text-secondary">expand_more</span>
+</button>
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-text-main dark:text-white pl-4 pr-3 text-xs font-medium">
+<span>Route: North</span>
+<span class="material-symbols-outlined text-[16px] text-text-secondary">expand_more</span>
+</button>
+</div>
+</header>
+<!-- Main Content Scroll Area -->
+<main class="flex-1 overflow-y-auto pb-24 scroll-smooth">
+<!-- KPI Section -->
+<section class="p-4 flex gap-3 overflow-x-auto hide-scrollbar snap-x snap-mandatory">
+<!-- Card 1 -->
+<div class="min-w-[160px] flex-1 snap-start rounded-xl p-4 bg-gradient-to-br from-primary to-primary-light text-white shadow-soft flex flex-col justify-between h-[140px]">
+<div class="flex justify-between items-start">
+<div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</div>
+<span class="text-xs font-medium bg-white/20 px-2 py-0.5 rounded-full text-white">+12%</span>
+</div>
+<div>
+<p class="text-white/80 text-xs font-medium mb-1">Total Revenue</p>
+<p class="text-2xl font-bold tracking-tight">$1.2M <span class="text-xs font-normal opacity-70">MXN</span></p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="min-w-[160px] flex-1 snap-start rounded-xl p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-between h-[140px]">
+<div class="flex justify-between items-start">
+<div class="p-1.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
+<span class="material-symbols-outlined text-[20px] text-emerald-600 dark:text-emerald-400">trending_up</span>
+</div>
+<span class="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">+5%</span>
+</div>
+<div>
+<p class="text-text-secondary dark:text-slate-400 text-xs font-medium mb-1">Net Profit</p>
+<p class="text-text-main dark:text-white text-2xl font-bold tracking-tight">$240k <span class="text-xs font-normal text-text-secondary">MXN</span></p>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="min-w-[160px] flex-1 snap-start rounded-xl p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-between h-[140px]">
+<div class="flex justify-between items-start">
+<div class="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+<span class="material-symbols-outlined text-[20px] text-blue-600 dark:text-blue-400">pie_chart</span>
+</div>
+<span class="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">+2%</span>
+</div>
+<div>
+<p class="text-text-secondary dark:text-slate-400 text-xs font-medium mb-1">Margin</p>
+<p class="text-text-main dark:text-white text-2xl font-bold tracking-tight">20%</p>
+</div>
+</div>
+</section>
+<!-- Chart: Profitability by Client -->
+<section class="px-4 pb-6">
+<div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-soft border border-slate-100 dark:border-slate-700">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-text-main dark:text-white text-base font-bold">Profitability by Client</h3>
+<button class="text-primary dark:text-blue-400 text-xs font-semibold hover:underline">View Report</button>
+</div>
+<div class="space-y-5">
+<!-- Bar Item -->
+<div>
+<div class="flex justify-between text-xs font-medium mb-1.5">
+<span class="text-text-main dark:text-slate-200">Logistics MX S.A.</span>
+<span class="text-text-main dark:text-slate-200 font-bold">$84.2k</span>
+</div>
+<div class="h-2.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full animate-bar" style="--w: 85%; width: 0;"></div>
+</div>
+</div>
+<!-- Bar Item -->
+<div>
+<div class="flex justify-between text-xs font-medium mb-1.5">
+<span class="text-text-main dark:text-slate-200">Retail Norte</span>
+<span class="text-text-main dark:text-slate-200 font-bold">$62.5k</span>
+</div>
+<div class="h-2.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary/80 rounded-full animate-bar" style="--w: 65%; width: 0;"></div>
+</div>
+</div>
+<!-- Bar Item -->
+<div>
+<div class="flex justify-between text-xs font-medium mb-1.5">
+<span class="text-text-main dark:text-slate-200">AutoParts Global</span>
+<span class="text-text-main dark:text-slate-200 font-bold">$45.1k</span>
+</div>
+<div class="h-2.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary/60 rounded-full animate-bar" style="--w: 48%; width: 0;"></div>
+</div>
+</div>
+<!-- Bar Item -->
+<div>
+<div class="flex justify-between text-xs font-medium mb-1.5">
+<span class="text-text-main dark:text-slate-200">Fresco Foods</span>
+<span class="text-text-main dark:text-slate-200 font-bold">$21.8k</span>
+</div>
+<div class="h-2.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary/40 rounded-full animate-bar" style="--w: 25%; width: 0;"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Chart: Route Cost Analysis -->
+<section class="px-4 pb-6">
+<div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-soft border border-slate-100 dark:border-slate-700">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-text-main dark:text-white text-base font-bold">Route Cost Analysis</h3>
+<div class="flex gap-2">
+<span class="flex items-center gap-1 text-[10px] text-text-secondary font-medium">
+<span class="size-2 rounded-full bg-primary"></span> Revenue
+                            </span>
+<span class="flex items-center gap-1 text-[10px] text-text-secondary font-medium">
+<span class="size-2 rounded-full bg-danger"></span> Cost
+                            </span>
+</div>
+</div>
+<!-- Simulated Line Chart -->
+<div class="relative h-48 w-full">
+<!-- Y-axis lines -->
+<div class="absolute inset-0 flex flex-col justify-between text-[10px] text-text-secondary dark:text-slate-500 font-medium pb-6">
+<div class="border-b border-dashed border-slate-200 dark:border-slate-700 w-full h-0 flex items-center"><span class="-mt-4">40k</span></div>
+<div class="border-b border-dashed border-slate-200 dark:border-slate-700 w-full h-0 flex items-center"><span class="-mt-4">30k</span></div>
+<div class="border-b border-dashed border-slate-200 dark:border-slate-700 w-full h-0 flex items-center"><span class="-mt-4">20k</span></div>
+<div class="border-b border-dashed border-slate-200 dark:border-slate-700 w-full h-0 flex items-center"><span class="-mt-4">10k</span></div>
+<div class="border-b border-slate-200 dark:border-slate-700 w-full h-0 flex items-center"><span class="-mt-4">0</span></div>
+</div>
+<!-- Chart Content -->
+<div class="absolute inset-x-6 inset-y-0 pb-6 flex items-end justify-between">
+<!-- Bars representing Route Cost vs Revenue pairs -->
+<div class="flex flex-col items-center gap-1 h-full justify-end group">
+<div class="w-1.5 bg-primary rounded-t-sm h-[60%] group-hover:bg-primary-light transition-colors"></div>
+<div class="w-1.5 bg-red-400 rounded-t-sm h-[40%] group-hover:bg-red-300 transition-colors"></div>
+<span class="text-[10px] text-text-secondary mt-1">W1</span>
+</div>
+<div class="flex flex-col items-center gap-1 h-full justify-end group">
+<div class="w-1.5 bg-primary rounded-t-sm h-[75%] group-hover:bg-primary-light transition-colors"></div>
+<div class="w-1.5 bg-red-400 rounded-t-sm h-[45%] group-hover:bg-red-300 transition-colors"></div>
+<span class="text-[10px] text-text-secondary mt-1">W2</span>
+</div>
+<div class="flex flex-col items-center gap-1 h-full justify-end group">
+<div class="w-1.5 bg-primary rounded-t-sm h-[50%] group-hover:bg-primary-light transition-colors"></div>
+<div class="w-1.5 bg-red-400 rounded-t-sm h-[55%] group-hover:bg-red-300 transition-colors"></div>
+<span class="text-[10px] text-text-secondary mt-1">W3</span>
+</div>
+<div class="flex flex-col items-center gap-1 h-full justify-end group">
+<div class="w-1.5 bg-primary rounded-t-sm h-[85%] group-hover:bg-primary-light transition-colors"></div>
+<div class="w-1.5 bg-red-400 rounded-t-sm h-[35%] group-hover:bg-red-300 transition-colors"></div>
+<span class="text-[10px] text-text-secondary mt-1">W4</span>
+</div>
+<div class="flex flex-col items-center gap-1 h-full justify-end group">
+<div class="w-1.5 bg-primary rounded-t-sm h-[90%] group-hover:bg-primary-light transition-colors"></div>
+<div class="w-1.5 bg-red-400 rounded-t-sm h-[40%] group-hover:bg-red-300 transition-colors"></div>
+<span class="text-[10px] text-text-secondary mt-1">W5</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Detailed Breakdown List -->
+<section class="px-4 pb-6">
+<div class="flex items-center justify-between mb-3 px-1">
+<h3 class="text-text-main dark:text-white text-base font-bold">Recent High-Value Shipments</h3>
+<button class="text-text-secondary dark:text-slate-400 text-xs font-medium">See All</button>
+</div>
+<div class="flex flex-col gap-3">
+<!-- List Item 1 -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-soft border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-primary-subtle dark:bg-slate-700 flex items-center justify-center text-primary dark:text-blue-300">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-text-main dark:text-white">MEX-MTY Route</p>
+<p class="text-xs text-text-secondary dark:text-slate-400">Unit #4052 • Electronics</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-text-main dark:text-white">$12,450</p>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                Completed
+                            </span>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-soft border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-primary-subtle dark:bg-slate-700 flex items-center justify-center text-primary dark:text-blue-300">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-text-main dark:text-white">GDL-TJN Route</p>
+<p class="text-xs text-text-secondary dark:text-slate-400">Unit #2109 • Perishables</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-text-main dark:text-white">$9,320</p>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                In Transit
+                            </span>
+</div>
+</div>
+<!-- List Item 3 -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-soft border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-primary-subtle dark:bg-slate-700 flex items-center justify-center text-primary dark:text-blue-300">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-text-main dark:text-white">QRO-LDO Route</p>
+<p class="text-xs text-text-secondary dark:text-slate-400">Unit #3310 • Auto Parts</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-text-main dark:text-white">$15,100</p>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                Completed
+                            </span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="absolute bottom-0 z-50 w-full bg-white dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 px-6 pb-6 pt-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<div class="flex justify-between items-center">
+<a class="flex flex-col items-center justify-end gap-1 text-primary" href="#">
+<div class="flex h-6 items-center justify-center">
+<span class="material-symbols-outlined text-[24px] fill-current">pie_chart</span>
+</div>
+<p class="text-xs font-semibold leading-normal">Dashboard</p>
+</a>
+<a class="flex flex-col items-center justify-end gap-1 text-text-secondary dark:text-slate-500 hover:text-primary dark:hover:text-blue-400 transition-colors" href="#">
+<div class="flex h-6 items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">local_shipping</span>
+</div>
+<p class="text-xs font-medium leading-normal">Fleet</p>
+</a>
+<!-- Center Action Button (Optional for ERP usually) -->
+<!-- <div class="relative -top-5">
+                    <button class="flex items-center justify-center size-12 rounded-full bg-primary text-white shadow-lg shadow-blue-900/20">
+                         <span class="material-symbols-outlined text-[24px]">add</span>
+                    </button>
+                </div> -->
+<a class="flex flex-col items-center justify-end gap-1 text-text-secondary dark:text-slate-500 hover:text-primary dark:hover:text-blue-400 transition-colors" href="#">
+<div class="flex h-6 items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">package_2</span>
+</div>
+<p class="text-xs font-medium leading-normal">Shipments</p>
+</a>
+<a class="flex flex-col items-center justify-end gap-1 text-text-secondary dark:text-slate-500 hover:text-primary dark:hover:text-blue-400 transition-colors" href="#">
+<div class="flex h-6 items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">description</span>
+</div>
+<p class="text-xs font-medium leading-normal">Reports</p>
+</a>
+</div>
+</nav>
+</div>
+</body></html>

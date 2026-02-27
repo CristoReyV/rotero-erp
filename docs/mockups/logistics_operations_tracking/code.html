@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Logistics Operations Tracking - ROTERO ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0f2b5c",
+                        "background-light": "#f3f4f6",
+                        "background-dark": "#121720",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e293b",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden">
+<div class="relative min-h-screen w-full flex flex-col max-w-md mx-auto bg-background-light dark:bg-background-dark shadow-2xl overflow-hidden border-x border-slate-200 dark:border-slate-800">
+<!-- Top Navigation Bar -->
+<header class="bg-surface-light dark:bg-surface-dark px-4 pt-12 pb-4 sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
+<img alt="User profile photo showing a professional man in a suit" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOhjKnNZ61PHdsd1pnJCd06B4EFfw22A50N220IRjhFw94l07DcgaDNNu9jCjbhZphUDqyATCAzrn1a_sE_YddNp9Vol372TjIZgFEZyxUXIVTp5H-ZMrG_Nz-OS1OspJqff1FOX6X8j9sPet9ewCWpONxAVBRqYPstvTXKJ4AqrK87bPG2z4Jcp4N4nexJBxiKHmeb-eWgOnYGGVFLH_r3__VNl5zpTQoXkyVUKVeUAxcTVquQNn4bSxqOWBj_JnXBPb6xysrxO-s"/>
+</div>
+<div>
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Welcome back,</p>
+<h1 class="text-lg font-bold text-primary dark:text-slate-100 leading-tight">Logistics Ops</h1>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="h-10 w-10 flex items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="h-10 w-10 flex items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-slate-800"></span>
+</button>
+</div>
+</div>
+<!-- Horizontal Stats Scroll -->
+<div class="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
+<div class="flex-shrink-0 min-w-[140px] bg-primary text-white p-3 rounded-xl shadow-lg shadow-primary/20">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined opacity-80 text-[20px]">local_shipping</span>
+<span class="text-xs font-medium bg-white/20 px-1.5 py-0.5 rounded">Running</span>
+</div>
+<p class="text-xs opacity-80 mb-0.5">Active Routes</p>
+<p class="text-2xl font-bold">12</p>
+</div>
+<div class="flex-shrink-0 min-w-[140px] bg-white dark:bg-surface-dark border border-slate-100 dark:border-slate-700 p-3 rounded-xl shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-amber-500 text-[20px]">verified_user</span>
+<span class="text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded">Action</span>
+</div>
+<p class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Pending Validation</p>
+<p class="text-2xl font-bold text-slate-900 dark:text-white">4</p>
+</div>
+<div class="flex-shrink-0 min-w-[140px] bg-white dark:bg-surface-dark border border-slate-100 dark:border-slate-700 p-3 rounded-xl shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-red-500 text-[20px]">warning</span>
+</div>
+<p class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Delayed</p>
+<p class="text-2xl font-bold text-slate-900 dark:text-white">2</p>
+</div>
+</div>
+</header>
+<!-- Main Content Area: Operations List -->
+<main class="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-4">
+<div class="flex items-center justify-between mb-2">
+<h2 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Recent Orders</h2>
+<button class="text-primary text-sm font-medium flex items-center gap-1">
+                    Filter <span class="material-symbols-outlined text-sm">filter_list</span>
+</button>
+</div>
+<!-- Card 1: Standard Active -->
+<div class="group bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden active:scale-[0.98] transition-transform duration-100">
+<div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+<div class="flex justify-between items-start mb-3">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="font-mono text-xs font-bold text-slate-400">#OP-2023-849</span>
+<span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-[10px] font-bold uppercase tracking-wide">In Transit</span>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white text-base">Autopartes de México S.A.</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-400 uppercase font-medium">ETA</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">14:00</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-3">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-slate-400 text-[18px] mt-0.5">route</span>
+<div>
+<p class="text-[10px] text-slate-400 uppercase">Route</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-300">Laredo <span class="text-slate-400">→</span> Monterrey</p>
+</div>
+</div>
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-green-600 text-[18px] mt-0.5">verified</span>
+<div>
+<p class="text-[10px] text-slate-400 uppercase">Carta Porte</p>
+<p class="text-xs font-bold text-green-700 dark:text-green-400">SAT Validated</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Warning/Issue -->
+<div class="group bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden active:scale-[0.98] transition-transform duration-100">
+<div class="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+<div class="flex justify-between items-start mb-3">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="font-mono text-xs font-bold text-slate-400">#OP-2023-852</span>
+<span class="px-2 py-0.5 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-[10px] font-bold uppercase tracking-wide">Delayed</span>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white text-base">Logística Global MX</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-400 uppercase font-medium">ETA</span>
+<span class="text-sm font-bold text-red-600">Late +2h</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-slate-400 text-[18px] mt-0.5">route</span>
+<div>
+<p class="text-[10px] text-slate-400 uppercase">Route</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-300">CDMX <span class="text-slate-400">→</span> Querétaro</p>
+</div>
+</div>
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-amber-500 text-[18px] mt-0.5">gavel</span>
+<div>
+<p class="text-[10px] text-slate-400 uppercase">Carta Porte</p>
+<p class="text-xs font-bold text-amber-600 dark:text-amber-400">Review Needed</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3: Pending -->
+<div class="group bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden active:scale-[0.98] transition-transform duration-100 opacity-80">
+<div class="absolute top-0 left-0 w-1 h-full bg-slate-300"></div>
+<div class="flex justify-between items-start mb-3">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="font-mono text-xs font-bold text-slate-400">#OP-2023-860</span>
+<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase tracking-wide">Scheduled</span>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white text-base">TechDistrib S.A. de C.V.</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-400 uppercase font-medium">ETA</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">Tomorrow</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-slate-400 text-[18px] mt-0.5">route</span>
+<div>
+<p class="text-[10px] text-slate-400 uppercase">Route</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-300">Guadalajara <span class="text-slate-400">→</span> Puerto Vallarta</p>
+</div>
+</div>
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-slate-400 text-[18px] mt-0.5">pending</span>
+<div>
+<p class="text-[10px] text-slate-400 uppercase">Carta Porte</p>
+<p class="text-xs font-bold text-slate-500">Pending</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 4: Completed -->
+<div class="group bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden active:scale-[0.98] transition-transform duration-100 opacity-60 grayscale-[50%]">
+<div class="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
+<div class="flex justify-between items-start mb-3">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="font-mono text-xs font-bold text-slate-400">#OP-2023-812</span>
+<span class="px-2 py-0.5 rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-[10px] font-bold uppercase tracking-wide">Delivered</span>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white text-base">Retail Giant Mexico</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-400 uppercase font-medium">Finished</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">10:45 AM</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Simulated "Side Panel" (Bottom Sheet Modal for Mobile) -->
+<!-- This represents the retractable panel showing details for the first card -->
+<div class="absolute inset-0 z-50 pointer-events-none flex items-end">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-auto"></div>
+<!-- Sheet -->
+<div class="bg-white dark:bg-surface-dark w-full rounded-t-2xl shadow-2xl transform transition-transform pointer-events-auto max-h-[85vh] overflow-y-auto flex flex-col">
+<!-- Drag Handle -->
+<div class="w-full flex justify-center pt-3 pb-1 sticky top-0 bg-white dark:bg-surface-dark z-10">
+<div class="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+</div>
+<!-- Panel Header -->
+<div class="px-6 pb-4 border-b border-slate-100 dark:border-slate-700 sticky top-5 bg-white dark:bg-surface-dark z-10">
+<div class="flex justify-between items-start">
+<div>
+<h2 class="text-xl font-bold text-primary dark:text-slate-100">#OP-2023-849</h2>
+<p class="text-sm text-slate-500 dark:text-slate-400">Autopartes de México S.A.</p>
+</div>
+<div class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-2 rounded-lg">
+<span class="material-symbols-outlined text-[24px]">local_shipping</span>
+</div>
+</div>
+</div>
+<!-- Panel Content -->
+<div class="p-6 space-y-6">
+<!-- Carta Porte Status Block -->
+<div class="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl p-4 flex items-start gap-4">
+<div class="bg-green-100 dark:bg-green-800 p-2 rounded-full text-green-700 dark:text-green-300 shrink-0">
+<span class="material-symbols-outlined">verified_user</span>
+</div>
+<div>
+<p class="text-sm font-bold text-green-800 dark:text-green-200">Fiscal Compliance Validated</p>
+<p class="text-xs text-green-700 dark:text-green-400 mt-1">Carta Porte (SAT) UUID: <span class="font-mono">8492-AC3...</span></p>
+</div>
+</div>
+<!-- Timeline -->
+<div>
+<h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Live Timeline</h3>
+<div class="relative pl-4 border-l-2 border-slate-100 dark:border-slate-700 space-y-8">
+<!-- Step 1: Completed -->
+<div class="relative">
+<div class="absolute -left-[21px] top-0 h-4 w-4 rounded-full bg-green-500 border-2 border-white dark:border-surface-dark ring-2 ring-green-100 dark:ring-green-900"></div>
+<div class="flex flex-col">
+<span class="text-xs font-medium text-slate-400">10:00 AM</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">Departed Warehouse</span>
+<span class="text-xs text-slate-500">Laredo Distribution Center</span>
+</div>
+</div>
+<!-- Step 2: Completed -->
+<div class="relative">
+<div class="absolute -left-[21px] top-0 h-4 w-4 rounded-full bg-green-500 border-2 border-white dark:border-surface-dark ring-2 ring-green-100 dark:ring-green-900"></div>
+<div class="flex flex-col">
+<span class="text-xs font-medium text-slate-400">12:30 PM</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">Customs Checkpoint</span>
+<span class="text-xs text-slate-500">Inspection Passed</span>
+</div>
+</div>
+<!-- Step 3: Current -->
+<div class="relative">
+<div class="absolute -left-[21px] top-0 h-4 w-4 rounded-full bg-blue-600 border-2 border-white dark:border-surface-dark shadow-[0_0_0_4px_rgba(37,99,235,0.2)] animate-pulse"></div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-blue-600 dark:text-blue-400">Current Location</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">In Transit - Route 85D</span>
+<span class="text-xs text-slate-500">Expected arrival in 2 hours</span>
+</div>
+</div>
+<!-- Step 4: Future -->
+<div class="relative opacity-50">
+<div class="absolute -left-[21px] top-0 h-4 w-4 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-white dark:border-surface-dark"></div>
+<div class="flex flex-col">
+<span class="text-xs font-medium text-slate-400">14:30 PM (Est)</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">Delivery</span>
+<span class="text-xs text-slate-500">Monterrey Client Facility</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Documents -->
+<div>
+<h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">Attached Documents</h3>
+<div class="grid grid-cols-2 gap-3">
+<div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 flex flex-col gap-2 items-start hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<div class="bg-red-50 text-red-600 p-1.5 rounded text-xs font-bold uppercase">PDF</div>
+<div class="text-left">
+<p class="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1">Bill of Lading.pdf</p>
+<p class="text-[10px] text-slate-400">2.4 MB</p>
+</div>
+</div>
+<div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 flex flex-col gap-2 items-start hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<div class="bg-red-50 text-red-600 p-1.5 rounded text-xs font-bold uppercase">PDF</div>
+<div class="text-left">
+<p class="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1">Carta_Porte_SAT.xml</p>
+<p class="text-[10px] text-slate-400">156 KB</p>
+</div>
+</div>
+</div>
+</div>
+<div class="h-16"></div> <!-- Spacer for scrolling -->
+</div>
+</div>
+</div>
+<!-- Floating Action Button -->
+<button class="fixed bottom-24 right-6 h-14 w-14 rounded-full bg-primary text-white shadow-xl shadow-primary/40 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-30">
+<span class="material-symbols-outlined">add</span>
+</button>
+<!-- Bottom Navigation -->
+<nav class="bg-surface-light dark:bg-surface-dark border-t border-slate-200 dark:border-slate-800 pb-safe pt-2 sticky bottom-0 z-40">
+<div class="flex justify-around items-end h-16 pb-4">
+<a class="flex flex-col items-center justify-center gap-1 group w-full" href="#">
+<div class="text-slate-400 group-hover:text-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">dashboard</span>
+</div>
+<p class="text-[10px] font-medium text-slate-500 group-hover:text-primary">Dashboard</p>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 group w-full" href="#">
+<div class="text-primary flex items-center justify-center relative">
+<span class="absolute -inset-2 bg-primary/10 rounded-full blur-sm"></span>
+<span class="material-symbols-outlined text-[24px] relative z-10">local_shipping</span>
+</div>
+<p class="text-[10px] font-medium text-primary">Ops</p>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 group w-full" href="#">
+<div class="text-slate-400 group-hover:text-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">map</span>
+</div>
+<p class="text-[10px] font-medium text-slate-500 group-hover:text-primary">Fleet</p>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 group w-full" href="#">
+<div class="text-slate-400 group-hover:text-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">person</span>
+</div>
+<p class="text-[10px] font-medium text-slate-500 group-hover:text-primary">Profile</p>
+</a>
+</div>
+</nav>
+</div>
+</body></html>

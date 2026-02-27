@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Security &amp; Audit Logs - ROTERO ERP</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0f2b5c",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#121720",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased selection:bg-primary/20">
+<div class="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-white dark:bg-background-dark shadow-xl">
+<!-- Header Section -->
+<div class="sticky top-0 z-10 bg-white dark:bg-background-dark/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between p-4 pb-2">
+<h2 class="text-xl font-bold leading-tight tracking-tight text-slate-900 dark:text-white flex-1">Security Center</h2>
+<div class="flex items-center gap-3">
+<button class="flex items-center justify-center h-10 w-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+</button>
+</div>
+</div>
+<!-- Segmented Control -->
+<div class="px-4 py-3">
+<div class="flex h-10 w-full items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+<label class="flex-1 cursor-pointer h-full">
+<input checked="" class="peer sr-only" name="view-toggle" type="radio" value="users"/>
+<div class="flex h-full w-full items-center justify-center rounded-md text-sm font-medium text-slate-500 transition-all peer-checked:bg-white peer-checked:text-primary peer-checked:shadow-sm dark:text-slate-400 dark:peer-checked:bg-slate-700 dark:peer-checked:text-white">
+                            User Management
+                        </div>
+</label>
+<label class="flex-1 cursor-pointer h-full">
+<input class="peer sr-only" name="view-toggle" type="radio" value="logs"/>
+<div class="flex h-full w-full items-center justify-center rounded-md text-sm font-medium text-slate-500 transition-all peer-checked:bg-white peer-checked:text-primary peer-checked:shadow-sm dark:text-slate-400 dark:peer-checked:bg-slate-700 dark:peer-checked:text-white">
+                            Audit Logs
+                        </div>
+</label>
+</div>
+</div>
+</div>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto pb-24">
+<!-- Quick Stats -->
+<div class="grid grid-cols-3 gap-3 p-4">
+<div class="flex flex-col gap-1 rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3 border border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-[16px]">group</span>
+<p class="text-xs font-medium">Total Users</p>
+</div>
+<p class="text-xl font-bold text-slate-900 dark:text-white">142</p>
+</div>
+<div class="flex flex-col gap-1 rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3 border border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-[16px]">devices</span>
+<p class="text-xs font-medium">Active</p>
+</div>
+<p class="text-xl font-bold text-slate-900 dark:text-white">28</p>
+</div>
+<div class="flex flex-col gap-1 rounded-xl bg-red-50 dark:bg-red-900/20 p-3 border border-red-100 dark:border-red-900/30">
+<div class="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+<p class="text-xs font-medium">Alerts</p>
+</div>
+<p class="text-xl font-bold text-red-700 dark:text-red-400">3</p>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="px-4 pb-4">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-[20px]">search</span>
+<input class="w-full rounded-xl border-none bg-slate-100 dark:bg-slate-800 py-3 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-primary dark:text-white dark:placeholder-slate-400" placeholder="Search users, roles, or events..." type="text"/>
+</div>
+</div>
+<!-- Content Section: User Management List -->
+<div class="flex flex-col gap-4 px-4">
+<div class="flex items-center justify-between">
+<h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider dark:text-slate-400">Authorized Personnel</h3>
+<button class="text-xs font-medium text-primary hover:text-primary/80 dark:text-blue-400">Filter</button>
+</div>
+<!-- User Card 1 -->
+<div class="group flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-800/50">
+<div class="flex items-center gap-3">
+<div class="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-200">
+<!-- Using a gradient as placeholder for avatar -->
+<div class="h-full w-full bg-gradient-to-br from-blue-100 to-blue-300 dark:from-blue-900 dark:to-slate-800" data-alt="User avatar placeholder gradient"></div>
+<span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 dark:border-slate-800"></span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Maria Gonzalez</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Compliance Officer</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            Full Fiscal
+                        </span>
+<button class="text-slate-400 hover:text-primary dark:hover:text-white">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</button>
+</div>
+</div>
+<!-- User Card 2 -->
+<div class="group flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-800/50">
+<div class="flex items-center gap-3">
+<div class="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-200">
+<div class="h-full w-full bg-gradient-to-br from-purple-100 to-purple-300 dark:from-purple-900 dark:to-slate-800" data-alt="User avatar placeholder gradient"></div>
+<span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 dark:border-slate-800"></span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Juan Perez</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Warehouse Manager</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                            Logistics Only
+                        </span>
+<button class="text-slate-400 hover:text-primary dark:hover:text-white">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</button>
+</div>
+</div>
+<!-- User Card 3 (Inactive) -->
+<div class="group flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 opacity-75 shadow-sm transition-all hover:opacity-100 dark:border-slate-800 dark:bg-slate-800/50">
+<div class="flex items-center gap-3">
+<div class="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-200 grayscale">
+<div class="h-full w-full bg-gradient-to-br from-orange-100 to-orange-300 dark:from-orange-900 dark:to-slate-800" data-alt="User avatar placeholder gradient"></div>
+<span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-slate-400 dark:border-slate-800"></span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Sofia Ramirez</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">External Auditor</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                            Read Only
+                        </span>
+<button class="text-slate-400 hover:text-primary dark:hover:text-white">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Activity Log Section (Visual separation) -->
+<div class="mt-8 mb-4 border-t border-slate-100 px-4 pt-6 dark:border-slate-800">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider dark:text-slate-400">Recent Activity Log</h3>
+<button class="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 dark:text-blue-400">
+<span class="material-symbols-outlined text-[14px]">download</span> Export
+                    </button>
+</div>
+<div class="relative pl-4 border-l border-slate-200 dark:border-slate-800 space-y-6">
+<!-- Log Item 1 -->
+<div class="relative">
+<div class="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-blue-500 ring-1 ring-slate-200 dark:border-background-dark dark:ring-slate-700"></div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<p class="text-xs font-medium text-slate-400">10:42 AM</p>
+<span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded dark:bg-slate-800">IP: 192.168.1.15</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Login Attempt <span class="text-green-600 dark:text-green-400 text-xs font-normal ml-1">● Success</span></p>
+<p class="text-xs text-slate-600 dark:text-slate-400">User: <span class="font-medium text-slate-900 dark:text-slate-200">J. Perez</span> via iOS App</p>
+</div>
+</div>
+<!-- Log Item 2 -->
+<div class="relative">
+<div class="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-purple-500 ring-1 ring-slate-200 dark:border-background-dark dark:ring-slate-700"></div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<p class="text-xs font-medium text-slate-400">10:30 AM</p>
+<span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded dark:bg-slate-800">SAT Sync</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">CFDI Generated</p>
+<div class="flex items-center gap-2">
+<p class="text-xs text-slate-600 dark:text-slate-400">User: <span class="font-medium text-slate-900 dark:text-slate-200">M. Gonzalez</span></p>
+<span class="inline-block h-1 w-1 rounded-full bg-slate-300"></span>
+<p class="text-xs text-slate-500">Invoice #A-4022</p>
+</div>
+</div>
+</div>
+<!-- Log Item 3 -->
+<div class="relative">
+<div class="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-amber-500 ring-1 ring-slate-200 dark:border-background-dark dark:ring-slate-700"></div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<p class="text-xs font-medium text-slate-400">09:15 AM</p>
+<span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded dark:bg-slate-800">Admin</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Role Permission Change</p>
+<p class="text-xs text-slate-600 dark:text-slate-400">System Admin updated privileges for <span class="font-medium">User #45</span></p>
+</div>
+</div>
+<!-- Log Item 4 (Warning) -->
+<div class="relative">
+<div class="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500 ring-1 ring-slate-200 dark:border-background-dark dark:ring-slate-700"></div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<p class="text-xs font-medium text-slate-400">Yesterday, 11:59 PM</p>
+<span class="text-[10px] font-mono text-red-100 text-red-600 bg-red-50 px-1.5 py-0.5 rounded dark:bg-red-900/30 dark:text-red-300">High Risk</span>
+</div>
+<p class="text-sm font-semibold text-red-700 dark:text-red-400">Failed Login Attempt (x5)</p>
+<p class="text-xs text-slate-600 dark:text-slate-400">Unknown IP: 45.22.19.112</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<div class="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-100 bg-white/95 px-4 pb-safe pt-2 backdrop-blur-md dark:border-slate-800 dark:bg-background-dark/95 max-w-md mx-auto">
+<div class="flex justify-between items-end pb-3">
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">grid_view</span>
+<p class="text-[10px] font-medium leading-normal tracking-[0.015em]">Dashboard</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">local_shipping</span>
+<p class="text-[10px] font-medium leading-normal tracking-[0.015em]">Logistics</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">attach_money</span>
+<p class="text-[10px] font-medium leading-normal tracking-[0.015em]">Finance</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-primary dark:text-white" href="#">
+<span class="material-symbols-outlined text-[24px] fill-current">verified_user</span>
+<p class="text-[10px] font-medium leading-normal tracking-[0.015em]">Security</p>
+</a>
+</div>
+</div>
+</div>
+</body></html>

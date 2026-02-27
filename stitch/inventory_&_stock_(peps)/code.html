@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inventario y Stock (PEPS) - Rotero ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0f2b5c",
+                        "primary-light": "#1a4185",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#121720",
+                        "alert-red": "#dc2626",
+                        "success-green": "#059669",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Custom scrollbar for horizontal scrolling if needed */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 h-screen flex flex-col overflow-hidden">
+<!-- Header -->
+<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 pt-12 pb-3 px-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+<div class="flex items-center gap-3">
+<button class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold text-slate-900 dark:text-white leading-tight tracking-tight">Inventario y Existencias</h1>
+</div>
+<div class="flex gap-2">
+<button class="p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto pb-24 scroll-smooth">
+<!-- Analytics Section -->
+<div class="p-4">
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Rotación de Inventarios (30 días)</p>
+<h2 class="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">4.2x</h2>
+</div>
+<div class="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                        +12% vs. mes ant.
+                    </div>
+</div>
+<!-- Graph -->
+<div class="h-32 w-full relative">
+<!-- Background Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+<div class="border-t border-dashed border-slate-100 dark:border-slate-800 w-full"></div>
+<div class="border-t border-dashed border-slate-100 dark:border-slate-800 w-full"></div>
+<div class="border-t border-dashed border-slate-100 dark:border-slate-800 w-full"></div>
+<div class="border-t border-dashed border-slate-100 dark:border-slate-800 w-full"></div>
+</div>
+<svg class="w-full h-full overflow-visible" preserveaspectratio="none" viewbox="0 0 100 50">
+<defs>
+<lineargradient id="gradientGraph" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#0f2b5c" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#0f2b5c" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Area -->
+<path d="M0,50 L0,35 C10,35 10,25 20,25 C30,25 30,40 40,40 C50,40 50,15 60,15 C70,15 70,30 80,30 C90,30 90,10 100,5 V50 Z" fill="url(#gradientGraph)"></path>
+<!-- Line -->
+<path d="M0,35 C10,35 10,25 20,25 C30,25 30,40 40,40 C50,40 50,15 60,15 C70,15 70,30 80,30 C90,30 90,10 100,5" fill="none" stroke="#0f2b5c" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<!-- Tooltip Dot (Simulated) -->
+<circle cx="60" cy="15" fill="#ffffff" r="3" stroke="#0f2b5c" stroke-width="2"></circle>
+</svg>
+</div>
+<div class="flex justify-between text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
+<span>Sem 1</span>
+<span>Sem 2</span>
+<span>Sem 3</span>
+<span>Sem 4</span>
+</div>
+</div>
+</div>
+<!-- Filters / Tabs -->
+<div class="px-4 pb-2 sticky top-[105px] z-10 bg-background-light dark:bg-background-dark backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95 pt-2">
+<div class="flex p-1 bg-slate-200 dark:bg-slate-800/50 rounded-lg">
+<button class="flex-1 py-1.5 px-3 rounded-md text-sm font-medium bg-white dark:bg-slate-700 text-primary dark:text-white shadow-sm transition-all text-center">
+                    Todos
+                </button>
+<button class="flex-1 py-1.5 px-3 rounded-md text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white transition-all text-center">
+                    Bajo Stock
+                </button>
+<button class="flex-1 py-1.5 px-3 rounded-md text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white transition-all text-center">
+                    Por Caducar
+                </button>
+</div>
+<div class="flex justify-between items-center mt-4 mb-2">
+<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Valuación PEPS (FIFO)</h3>
+<span class="text-xs text-slate-500 font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">MXN</span>
+</div>
+</div>
+<!-- List Content -->
+<div class="px-4 space-y-3">
+<!-- Item 1: Normal -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm active:scale-[0.99] transition-transform">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<span class="text-xs font-mono text-primary dark:text-primary-light font-medium tracking-wide">SKU-10294</span>
+<h4 class="text-base font-semibold text-slate-900 dark:text-white leading-tight">Widget Industrial A - Premium</h4>
+</div>
+<div class="text-right">
+<span class="block text-sm font-bold text-slate-900 dark:text-white">$4,500.00</span>
+<span class="block text-xs text-slate-500">50 Unidades</span>
+</div>
+</div>
+<div class="border-t border-slate-100 dark:border-slate-800 my-2"></div>
+<div class="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">inventory_2</span>
+<span class="font-mono">Lote: #9921</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+<span>Entrada: 12/Oct/2023</span>
+</div>
+</div>
+</div>
+<!-- Item 2: Low Stock Alert -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border-l-4 border-alert-red dark:border-alert-red shadow-sm relative overflow-hidden active:scale-[0.99] transition-transform">
+<div class="absolute right-0 top-0 p-2">
+<div class="bg-red-50 dark:bg-red-900/20 text-alert-red border border-red-100 dark:border-red-900/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">warning</span>
+                        STOCK BAJO
+                    </div>
+</div>
+<div class="flex justify-between items-start mb-2 mt-1">
+<div class="flex flex-col">
+<span class="text-xs font-mono text-slate-500 dark:text-slate-400 font-medium tracking-wide">SKU-44021</span>
+<h4 class="text-base font-semibold text-slate-900 dark:text-white leading-tight pr-16">Conector Hidráulico 2mm</h4>
+</div>
+<div class="text-right">
+<span class="block text-sm font-bold text-slate-900 dark:text-white">$320.00</span>
+<span class="block text-xs text-alert-red font-semibold">4 Unidades</span>
+</div>
+</div>
+<div class="border-t border-slate-100 dark:border-slate-800 my-2"></div>
+<div class="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">inventory_2</span>
+<span class="font-mono">Lote: #8832</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+<span>Entrada: 01/Nov/2023</span>
+</div>
+</div>
+</div>
+<!-- Item 3: Expiring Soon -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm active:scale-[0.99] transition-transform">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<span class="text-xs font-mono text-primary dark:text-primary-light font-medium tracking-wide">SKU-88210</span>
+<h4 class="text-base font-semibold text-slate-900 dark:text-white leading-tight">Solvente Orgánico 5L</h4>
+</div>
+<div class="text-right">
+<span class="block text-sm font-bold text-slate-900 dark:text-white">$12,800.00</span>
+<span class="block text-xs text-slate-500">200 Unidades</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mb-2">
+<div class="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-500 border border-amber-100 dark:border-amber-900/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 w-fit">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+                        CADUCA PRONTO
+                    </div>
+</div>
+<div class="border-t border-slate-100 dark:border-slate-800 my-2"></div>
+<div class="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">inventory_2</span>
+<span class="font-mono">Lote: #7710</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">event_busy</span>
+<span>Vence: 15/Dic/2023</span>
+</div>
+</div>
+</div>
+<!-- Item 4: Normal -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm active:scale-[0.99] transition-transform">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<span class="text-xs font-mono text-primary dark:text-primary-light font-medium tracking-wide">SKU-33219</span>
+<h4 class="text-base font-semibold text-slate-900 dark:text-white leading-tight">Empaque Industrial XL</h4>
+</div>
+<div class="text-right">
+<span class="block text-sm font-bold text-slate-900 dark:text-white">$1,150.00</span>
+<span class="block text-xs text-slate-500">120 Unidades</span>
+</div>
+</div>
+<div class="border-t border-slate-100 dark:border-slate-800 my-2"></div>
+<div class="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">inventory_2</span>
+<span class="font-mono">Lote: #9955</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+<span>Entrada: 05/Oct/2023</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Total Footer Summary inside scroll view to indicate end of list -->
+<div class="p-4 mt-2">
+<div class="flex justify-between items-center text-slate-500 dark:text-slate-400 text-sm">
+<span>Total Items Listados</span>
+<span class="font-medium">4</span>
+</div>
+<div class="flex justify-between items-center text-slate-900 dark:text-white font-bold text-sm mt-1">
+<span>Valor Total Visible</span>
+<span>$18,770.00 MXN</span>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-end pb-5 pt-3 fixed bottom-0 w-full z-20">
+<a class="flex flex-col items-center gap-1 group w-16" href="#">
+<span class="material-symbols-outlined text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-white transition-colors">home</span>
+<span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-white transition-colors">Inicio</span>
+</a>
+<a class="flex flex-col items-center gap-1 group w-16" href="#">
+<span class="material-symbols-outlined text-primary dark:text-white">inventory_2</span>
+<span class="text-[10px] font-medium text-primary dark:text-white">Inventario</span>
+</a>
+<!-- FAB for Main Action -->
+<div class="relative -top-8">
+<button class="bg-primary hover:bg-primary-light text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-primary/30 transition-transform active:scale-95 border-4 border-background-light dark:border-background-dark">
+<span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
+</button>
+</div>
+<a class="flex flex-col items-center gap-1 group w-16" href="#">
+<span class="material-symbols-outlined text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-white transition-colors">receipt_long</span>
+<span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-white transition-colors">Pedidos</span>
+</a>
+<a class="flex flex-col items-center gap-1 group w-16" href="#">
+<span class="material-symbols-outlined text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-white transition-colors">bar_chart</span>
+<span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-white transition-colors">Reportes</span>
+</a>
+</nav>
+</body></html>

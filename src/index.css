@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand */
+  --color-primary: #0F2B5B;
+  --color-primary-light: #1a3f7a;
+  --color-primary-50: #eef3fb;
+  --color-primary-100: #d4e0f5;
+  --color-accent-red: #E63946;
+  --color-accent-red-50: #fef2f3;
+
+  /* Surfaces */
+  --color-surface: #F8FAFC;
+  --color-surface-card: #FFFFFF;
+  --color-surface-elevated: #FFFFFF;
+  --color-tech-border: #E2E8F0;
+  --color-tech-border-light: #F1F5F9;
+
+  /* Sidebar */
+  --color-sidebar: #0B1F42;
+  --color-sidebar-hover: #132D5A;
+  --color-sidebar-active: #1A3A6E;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-slate-900 font-sans antialiased;
+  }
+  
+  * {
+    @apply border-tech-border;
+  }
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+/* Gradient accents */
+.gradient-primary {
+  background: linear-gradient(135deg, #0F2B5B 0%, #1a4f8a 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, #E63946 0%, #ff6b6b 100%);
+}
+
+.gradient-success {
+  background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+}
+
+/* Subtle glow effects */
+.glow-primary {
+  box-shadow: 0 0 20px rgba(15, 43, 91, 0.08);
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px rgba(230, 57, 70, 0.08);
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300;
+}
+
+/* Animate fade in for cards */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+.animate-fade-in-delay-1 { animation-delay: 0.05s; }
+.animate-fade-in-delay-2 { animation-delay: 0.1s; }
+.animate-fade-in-delay-3 { animation-delay: 0.15s; }
+.animate-fade-in-delay-4 { animation-delay: 0.2s; }
+
+/* Pulse dot animation */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}

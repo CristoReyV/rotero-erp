@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Rotero ERP - Operational Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0f2b5c",
+              "primary-light": "#1e3a6e",
+              "accent-red": "#C8102E",
+              "background-light": "#f6f7f8",
+              "background-dark": "#121720",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1a2230",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "2xl": "1rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 flex flex-col min-h-screen">
+<!-- Top App Bar & Header Area -->
+<header class="bg-primary pt-12 pb-6 px-4 rounded-b-3xl shadow-lg relative z-10">
+<div class="flex items-center justify-between mb-4">
+<!-- Hamburger Menu -->
+<button class="text-white p-2 hover:bg-white/10 rounded-full transition">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<!-- Company Selector -->
+<div class="flex items-center gap-2 bg-primary-light/50 px-3 py-1.5 rounded-full border border-white/10">
+<span class="material-symbols-outlined text-white text-sm">domain</span>
+<span class="text-white text-sm font-medium">Logistica Global MX</span>
+<span class="material-symbols-outlined text-white text-sm">arrow_drop_down</span>
+</div>
+<!-- Profile/Notifications -->
+<div class="flex items-center gap-3">
+<button class="relative text-white p-2 hover:bg-white/10 rounded-full transition">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-accent-red rounded-full border border-primary"></span>
+</button>
+<div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center border border-white/30 text-white font-bold text-xs">
+                    JD
+                </div>
+</div>
+</div>
+<!-- Greeting -->
+<h1 class="text-white text-2xl font-bold mb-4 px-1">Welcome back, Jorge</h1>
+<!-- Search Bar -->
+<div class="relative w-full">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 border-none rounded-xl leading-5 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white shadow-sm sm:text-sm" placeholder="Search PO, Tracking, or Pedimento..." type="text"/>
+</div>
+</header>
+<!-- Main Content Scroll Area -->
+<main class="flex-1 overflow-y-auto pb-24 px-4 pt-4 space-y-6">
+<!-- Critical Alert Banner -->
+<div class="bg-red-50 dark:bg-red-900/10 border-l-4 border-accent-red rounded-r-lg p-4 shadow-sm flex items-start gap-3">
+<span class="material-symbols-outlined text-accent-red mt-0.5">warning</span>
+<div class="flex-1">
+<h3 class="text-accent-red font-bold text-sm">Fiscal Alert: Expiring Pedimentos</h3>
+<p class="text-slate-600 dark:text-slate-300 text-xs mt-1">
+                    2 Pedimentos (A1-9302, G3-2001) require validation within 48 hours to avoid SAT penalties.
+                </p>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm">chevron_right</span>
+</div>
+<!-- KPI Carousel -->
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h2 class="text-slate-900 dark:text-slate-100 font-bold text-lg">Key Metrics</h2>
+<button class="text-primary dark:text-blue-400 text-sm font-medium">View All</button>
+</div>
+<div class="flex gap-4 overflow-x-auto hide-scrollbar pb-2 -mx-4 px-4 snap-x">
+<!-- KPI Card 1: OTIF -->
+<div class="bg-white dark:bg-surface-dark p-4 rounded-xl shadow-sm min-w-[160px] snap-center border border-slate-100 dark:border-slate-800">
+<div class="flex items-start justify-between mb-2">
+<div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-primary dark:text-blue-400">
+<span class="material-symbols-outlined text-xl">verified</span>
+</div>
+<span class="text-green-600 text-xs font-bold bg-green-50 px-1.5 py-0.5 rounded flex items-center">
+<span class="material-symbols-outlined text-[10px] mr-0.5">trending_up</span> 2.1%
+                        </span>
+</div>
+<p class="text-slate-500 text-xs font-medium">OTIF Score</p>
+<p class="text-slate-900 dark:text-white text-2xl font-bold">98.5%</p>
+</div>
+<!-- KPI Card 2: In Transit -->
+<div class="bg-white dark:bg-surface-dark p-4 rounded-xl shadow-sm min-w-[160px] snap-center border border-slate-100 dark:border-slate-800">
+<div class="flex items-start justify-between mb-2">
+<div class="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-600">
+<span class="material-symbols-outlined text-xl">local_shipping</span>
+</div>
+<span class="text-slate-400 text-xs font-medium">Active</span>
+</div>
+<p class="text-slate-500 text-xs font-medium">In Transit</p>
+<p class="text-slate-900 dark:text-white text-2xl font-bold">12</p>
+</div>
+<!-- KPI Card 3: Valued Inventory -->
+<div class="bg-white dark:bg-surface-dark p-4 rounded-xl shadow-sm min-w-[160px] snap-center border border-slate-100 dark:border-slate-800">
+<div class="flex items-start justify-between mb-2">
+<div class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-600">
+<span class="material-symbols-outlined text-xl">inventory_2</span>
+</div>
+<span class="text-red-600 text-xs font-bold bg-red-50 px-1.5 py-0.5 rounded flex items-center">
+<span class="material-symbols-outlined text-[10px] mr-0.5">trending_down</span> 1.5%
+                        </span>
+</div>
+<p class="text-slate-500 text-xs font-medium">Valued Inventory</p>
+<p class="text-slate-900 dark:text-white text-2xl font-bold">$1.2M</p>
+</div>
+</div>
+</section>
+<!-- Charts Section -->
+<section class="grid grid-cols-1 gap-4">
+<!-- Order Flow Chart -->
+<div class="bg-white dark:bg-surface-dark p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-slate-900 dark:text-white text-sm">Order Flow (Weekly)</h3>
+<span class="material-symbols-outlined text-slate-400">more_horiz</span>
+</div>
+<div class="h-32 w-full flex items-end justify-between gap-2 px-1">
+<!-- Simple CSS Bar Chart Representation -->
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-[40%]">
+<div class="absolute bottom-0 w-full bg-primary/20 group-hover:bg-primary/40 transition-all h-full rounded-t-sm"></div>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-[65%]">
+<div class="absolute bottom-0 w-full bg-primary/40 group-hover:bg-primary/60 transition-all h-full rounded-t-sm"></div>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-[55%]">
+<div class="absolute bottom-0 w-full bg-primary/30 group-hover:bg-primary/50 transition-all h-full rounded-t-sm"></div>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-[85%]">
+<div class="absolute bottom-0 w-full bg-primary group-hover:bg-primary-light transition-all h-full rounded-t-sm"></div>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-[60%]">
+<div class="absolute bottom-0 w-full bg-primary/50 group-hover:bg-primary/70 transition-all h-full rounded-t-sm"></div>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-[75%]">
+<div class="absolute bottom-0 w-full bg-primary/80 group-hover:bg-primary transition-all h-full rounded-t-sm"></div>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-[50%]">
+<div class="absolute bottom-0 w-full bg-primary/30 group-hover:bg-primary/50 transition-all h-full rounded-t-sm"></div>
+</div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] text-slate-400 font-medium">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+</section>
+<!-- Active Operations List -->
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h2 class="text-slate-900 dark:text-slate-100 font-bold text-lg">Active Operations</h2>
+<div class="flex gap-2">
+<button class="bg-white dark:bg-surface-dark p-1 rounded border border-slate-200 dark:border-slate-700 text-slate-500">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+</button>
+<button class="bg-white dark:bg-surface-dark p-1 rounded border border-slate-200 dark:border-slate-700 text-slate-500">
+<span class="material-symbols-outlined text-sm">sort</span>
+</button>
+</div>
+</div>
+<div class="space-y-3">
+<!-- Operation Item 1 -->
+<div class="bg-white dark:bg-surface-dark p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">Import</span>
+<span class="text-slate-400 text-xs">MX-2024-001</span>
+</div>
+<h4 class="font-bold text-slate-900 dark:text-white text-sm">Auto Parts Batch #442</h4>
+</div>
+<div class="bg-orange-50 dark:bg-orange-900/20 text-orange-600 rounded-lg p-2">
+<span class="material-symbols-outlined text-xl">box</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-semibold">Status</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-yellow-400 rounded-full"></span> Customs Clearance
+                            </p>
+</div>
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-semibold">ETA</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-200">Today, 14:00</p>
+</div>
+</div>
+</div>
+<!-- Operation Item 2 -->
+<div class="bg-white dark:bg-surface-dark p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">Fiscal</span>
+<span class="text-slate-400 text-xs">INV-F-3902</span>
+</div>
+<h4 class="font-bold text-slate-900 dark:text-white text-sm">Monthly Service Invoice</h4>
+</div>
+<div class="bg-red-50 dark:bg-red-900/20 text-accent-red rounded-lg p-2">
+<span class="material-symbols-outlined text-xl">description</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-semibold">Status</p>
+<p class="text-xs font-medium text-accent-red dark:text-red-400 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">error</span> Pending CFDI Stamp
+                            </p>
+</div>
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-semibold">Amount</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-200">$45,200.00 MXN</p>
+</div>
+</div>
+</div>
+<!-- Operation Item 3 -->
+<div class="bg-white dark:bg-surface-dark p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">Export</span>
+<span class="text-slate-400 text-xs">US-2024-889</span>
+</div>
+<h4 class="font-bold text-slate-900 dark:text-white text-sm">Finished Electronics</h4>
+</div>
+<div class="bg-green-50 dark:bg-green-900/20 text-green-600 rounded-lg p-2">
+<span class="material-symbols-outlined text-xl">local_shipping</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-semibold">Status</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> In Transit
+                            </p>
+</div>
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-semibold">Destination</p>
+<p class="text-xs font-medium text-slate-700 dark:text-slate-200">Laredo, TX</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full bg-white dark:bg-surface-dark border-t border-slate-200 dark:border-slate-800 pb-safe pt-2 px-2 z-50">
+<div class="flex justify-around items-end pb-4"> <!-- Added pb-4 for safe area visualization on non-iPhone screens -->
+<!-- Nav Item: Dashboard (Active) -->
+<a class="flex flex-col items-center gap-1 w-16 group" href="#">
+<div class="relative">
+<span class="material-symbols-outlined text-primary dark:text-blue-400 text-2xl group-hover:scale-110 transition-transform">dashboard</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-accent-red rounded-full border border-white dark:border-surface-dark"></span>
+</div>
+<span class="text-[10px] font-semibold text-primary dark:text-blue-400">Home</span>
+</a>
+<!-- Nav Item: Ops -->
+<a class="flex flex-col items-center gap-1 w-16 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:group-hover:text-white transition-colors text-2xl">local_shipping</span>
+<span class="text-[10px] font-medium text-slate-500 group-hover:text-primary dark:group-hover:text-white">Ops</span>
+</a>
+<!-- Nav Item: Inventory -->
+<a class="flex flex-col items-center gap-1 w-16 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:group-hover:text-white transition-colors text-2xl">inventory_2</span>
+<span class="text-[10px] font-medium text-slate-500 group-hover:text-primary dark:group-hover:text-white">Stock</span>
+</a>
+<!-- Nav Item: Customs -->
+<a class="flex flex-col items-center gap-1 w-16 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:group-hover:text-white transition-colors text-2xl">gavel</span>
+<span class="text-[10px] font-medium text-slate-500 group-hover:text-primary dark:group-hover:text-white">Customs</span>
+</a>
+<!-- Nav Item: More -->
+<a class="flex flex-col items-center gap-1 w-16 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:group-hover:text-white transition-colors text-2xl">more_horiz</span>
+<span class="text-[10px] font-medium text-slate-500 group-hover:text-primary dark:group-hover:text-white">More</span>
+</a>
+</div>
+</nav>
+</body></html>
