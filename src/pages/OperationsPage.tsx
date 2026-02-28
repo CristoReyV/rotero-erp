@@ -30,10 +30,16 @@ const OperationsPage = () => {
     const [showNewModal, setShowNewModal] = useState(false);
     const [showAssignmentDrawer, setShowAssignmentDrawer] = useState(false);
 
-    // Tracking Link Generation State
-    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
-    const [generatedLink, setGeneratedLink] = useState<string | null>(null);
-    const [copiedLink, setCopiedLink] = useState(false);
+    // Tracking Link Generation State (Demostración)
+    const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
+    const [driverToken, setDriverToken] = useState<string | null>(null);
+    const [publicToken, setPublicToken] = useState<string | null>(null);
+    const [copiedStatus, setCopiedStatus] = useState<'driver' | 'public' | null>(null);
+
+    // Tracking state (Check DB)
+    const [dbHasDriverToken, setDbHasDriverToken] = useState<boolean | null>(null);
+    const [dbHasPublicToken, setDbHasPublicToken] = useState<boolean | null>(null);
+    const [isCheckingTokens, setIsCheckingTokens] = useState(false);
 
     // Form state basic
     const [newOpRef, setNewOpRef] = useState('');
@@ -42,9 +48,6 @@ const OperationsPage = () => {
     // Workflow state
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [transitionError, setTransitionError] = useState<string | null>(null);
-
-    // Tracking state
-    const [hasDriverToken, setHasDriverToken] = useState<boolean | null>(null);
     const [isEnsuringToken, setIsEnsuringToken] = useState(false);
 
     // Route v1 + Sprint A state
@@ -84,16 +87,36 @@ const OperationsPage = () => {
 
     // Check tracking token status when active operation changes
     useEffect(() => {
-        if (!activeOp?.db_id || activeOp.status !== 'assigned') {
-            setHasDriverToken(null);
+        if (!activeOp?.db_id) {
+            setDbHasDriverToken(null);
+            setDbHasPublicToken(null);
+            setDriverToken(null);
+            setPublicToken(null);
             return;
         }
         let cancelled = false;
+        setIsCheckingTokens(true);
         getOperationRequirements(activeOp.db_id)
-            .then(reqs => { if (!cancelled) setHasDriverToken(reqs.has_driver_token); })
-            .catch(() => { if (!cancelled) setHasDriverToken(null); });
+            .then(reqs => {
+                if (!cancelled) {
+                    setDbHasDriverToken(reqs.has_driver_token);
+                    setDbHasPublicToken(reqs.has_public_token);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setDbHasDriverToken(null);
+                    setDbHasPublicToken(null);
+                }
+            })
+            .finally(() => { if (!cancelled) setIsCheckingTokens(false); });
+
+        // Clean literals from previous operation
+        setDriverToken(null);
+        setPublicToken(null);
+
         return () => { cancelled = true; };
-    }, [activeOp?.db_id, activeOp?.status]);
+    }, [activeOp?.db_id]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -116,35 +139,63 @@ const OperationsPage = () => {
         }
     };
 
-    const handleGenerateLink = async () => {
+    const handleGenerateTokens = async () => {
         if (!activeTenant || !activeOp?.db_id) return;
-        setIsGeneratingLink(true);
+        setIsGeneratingTokens(true);
         try {
-            // Generamos link público por defecto
-            const { data, error } = await supabase.rpc('rpc_create_tracking_token', {
-                p_tenant_id: activeTenant,
-                p_operation_id: activeOp.db_id,
-                p_scope: 'public:read'
-            });
+            // Generate both tokens with force_rotate: true to get literals
+            const [driverRes, publicRes] = await Promise.all([
+                supabase.rpc('rpc_create_tracking_token', {
+                    p_tenant_id: activeTenant,
+                    p_operation_id: activeOp.db_id,
+                    p_scope: 'driver:write',
+                    p_force_rotate: true
+                }),
+                supabase.rpc('rpc_create_tracking_token', {
+                    p_tenant_id: activeTenant,
+                    p_operation_id: activeOp.db_id,
+                    p_scope: 'public:read',
+                    p_force_rotate: true
+                })
+            ]);
 
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
+            if (driverRes.error) throw driverRes.error;
+            if (publicRes.error) throw publicRes.error;
 
-            // Armar URL compatible con frontend local o remoto
-            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-            setGeneratedLink(`${origin}/t/${data.token}`);
+            if (driverRes.data?.token) setDriverToken(driverRes.data.token);
+            if (publicRes.data?.token) setPublicToken(publicRes.data.token);
+
+            // Update DB check state
+            setDbHasDriverToken(true);
+            setDbHasPublicToken(true);
+
         } catch (err) {
-            console.error('Error generating link:', err);
+            console.error('Error generating demo tokens:', err);
         } finally {
-            setIsGeneratingLink(false);
+            setIsGeneratingTokens(false);
         }
     };
 
-    const handleCopy = () => {
-        if (!generatedLink) return;
-        navigator.clipboard.writeText(generatedLink);
-        setCopiedLink(true);
-        setTimeout(() => setCopiedLink(false), 2000);
+    const handleCopyToken = (type: 'driver' | 'public') => {
+        const tokenLiteral = type === 'driver' ? driverToken : publicToken;
+        if (!tokenLiteral) return;
+
+        const path = type === 'driver' ? '/driver/' : '/t/';
+        const origin = window.location.origin;
+        const fullUrl = `${origin}${path}${tokenLiteral}`;
+
+        // Fallback approach if navigator.clipboard is unavailable
+        try {
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                setCopiedStatus(type);
+                setTimeout(() => setCopiedStatus(null), 2000);
+            }).catch(() => {
+                // Secondary fallback: prompt or modal
+                alert(`URL: ${fullUrl}`);
+            });
+        } catch {
+            alert(`URL: ${fullUrl}`);
+        }
     };
 
     const handleTransition = async (toStatus: string) => {
@@ -165,7 +216,8 @@ const OperationsPage = () => {
             }
             await transitionOperationStatus(activeOp.db_id, toStatus);
             await fetchOps();
-            setHasDriverToken(null); // Reset for fresh check
+            setDbHasDriverToken(null); // Reset for fresh check
+            setDbHasPublicToken(null);
         } catch (err: any) {
             setTransitionError(err.message || 'Error al cambiar estado');
         } finally {
@@ -241,7 +293,8 @@ const OperationsPage = () => {
                                             key={op.id}
                                             onClick={() => {
                                                 setSelected(op.id);
-                                                setGeneratedLink(null);
+                                                setDriverToken(null);
+                                                setPublicToken(null);
                                             }}
                                             className={`cursor-pointer transition-all duration-200 ${selected === op.id
                                                 ? 'bg-primary-50/60 border-l-3 border-l-primary'
@@ -301,40 +354,98 @@ const OperationsPage = () => {
                                     )}
                                 </div>
 
-                                {/* Tracking Link Section */}
-                                {!isViewer && (
-                                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                                <Share2 size={16} className="text-slate-400" />
-                                                Compartir Tracking Libre
-                                            </h4>
+                                {/* Demo Tracking Links Section */}
+                                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                            <Share2 size={16} className="text-primary" />
+                                            Enlaces para demo
+                                        </h4>
+                                        <div className="flex items-center gap-1.5 animate-pulse bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                                            <Radio size={12} className="text-emerald-500" />
+                                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight">Real-Time Tokens</span>
                                         </div>
-                                        {generatedLink ? (
-                                            <div className="flex items-center gap-2 mt-3 p-2 bg-white rounded border border-slate-200">
-                                                <div className="truncate flex-1 text-xs text-slate-600 font-mono pl-1">
-                                                    {generatedLink}
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {/* Public Tracking Link */}
+                                        <div className="bg-white p-3 rounded-xl border border-slate-200 hover:border-primary/20 transition-all shadow-subtle group">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tracking Público</span>
+                                                {dbHasPublicToken ? (
+                                                    <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
+                                                        <CheckCircle2 size={10} /> Link Activo
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-slate-400">Token pendiente...</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-slate-50 flex-1 truncate text-xs text-slate-500 font-mono py-2 px-3 rounded-lg border border-slate-100">
+                                                    {publicToken ? `${window.location.origin}/t/${publicToken.substring(0, 8)}...` : dbHasPublicToken ? '••••••••' : 'N/A'}
                                                 </div>
                                                 <button
-                                                    onClick={handleCopy}
-                                                    className="p-1.5 shrink-0 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors"
-                                                    title="Copiar al portapapeles"
+                                                    onClick={() => handleCopyToken('public')}
+                                                    disabled={!publicToken}
+                                                    className={`p-2 rounded-lg transition-all ${publicToken
+                                                        ? 'bg-primary/10 text-primary hover:bg-primary hover:text-white shadow-md'
+                                                        : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                                        }`}
+                                                    title={publicToken ? 'Copiar URL Cliente' : 'Genera tokens primero'}
                                                 >
-                                                    {copiedLink ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                                                    {copiedStatus === 'public' ? <CheckCircle2 size={15} /> : <Copy size={15} />}
                                                 </button>
                                             </div>
-                                        ) : (
+                                        </div>
+
+                                        {/* Driver Tracking Link */}
+                                        <div className="bg-white p-3 rounded-xl border border-slate-200 hover:border-primary/20 transition-all shadow-subtle group">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Link Operador (Simulador)</span>
+                                                {dbHasDriverToken ? (
+                                                    <span className="text-[10px] font-bold text-sky-500 flex items-center gap-1">
+                                                        <Navigation size={10} /> Link Activo
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-slate-400">Token pendiente...</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-slate-50 flex-1 truncate text-xs text-slate-500 font-mono py-2 px-3 rounded-lg border border-slate-100">
+                                                    {driverToken ? `${window.location.origin}/driver/${driverToken.substring(0, 8)}...` : dbHasDriverToken ? '••••••••' : 'N/A'}
+                                                </div>
+                                                <button
+                                                    onClick={() => handleCopyToken('driver')}
+                                                    disabled={!driverToken}
+                                                    className={`p-2 rounded-lg transition-all ${driverToken
+                                                        ? 'bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white shadow-md'
+                                                        : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                                        }`}
+                                                    title={driverToken ? 'Copiar URL Chofer' : 'Genera tokens primero'}
+                                                >
+                                                    {copiedStatus === 'driver' ? <CheckCircle2 size={15} /> : <Copy size={15} />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Generation Button (Visible to admins/operators) */}
+                                        {!isViewer && (
                                             <button
-                                                onClick={handleGenerateLink}
-                                                disabled={isGeneratingLink}
-                                                className="w-full mt-2 py-2 flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 text-slate-600 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                                                onClick={handleGenerateTokens}
+                                                disabled={isGeneratingTokens}
+                                                className="w-full mt-2 py-3 flex items-center justify-center gap-2 gradient-accent text-white rounded-xl text-xs font-bold shadow-lg shadow-accent-red/20 active:scale-95 transition-all disabled:opacity-50"
                                             >
-                                                {isGeneratingLink ? <Loader2 size={16} className="animate-spin" /> : <LinkIcon size={16} />}
-                                                Generar Link Público
+                                                {isGeneratingTokens ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                                                {dbHasPublicToken || dbHasDriverToken ? 'REGENERAR TOKENS (ROTAR)' : 'GENERAR TOKENS DE TRACKING'}
                                             </button>
                                         )}
+                                        {isViewer && !publicToken && !driverToken && (
+                                            <p className="text-[10px] text-center text-slate-400 italic">
+                                                * Los tokens deben ser generados por un administrador.
+                                            </p>
+                                        )}
                                     </div>
-                                )}
+                                </div>
 
                                 {/* Quick info */}
                                 <div className="grid grid-cols-2 gap-3">
@@ -352,12 +463,12 @@ const OperationsPage = () => {
                                 {activeOp.status === 'assigned' && (
                                     <div className="p-3.5 bg-surface rounded-xl border border-tech-border/40 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <Radio size={14} className={hasDriverToken ? 'text-emerald-500' : 'text-amber-500'} />
+                                            <Radio size={14} className={dbHasDriverToken ? 'text-emerald-500' : 'text-amber-500'} />
                                             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tracking</span>
                                         </div>
-                                        {hasDriverToken === null ? (
+                                        {dbHasDriverToken === null ? (
                                             <span className="text-[11px] font-medium text-slate-400">Verificando...</span>
-                                        ) : hasDriverToken ? (
+                                        ) : dbHasDriverToken ? (
                                             <Badge variant="success">Activo</Badge>
                                         ) : (
                                             <Badge variant="warning">Pendiente — se crea al iniciar ruta</Badge>
@@ -407,8 +518,8 @@ const OperationsPage = () => {
                                                                 }).catch(() => setIsLoadingRoute(false));
                                                             }}
                                                             className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-all ${routeTimeRange === val
-                                                                    ? 'bg-white text-blue-600 shadow-sm'
-                                                                    : 'text-slate-500 hover:text-slate-700'
+                                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                                : 'text-slate-500 hover:text-slate-700'
                                                                 }`}
                                                         >
                                                             {label}

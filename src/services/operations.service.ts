@@ -226,12 +226,14 @@ export async function overrideOperationStatus(operationId: string, toStatus: str
 export async function getOperationRequirements(operationId: string): Promise<{
     has_driver_assigned: boolean;
     has_driver_token: boolean;
+    has_public_token: boolean;
     has_delivered_event: boolean;
 }> {
     if (USE_MOCKS) {
         return {
             has_driver_assigned: true,
             has_driver_token: true,
+            has_public_token: true,
             has_delivered_event: true
         };
     }
