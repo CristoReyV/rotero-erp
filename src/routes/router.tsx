@@ -27,38 +27,44 @@ export const router = createBrowserRouter([
     },
     {
         path: '/',
-        element: <AuthGuard />,
         children: [
             {
-                element: <AppLayout />,
+                index: true,
+                element: <LoginPage />
+            },
+            {
+                element: <AuthGuard />,
                 children: [
-                    { index: true, element: <Navigate to="/dashboard" replace /> },
-                    { path: 'dashboard', element: <DashboardPage /> },
-                    { path: 'operations', element: <OperationsPage /> },
-                    { path: 'inventory', element: <InventoryPage /> },
-                    { path: 'customs', element: <CustomsPage /> },
-                    { path: 'billing', element: <BillingPage /> },
-                    { path: 'finance', element: <FinancePage /> },
-                    { path: 'commercial', element: <CommercialPage /> },
                     {
-                        element: <RoleGuard allowedRoles={['admin', 'operator', 'viewer']} />,
+                        element: <AppLayout />,
                         children: [
-                            { path: 'tracking', element: <TrackingPage /> },
+                            { path: 'dashboard', element: <DashboardPage /> },
+                            { path: 'operations', element: <OperationsPage /> },
+                            { path: 'inventory', element: <InventoryPage /> },
+                            { path: 'customs', element: <CustomsPage /> },
+                            { path: 'billing', element: <BillingPage /> },
+                            { path: 'finance', element: <FinancePage /> },
+                            { path: 'commercial', element: <CommercialPage /> },
+                            {
+                                element: <RoleGuard allowedRoles={['admin', 'operator', 'viewer']} />,
+                                children: [
+                                    { path: 'tracking', element: <TrackingPage /> },
+                                ]
+                            },
+                            { path: 'reports', element: <ReportsPage /> },
+                            {
+                                path: 'security',
+                                element: <SecurityPage />,
+                                children: [
+                                    { index: true, element: <Navigate to="users" replace /> },
+                                    { path: 'users', element: <SecurityUsersPage /> },
+                                    { path: 'audit', element: <SecurityAuditPage /> },
+                                    { path: 'settings', element: <SettingsPage /> },
+                                ]
+                            },
+                            { path: '*', element: <Navigate to="/dashboard" replace /> },
                         ]
-                    },
-                    { path: 'reports', element: <ReportsPage /> },
-                    { path: 'reports', element: <ReportsPage /> },
-                    {
-                        path: 'security',
-                        element: <SecurityPage />,
-                        children: [
-                            { index: true, element: <Navigate to="users" replace /> },
-                            { path: 'users', element: <SecurityUsersPage /> },
-                            { path: 'audit', element: <SecurityAuditPage /> },
-                            { path: 'settings', element: <SettingsPage /> },
-                        ]
-                    },
-                    { path: '*', element: <Navigate to="/dashboard" replace /> },
+                    }
                 ]
             }
         ],

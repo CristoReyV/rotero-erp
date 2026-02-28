@@ -31,6 +31,14 @@ const LoginPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    React.useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                navigate('/dashboard', { replace: true });
+            }
+        });
+    }, [navigate]);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
