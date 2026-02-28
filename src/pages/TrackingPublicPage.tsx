@@ -43,13 +43,13 @@ function LoadingState() {
 
 // ── Error states ──────────────────────────────────────────────────────────────
 
-function NotFoundState() {
+function NotFoundState({ message }: { message?: string }) {
     return (
         <div className="flex flex-col w-full h-screen bg-slate-50 items-center justify-center font-sans px-4">
             <AlertTriangle size={48} className="text-slate-300 mb-4 mx-auto" />
             <h2 className="text-xl font-bold text-slate-700 mb-2">Enlace no encontrado</h2>
             <p className="text-sm font-medium text-slate-500 text-center max-w-sm">
-                Este enlace de seguimiento no existe o es inválido.
+                {message || "Este enlace de seguimiento no existe o es inválido."}
             </p>
         </div>
     );
@@ -144,8 +144,18 @@ export default function TrackingPublicPage() {
 
     const handleRetry = () => setRetryCount(c => c + 1);
 
+    // ── Production Gate ───────────────────────────────────────────────────────
+    // In strict production, we don't allow test tokens.
+    const isTestToken = token === 'test-token';
+    const isProdMode = import.meta.env.VITE_APP_MODE === 'prod';
+
+    if (isProdMode && isTestToken && uiState !== 'loading') {
+        return <NotFoundState />;
+    }
+
     // ── Status gates ──────────────────────────────────────────────────────────
 
+    if (!token) return <NotFoundState message="El token es requerido para ver el seguimiento." />;
     if (uiState === 'loading') return <LoadingState />;
     if (uiState === 'not_found') return <NotFoundState />;
     if (uiState === 'revoked') return <RevokedState />;

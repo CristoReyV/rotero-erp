@@ -80,5 +80,13 @@ export const router = createBrowserRouter([
     {
         path: '/invite/:token',
         element: <InvitePage />
+    },
+    {
+        path: '/demo/public/:token',
+        element: <TrackingPublicPage />
+    },
+    {
+        path: '/demo/driver/:token',
+        element: <DriverTrackingPage />
     }
 ]);

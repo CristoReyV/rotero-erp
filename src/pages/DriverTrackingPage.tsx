@@ -317,6 +317,16 @@ export default function DriverTrackingPage() {
         }
     };
 
+    if (!token) {
+        return (
+            <div className="flex flex-col w-full h-[100dvh] bg-slate-50 items-center justify-center font-sans px-4">
+                <AlertCircle size={48} className="text-slate-300 mb-4 mx-auto" />
+                <h2 className="text-xl font-bold text-slate-700 mb-2">Token requerido</h2>
+                <p className="text-sm font-medium text-slate-500 text-center max-w-sm">Especifique un token en la URL para acceder a la operación.</p>
+            </div>
+        );
+    }
+
     if (status === 'loading') {
         return (
             <div className="flex flex-col w-full h-screen bg-slate-50 items-center justify-center font-sans px-4">
@@ -327,11 +337,18 @@ export default function DriverTrackingPage() {
     }
 
     if (status === 'not_found' || status === 'revoked' || status === 'expired') {
+        const isTestToken = token === 'test-token';
+        const isProdMode = import.meta.env.VITE_APP_MODE === 'prod';
+
+        // Block test token in real production mode
+        const shouldHide = isProdMode && isTestToken;
+
         const errConfig = {
-            not_found: { i: <AlertTriangle size={48} className="text-slate-300" />, t: "Enlace no encontrado", d: "El operador no existe o es inválido." },
+            not_found: { i: <AlertTriangle size={48} className="text-slate-300" />, t: "Enlace no encontrado", d: shouldHide ? "El enlace no existe o es inválido." : "El operador no existe o es inválido." },
             revoked: { i: <Shield size={48} className="text-red-400" />, t: "Enlace Desactivado", d: "Fue desactivado por el operador." },
             expired: { i: <Clock size={48} className="text-slate-300" />, t: "Acceso Terminado", d: "Tu acceso ha terminado." }
         }[status];
+
         return (
             <div className="flex flex-col w-full h-[100dvh] bg-slate-50 items-center justify-center font-sans px-4">
                 <div className="mb-4 mx-auto">{errConfig?.i}</div>
