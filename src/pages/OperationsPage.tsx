@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, Plus, FileText, ShieldCheck, MapPin, Clock, Share2, Link as LinkIcon, Loader2, Copy, Check, Calendar, ArrowRightCircle, CheckCircle2, Ban, AlertTriangle, Radio } from 'lucide-react';
+import { Filter, Plus, FileText, ShieldCheck, MapPin, Clock, Share2, Link as LinkIcon, Loader2, Copy, Check, Calendar, ArrowRightCircle, CheckCircle2, Ban, AlertTriangle, Radio, Navigation } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/components/Badge';
 import { useAuthStore } from '@/store/authStore';
 import { listOperations, createOperation, transitionOperationStatus, overrideOperationStatus, ensureTrackingToken, getOperationRequirements } from '@/services/operations.service';
+import { listRoutePoints } from '@/services/trackingRoute.service';
 import type { Operation } from '@/types/operations';
+import type { RoutePoint } from '@/types/tracking';
 import { MOCK_TIMELINE } from '@/mocks/timeline.mock';
 import { supabase } from '@/lib/supabase';
 import { AssignmentDrawer } from '@/components/operations/AssignmentDrawer';
@@ -44,6 +46,11 @@ const OperationsPage = () => {
     // Tracking state
     const [hasDriverToken, setHasDriverToken] = useState<boolean | null>(null);
     const [isEnsuringToken, setIsEnsuringToken] = useState(false);
+
+    // Route v1 state
+    const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
+    const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+    const [showRoutePath, setShowRoutePath] = useState(false);
 
     // Override Modal State
     const [showOverrideModal, setShowOverrideModal] = useState(false);
@@ -352,6 +359,92 @@ const OperationsPage = () => {
                                             <Badge variant="success">Activo</Badge>
                                         ) : (
                                             <Badge variant="warning">Pendiente — se crea al iniciar ruta</Badge>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Route v1 — GPS polyline preview */}
+                                {(activeOp.status === 'in_transit' || activeOp.status === 'delivered') && (
+                                    <div className="bg-surface rounded-xl border border-tech-border/40 overflow-hidden">
+                                        <button
+                                            onClick={() => {
+                                                setShowRoutePath(!showRoutePath);
+                                                if (!showRoutePath && routePoints.length === 0) {
+                                                    setIsLoadingRoute(true);
+                                                    listRoutePoints(activeOp.id).then(pts => {
+                                                        setRoutePoints(pts);
+                                                        setIsLoadingRoute(false);
+                                                    }).catch(() => setIsLoadingRoute(false));
+                                                }
+                                            }}
+                                            className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Navigation size={14} className="text-blue-500" />
+                                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ruta GPS</span>
+                                            </div>
+                                            <Badge variant={routePoints.length > 0 ? 'success' : 'default'}>
+                                                {routePoints.length > 0 ? `${routePoints.length} puntos` : 'Ver ruta'}
+                                            </Badge>
+                                        </button>
+                                        {showRoutePath && (
+                                            <div className="px-3.5 pb-3.5">
+                                                {isLoadingRoute ? (
+                                                    <div className="flex items-center justify-center py-6 text-slate-400">
+                                                        <Loader2 size={16} className="animate-spin mr-2" />
+                                                        <span className="text-xs">Cargando ruta...</span>
+                                                    </div>
+                                                ) : routePoints.length === 0 ? (
+                                                    <div className="text-center py-6 text-slate-400">
+                                                        <MapPin size={20} className="mx-auto mb-2 opacity-40" />
+                                                        <p className="text-xs">Sin ruta registrada aún</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                                                        <svg viewBox="0 0 300 120" className="w-full h-auto">
+                                                            {(() => {
+                                                                const lats = routePoints.map(p => p.lat);
+                                                                const lngs = routePoints.map(p => p.lng);
+                                                                const minLat = Math.min(...lats);
+                                                                const maxLat = Math.max(...lats);
+                                                                const minLng = Math.min(...lngs);
+                                                                const maxLng = Math.max(...lngs);
+                                                                const padLat = (maxLat - minLat) * 0.15 || 0.01;
+                                                                const padLng = (maxLng - minLng) * 0.15 || 0.01;
+                                                                const pts = routePoints.map(p => {
+                                                                    const x = 15 + ((p.lng - (minLng - padLng)) / ((maxLng + padLng) - (minLng - padLng))) * 270;
+                                                                    const y = 105 - ((p.lat - (minLat - padLat)) / ((maxLat + padLat) - (minLat - padLat))) * 90;
+                                                                    return `${x},${y}`;
+                                                                });
+                                                                const first = routePoints[0];
+                                                                const last = routePoints[routePoints.length - 1];
+                                                                const fCoords = pts[0].split(',');
+                                                                const lCoords = pts[pts.length - 1].split(',');
+                                                                return (
+                                                                    <>
+                                                                        <polyline
+                                                                            points={pts.join(' ')}
+                                                                            fill="none"
+                                                                            stroke="#3b82f6"
+                                                                            strokeWidth="2.5"
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                            opacity="0.8"
+                                                                        />
+                                                                        <circle cx={fCoords[0]} cy={fCoords[1]} r="4" fill="#22c55e" stroke="white" strokeWidth="1.5" />
+                                                                        <circle cx={lCoords[0]} cy={lCoords[1]} r="4" fill="#ef4444" stroke="white" strokeWidth="1.5" />
+                                                                        <text x={Number(fCoords[0]) + 6} y={Number(fCoords[1]) + 3} fill="#22c55e" fontSize="7" fontWeight="bold">Inicio</text>
+                                                                        <text x={Number(lCoords[0]) + 6} y={Number(lCoords[1]) + 3} fill="#ef4444" fontSize="7" fontWeight="bold">Actual</text>
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </svg>
+                                                        <p className="text-[10px] text-slate-400 text-center mt-1">
+                                                            {routePoints.length} puntos · {routePoints[0]?.recorded_at ? new Date(routePoints[0].recorded_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''} → {routePoints[routePoints.length - 1]?.recorded_at ? new Date(routePoints[routePoints.length - 1].recorded_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 )}

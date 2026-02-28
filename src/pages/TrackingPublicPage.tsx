@@ -177,6 +177,7 @@ export default function TrackingPublicPage() {
                 <PublicTrackingMap
                     currentLocation={trackingData.currentLocation}
                     lastUpdateText={lastUpdateText}
+                    routePoints={trackingData.routePoints}
                 />
 
                 {/* CB-02: Soft-expiry banner discretamente sobre el mapa */}
