@@ -3,16 +3,24 @@ import { Save, Globe, Palette, Clock, Bell, Loader2, CheckCircle2 } from 'lucide
 import { useAuthStore } from '@/store/authStore';
 import { getTenantSettings, updateTenantSettings } from '@/services/admin.service';
 import type { TenantSettings } from '@/types/settings';
+import { useModuleGate } from '@/hooks/useModuleGate';
+import { useNavigate } from 'react-router-dom';
 
 const SettingsPage = () => {
     const activeTenant = useAuthStore((s) => s.activeTenant);
     const userRole = useAuthStore((s) => s.getRole());
     const isAdmin = userRole === 'admin';
+    const navigate = useNavigate();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [settings, setSettings] = useState<TenantSettings | null>(null);
+
+    // ⚠️ Hooks MUST be called before any early return (React Rules of Hooks)
+    const billGate = useModuleGate('billing');
+    const invGate = useModuleGate('inventory');
+    const cusGate = useModuleGate('customs');
 
     const fetchData = async () => {
         if (!activeTenant) return;
@@ -59,6 +67,12 @@ const SettingsPage = () => {
     }
 
     const s = settings!;
+
+    const configItems = [
+        { name: 'Facturación (SAT)', ready: billGate.isConfigured, path: '/finance/billing' },
+        { name: 'Catálogo de Inventarios', ready: invGate.isConfigured, path: '/inventory' },
+        { name: 'Patente de Aduanas', ready: cusGate.isConfigured, path: '/customs' }
+    ];
 
     return (
         <div className="max-w-4xl space-y-6 animate-in fade-in duration-500">
@@ -145,6 +159,53 @@ const SettingsPage = () => {
                                 </button>
                                 <span className="text-xs text-slate-500 font-medium">{s.notifications_enabled ? 'Habilitadas' : 'Silenciadas'}</span>
                             </div>
+                        </div>
+                        {isAdmin && (
+                            <div className="md:col-span-2 space-y-2 pt-4 border-t border-tech-border/40">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 text-amber-600">
+                                    <Globe size={12} /> Permitir Datos Mock / Módulo Demo en ERP
+                                </label>
+                                <div className="flex items-center gap-3 py-2">
+                                    <button
+                                        type="button"
+                                        disabled={!isAdmin}
+                                        onClick={() => setSettings({ ...s, allow_demo_mode: !s.allow_demo_mode })}
+                                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${s.allow_demo_mode ? 'bg-amber-500' : 'bg-slate-200'}`}
+                                    >
+                                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${s.allow_demo_mode ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </button>
+                                    <span className="text-xs text-slate-500 font-medium">Habilitar bypassing de configuraciones y llenar datos falsos. No recomendado en producción.</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Setup Wizard Status */}
+                <div className="bg-surface-card rounded-2xl border border-tech-border/60 overflow-hidden shadow-sm">
+                    <div className="px-6 py-4 border-b border-tech-border/40 bg-surface/30 flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-emerald-500" />
+                        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">Estado y Módulos</h3>
+                    </div>
+                    <div className="p-6">
+                        <div className="space-y-4">
+                            {configItems.map(item => (
+                                <div key={item.name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-xl hover:bg-slate-50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-3 h-3 rounded-full ${item.ready ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]' : 'bg-red-500 animate-pulse'}`} />
+                                        <p className="text-sm font-semibold text-slate-700">{item.name}</p>
+                                    </div>
+                                    {!item.ready && (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate(item.path)}
+                                            className="px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:shadow-lg transition-all w-fit"
+                                        >
+                                            Ir a Configurar
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>

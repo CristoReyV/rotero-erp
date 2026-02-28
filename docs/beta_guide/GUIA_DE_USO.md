@@ -8,7 +8,7 @@ Bienvenido a la versión **Beta Interactiva** de Rotero ERP. Este documento est�
 
 Esta es la vista donde actúas como **Administrador** de la plataforma logística (visualizando el CRM, Finanzas, Reportes y monitoreo general).
 
-🔹 **Enlace Principal de la Beta:** [https://roterowlsbeta.netlify.app/](https://roterowlsbeta.netlify.app/)
+🔹 **Enlace Principal de la Beta:** [https://roterowlsbeta.netlify.app/login](https://roterowlsbeta.netlify.app/login)
 
 🔑 **Credenciales de Acceso:**
 - **Usuario:** `admin@rotero.app`
@@ -49,4 +49,4 @@ Esta es la interfaz pública, es el enlace exacto que podrías enviarle a tu cli
 
 ---
 
-> **Nota:** Todos los módulos cargan de manera optimizada mostrando una transición "skeleton-loading" súper veloz, lo cual puedes experimentar a primera vista. ¡Disfruta la prueba interactiva del sistema de Rotero!
+

@@ -7,6 +7,10 @@ import type { Pedimento, DescargoLine } from '@/types/customs';
 import type { BadgeVariant } from '@/types/common';
 import { AnimatePresence, motion } from 'motion/react';
 import { downloadCSV } from '@/utils/export';
+import { useModuleGate } from '@/hooks/useModuleGate';
+import { supabase } from '@/lib/supabase';
+import { isDemo } from '@/utils/appMode';
+import { useNavigate } from 'react-router-dom';
 
 const getStatusVariant = (status: string): BadgeVariant => {
     if (status === 'Activo') return 'success';
@@ -19,10 +23,14 @@ const CustomsPage = () => {
     const activeTenant = useAuthStore((s) => s.activeTenant);
     const getRole = useAuthStore((s) => s.getRole);
     const isViewer = getRole() === 'viewer';
+    const isAdmin = getRole() === 'admin';
+    const navigate = useNavigate();
 
     const [pedimentos, setPedimentos] = useState<Pedimento[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const { isConfigured, loading: gateLoading, refresh: refreshGate } = useModuleGate('customs');
 
     const [showNewModal, setShowNewModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,7 +135,10 @@ const CustomsPage = () => {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Aduanas & Anexo 24</h1>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        Aduanas & Anexo 24
+                        {!isConfigured && !gateLoading && <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">SIN PATENTE</span>}
+                    </h1>
                     <p className="text-sm text-slate-400 mt-0.5">Control de pedimentos y descargas de materiales</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -137,13 +148,59 @@ const CustomsPage = () => {
                     {!isViewer && (
                         <button
                             onClick={() => setShowNewModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold shadow-md shadow-accent-red/20 hover:shadow-lg hover:shadow-accent-red/30 transition-all"
+                            disabled={!isConfigured || gateLoading}
+                            className={`flex items-center gap-2 px-4 py-2 text-white rounded-xl text-xs font-semibold shadow-md transition-all
+                            ${!isConfigured ? 'bg-slate-300 shadow-none cursor-not-allowed opacity-70' : 'gradient-accent shadow-accent-red/20 hover:shadow-lg hover:shadow-accent-red/30'}`}
+                            title={!isConfigured ? 'Debes configurar la Patente Aduanal primero' : ''}
                         >
                             <Plus size={14} /> Nuevo Pedimento
                         </button>
                     )}
                 </div>
             </div>
+
+            {/* Config Alert */}
+            {!isConfigured && !gateLoading && (
+                <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 flex items-center justify-between animate-fade-in shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                            <ShieldCheck size={20} />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-amber-900">Configuración Pendiente</p>
+                            <p className="text-xs text-amber-700/80 mt-0.5">La operación aduanera requiere una Patente configurada en el Setup Inicial.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {isDemo && isAdmin && (
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const { error } = await supabase.rpc('rpc_demo_configure_module', {
+                                            p_tenant_id: activeTenant,
+                                            p_module_name: 'customs'
+                                        });
+                                        if (error) {
+                                            alert(error.message);
+                                            return;
+                                        }
+                                        await refreshGate();
+                                    } catch (err) { console.error(err); }
+                                }}
+                                className="px-4 py-2 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
+                            >
+                                Configurar Patente (Demo)
+                            </button>
+                        )}
+                        <button
+                            onClick={() => navigate('/security/settings')}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
+                        >
+                            Ir a Configuración
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Quick KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

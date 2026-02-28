@@ -35,6 +35,7 @@ export interface TenantSettings {
     logo_url: string | null;
     timezone: string;
     notifications_enabled: boolean;
+    allow_demo_mode: boolean;
     created_at: string;
     updated_at: string;
 }

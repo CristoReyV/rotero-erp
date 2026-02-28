@@ -15,6 +15,7 @@ export async function getTenantSettings(tenantId: string): Promise<TenantSetting
             logo_url: null,
             timezone: 'America/Mexico_City',
             notifications_enabled: true,
+            allow_demo_mode: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         };

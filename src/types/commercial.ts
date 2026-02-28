@@ -19,13 +19,23 @@ export interface Deal {
     updated_at: string;
 }
 
+export interface DealDetail extends Deal {
+    owner_name?: string;
+}
+
 export interface DealActivity {
     id: string;
     deal_id: string;
     type: 'note' | 'call' | 'email' | 'meeting' | 'status_change';
     body?: string;
     created_by?: string;
+    creator_name?: string;
     created_at: string;
+}
+
+export interface DealActivityPayload {
+    type: 'note' | 'call' | 'email' | 'meeting' | 'status_change';
+    body?: string;
 }
 
 export interface DealCreatePayload {
@@ -77,3 +87,19 @@ export interface PipelineColumn {
     count: number;
     deals: LegacyDealItem[];
 }
+
+export interface DealNote {
+    id: string;
+    note: string;
+    author_name: string;
+    created_at: string;
+}
+
+export interface DealChecklistItem {
+    id: string;
+    stage: string;
+    label: string;
+    is_done: boolean;
+    updated_at: string;
+}
+

@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type {
     Deal, DealFilters, DealCreatePayload, DealUpdatePatch,
-    DealStage, PipelineColumn
+    DealStage, PipelineColumn, DealDetail, DealActivity, DealActivityPayload
 } from '@/types/commercial';
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
@@ -109,3 +109,89 @@ export async function moveDeal(dealId: string, newStage: DealStage): Promise<voi
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
 }
+
+export async function getDealDetail(tenantId: string, dealId: string): Promise<DealDetail> {
+    if (USE_MOCKS) {
+        return {
+            id: dealId,
+            title: 'Mock Deal',
+            currency: 'MXN',
+            stage: 'lead',
+            priority: 'medium',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            owner_name: 'Admin User'
+        };
+    }
+
+    const { data, error } = await supabase.rpc('rpc_get_deal', { p_deal_id: dealId });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    return data;
+}
+
+export async function getDealActivities(tenantId: string, dealId: string): Promise<DealActivity[]> {
+    if (USE_MOCKS) {
+        return [];
+    }
+
+    const { data, error } = await supabase.rpc('rpc_list_deal_activities', { p_deal_id: dealId });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    return data || [];
+}
+
+export async function addDealActivity(dealId: string, payload: DealActivityPayload): Promise<{ id: string }> {
+    if (USE_MOCKS) return { id: 'mock-activity-id' };
+
+    const { data, error } = await supabase.rpc('rpc_add_deal_activity', {
+        p_deal_id: dealId,
+        p_payload: payload
+    });
+
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    return { id: data.id };
+}
+
+// --- NEW CRM ADVANCEMENT FUNCTIONS ---
+
+export async function addDealNote(dealId: string, note: string): Promise<void> {
+    if (USE_MOCKS) return;
+    const { data, error } = await supabase.rpc('rpc_add_deal_note', {
+        p_deal_id: dealId,
+        p_note: note
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+}
+
+export async function listDealNotes(dealId: string): Promise<any[]> {
+    if (USE_MOCKS) return [];
+    const { data, error } = await supabase.rpc('rpc_list_deal_notes', { p_deal_id: dealId });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data || [];
+}
+
+export async function listDealChecklist(dealId: string): Promise<any[]> {
+    if (USE_MOCKS) return [];
+    const { data, error } = await supabase.rpc('rpc_list_deal_checklist', { p_deal_id: dealId });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data || [];
+}
+
+export async function toggleChecklistItem(itemId: string, isDone: boolean): Promise<void> {
+    if (USE_MOCKS) return;
+    const { data, error } = await supabase.rpc('rpc_toggle_deal_checklist_item', {
+        p_item_id: itemId,
+        p_is_done: isDone
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+}
+

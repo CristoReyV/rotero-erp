@@ -7,6 +7,10 @@ import { listCFDIs, createCFDI, getCFDIDetail, updateCFDI, upsertCartaPorte } fr
 import type { CFDIListRow, CFDIWithDetail } from '@/types/billing';
 import type { BadgeVariant } from '@/types/common';
 import { motion } from 'motion/react';
+import { useModuleGate } from '@/hooks/useModuleGate';
+import { supabase } from '@/lib/supabase';
+import { isDemo } from '@/utils/appMode';
+import { useNavigate } from 'react-router-dom';
 
 const getStatusVariant = (status: string): BadgeVariant => {
     switch (status) {
@@ -32,12 +36,16 @@ const BillingPage = () => {
     const activeTenant = useAuthStore((s) => s.activeTenant);
     const getRole = useAuthStore((s) => s.getRole);
     const isViewer = getRole() === 'viewer';
+    const isAdmin = getRole() === 'admin';
+    const navigate = useNavigate();
 
     const [cfdis, setCfdis] = useState<CFDIListRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchRfc, setSearchRfc] = useState('');
     const [activeTab, setActiveTab] = useState('Todos');
+
+    const { isConfigured, loading: gateLoading, refresh: refreshGate } = useModuleGate('billing');
 
     const [showNewModal, setShowNewModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,9 +78,11 @@ const BillingPage = () => {
     };
 
     useEffect(() => {
-        fetchData();
+        if (isConfigured) {
+            fetchData();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTenant, searchRfc, searchTerm]);
+    }, [activeTenant, searchRfc, searchTerm, isConfigured]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -154,6 +164,64 @@ const BillingPage = () => {
         if (activeTab === 'Todos') return cfdis;
         return cfdis.filter(c => c.status === activeTab);
     }, [cfdis, activeTab]);
+
+    if (gateLoading) {
+        return (
+            <div className="flex h-[80vh] items-center justify-center">
+                <Loader2 className="animate-spin text-slate-400" size={32} />
+            </div>
+        );
+    }
+
+    if (!isConfigured) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 bg-surface-card border border-tech-border/60 rounded-3xl mx-auto max-w-lg mt-20 text-center shadow-lg">
+                <div className="w-16 h-16 bg-blue-50/50 rounded-2xl flex items-center justify-center mb-6 border border-blue-100/50">
+                    <ShieldCheck size={32} className="text-blue-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-3">Configuración Requerida</h2>
+                <p className="text-sm text-slate-500 mb-8 leading-relaxed max-w-sm">
+                    Para emitir facturas y usar el módulo de finanzas/billing, requieres cargar tu información fiscal (CSD) y Llave Privada.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
+                    {isDemo && isAdmin && (
+                        <button
+                            onClick={async () => {
+                                try {
+                                    setIsSubmitting(true);
+                                    const { error } = await supabase.rpc('rpc_demo_configure_module', {
+                                        p_tenant_id: activeTenant,
+                                        p_module_name: 'billing'
+                                    });
+                                    if (error) {
+                                        alert(error.message);
+                                        return;
+                                    }
+                                    await refreshGate();
+                                } catch (err) {
+                                    console.error(err);
+                                } finally {
+                                    setIsSubmitting(false);
+                                }
+                            }}
+                            disabled={isSubmitting}
+                            className="flex items-center gap-2 px-6 py-3 bg-blue-100/50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold shadow-sm transition-all text-sm disabled:opacity-50"
+                        >
+                            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                            Configurar Certificados (Demo)
+                        </button>
+                    )}
+                    <button
+                        onClick={() => navigate('/security/settings')}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:-translate-y-0.5 transition-all text-sm disabled:opacity-50"
+                    >
+                        Ir a Configuración
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 relative">

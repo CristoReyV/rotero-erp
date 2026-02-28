@@ -5,17 +5,26 @@ import { listInventoryLots, getStockAlerts, createInventoryLot, updateInventoryL
 import type { InventoryLot, StockAlert } from '@/types/inventory';
 import { AnimatePresence, motion } from 'motion/react';
 import { downloadCSV } from '@/utils/export';
+import { useModuleGate } from '@/hooks/useModuleGate';
+import { supabase } from '@/lib/supabase';
+import { isDemo } from '@/utils/appMode';
+import { useNavigate } from 'react-router-dom';
 
 const InventoryPage = () => {
     const activeTenant = useAuthStore((s) => s.activeTenant);
     const getRole = useAuthStore((s) => s.getRole);
     const isViewer = getRole() === 'viewer';
+    const isAdmin = getRole() === 'admin';
+    const navigate = useNavigate();
 
     const [lots, setLots] = useState<InventoryLot[]>([]);
     const [alerts, setAlerts] = useState<StockAlert[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState('');
+
+    const { isConfigured, loading: gateLoading, configData, refresh: refreshGate } = useModuleGate('inventory');
+    const catalogUnits = configData?.units || [];
 
     // Modals state
     const [showNewModal, setShowNewModal] = useState(false);
@@ -27,6 +36,7 @@ const InventoryPage = () => {
     const [newDesc, setNewDesc] = useState('');
     const [newQty, setNewQty] = useState('');
     const [newCost, setNewCost] = useState('');
+    const [newUnit, setNewUnit] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Reserve state
@@ -62,7 +72,8 @@ const InventoryPage = () => {
                 lot_code: newLotCode,
                 description: newDesc,
                 qty_on_hand: Number(newQty),
-                unit_cost: newCost ? Number(newCost) : undefined
+                unit_cost: newCost ? Number(newCost) : undefined,
+                unit: newUnit || catalogUnits[0] || 'Unidad'
             });
             setShowNewModal(false);
             setNewSku('');
@@ -70,6 +81,7 @@ const InventoryPage = () => {
             setNewDesc('');
             setNewQty('');
             setNewCost('');
+            setNewUnit('');
             await fetchData();
         } catch (err) {
             console.error('Failed to create lot:', err);
@@ -111,7 +123,10 @@ const InventoryPage = () => {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Inventarios y Almacén</h1>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        Inventarios y Almacén
+                        {(!isConfigured || catalogUnits.length === 0) && !gateLoading && <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">SIN UNIDADES</span>}
+                    </h1>
                     <p className="text-sm text-slate-400 mt-0.5">Control PEPS con valorización en tiempo real</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -121,13 +136,59 @@ const InventoryPage = () => {
                     {!isViewer && (
                         <button
                             onClick={() => setShowNewModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold shadow-md shadow-accent-red/20 hover:shadow-lg hover:shadow-accent-red/30 transition-all"
+                            disabled={!isConfigured || catalogUnits.length === 0 || gateLoading}
+                            className={`flex items-center gap-2 px-4 py-2 text-white rounded-xl text-xs font-semibold shadow-md transition-all
+                                ${!isConfigured || catalogUnits.length === 0 ? 'bg-slate-300 shadow-none cursor-not-allowed opacity-70' : 'gradient-accent shadow-accent-red/20 hover:shadow-lg hover:shadow-accent-red/30'}`}
+                            title={(!isConfigured || catalogUnits.length === 0) ? 'Falta configurar Catálogo de Unidades' : ''}
                         >
                             <Plus size={14} /> Nuevo Lote
                         </button>
                     )}
                 </div>
             </div>
+
+            {/* Config Alert */}
+            {(!isConfigured || catalogUnits.length === 0) && !gateLoading && (
+                <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 flex items-center justify-between animate-fade-in shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                            <Package size={20} />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-amber-900">Catálogo de Unidades Requerido</p>
+                            <p className="text-xs text-amber-700/80 mt-0.5">Debes configurar al menos una unidad de medida (ej. Piezas, Litros) en el Setup Inicial para crear lotes.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {isDemo && isAdmin && (
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const { error } = await supabase.rpc('rpc_demo_configure_module', {
+                                            p_tenant_id: activeTenant,
+                                            p_module_name: 'inventory'
+                                        });
+                                        if (error) {
+                                            alert(error.message);
+                                            return;
+                                        }
+                                        await refreshGate();
+                                    } catch (err) { console.error(err); }
+                                }}
+                                className="px-4 py-2 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
+                            >
+                                Configurar Unidades (Demo)
+                            </button>
+                        )}
+                        <button
+                            onClick={() => navigate('/security/settings')}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
+                        >
+                            Ir a Configuración
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -323,6 +384,18 @@ const InventoryPage = () => {
                                     />
                                 </div>
                                 <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Unidad *</label>
+                                    <select
+                                        value={newUnit || catalogUnits[0] || ''}
+                                        onChange={(e) => setNewUnit(e.target.value)}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none"
+                                    >
+                                        {catalogUnits.map((u: string) => (
+                                            <option key={u} value={u}>{u}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-span-2">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Costo Unitario</label>
                                     <input
                                         type="number" min="0" step="any"

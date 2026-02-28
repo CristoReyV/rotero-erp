@@ -16,6 +16,7 @@ export interface DbInventoryLot {
     received_at: string;
     pedimento_ref: string | null;
     status: string;
+    unit?: string;
     created_at: string;
 }
 
@@ -34,7 +35,7 @@ function mapDbInventoryToUI(db: DbInventoryLot, index: number): InventoryLot {
         date: new Date(db.received_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' }),
         stock: stock,
         qty_reserved: reserved,
-        unit: 'pzas', // Defaulting since it's not in DB schema yet
+        unit: db.unit || 'Piezas',
         value: unit_cost * stock,
         low: (stock - reserved) <= 10,
         status: db.status,
@@ -71,10 +72,10 @@ export async function createInventoryLot(tenantId: string, payload: InventoryIns
         p_qty_on_hand: payload.qty_on_hand,
         p_warehouse: payload.warehouse,
         p_received_at: payload.received_at || new Date().toISOString(),
-        p_unit_cost: payload.unit_cost,
         p_currency: payload.currency || 'MXN',
         p_pedimento_ref: payload.pedimento_ref,
-        p_description: payload.description
+        p_description: payload.description,
+        p_unit: payload.unit || 'Piezas'
     });
 
     if (error) throw error;

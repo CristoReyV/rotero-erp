@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, Plus, FileText, ShieldCheck, MapPin, Clock, Share2, Link as LinkIcon, Loader2, Copy, Check } from 'lucide-react';
+import { Filter, Plus, FileText, ShieldCheck, MapPin, Clock, Share2, Link as LinkIcon, Loader2, Copy, Check, Calendar, ArrowRightCircle, CheckCircle2, Ban, AlertTriangle, Radio } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/components/Badge';
 import { useAuthStore } from '@/store/authStore';
-import { listOperations, createOperation } from '@/services/operations.service';
+import { listOperations, createOperation, transitionOperationStatus, overrideOperationStatus, ensureTrackingToken, getOperationRequirements } from '@/services/operations.service';
 import type { Operation } from '@/types/operations';
 import { MOCK_TIMELINE } from '@/mocks/timeline.mock';
 import { supabase } from '@/lib/supabase';
+import { AssignmentDrawer } from '@/components/operations/AssignmentDrawer';
 
 const getTimelineDotStyle = (step: typeof MOCK_TIMELINE[0]) => {
     if (step.done) return 'bg-emerald-500 ring-4 ring-emerald-500/20';
@@ -18,12 +19,14 @@ const OperationsPage = () => {
     const activeTenant = useAuthStore((s) => s.activeTenant);
     const getRole = useAuthStore((s) => s.getRole);
     const isViewer = getRole() === 'viewer';
+    const isAdmin = getRole() === 'admin';
 
     const [operations, setOperations] = useState<Operation[]>([]);
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [showNewModal, setShowNewModal] = useState(false);
+    const [showAssignmentDrawer, setShowAssignmentDrawer] = useState(false);
 
     // Tracking Link Generation State
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);
@@ -33,6 +36,19 @@ const OperationsPage = () => {
     // Form state basic
     const [newOpRef, setNewOpRef] = useState('');
     const [newOpClient, setNewOpClient] = useState('');
+
+    // Workflow state
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [transitionError, setTransitionError] = useState<string | null>(null);
+
+    // Tracking state
+    const [hasDriverToken, setHasDriverToken] = useState<boolean | null>(null);
+    const [isEnsuringToken, setIsEnsuringToken] = useState(false);
+
+    // Override Modal State
+    const [showOverrideModal, setShowOverrideModal] = useState(false);
+    const [overrideReason, setOverrideReason] = useState('');
+    const [isOverriding, setIsOverriding] = useState(false);
 
     const activeOp = operations.find((o) => o.id === selected);
 
@@ -56,6 +72,19 @@ const OperationsPage = () => {
         fetchOps();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTenant]);
+
+    // Check tracking token status when active operation changes
+    useEffect(() => {
+        if (!activeOp?.db_id || activeOp.status !== 'assigned') {
+            setHasDriverToken(null);
+            return;
+        }
+        let cancelled = false;
+        getOperationRequirements(activeOp.db_id)
+            .then(reqs => { if (!cancelled) setHasDriverToken(reqs.has_driver_token); })
+            .catch(() => { if (!cancelled) setHasDriverToken(null); });
+        return () => { cancelled = true; };
+    }, [activeOp?.db_id, activeOp?.status]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -107,6 +136,50 @@ const OperationsPage = () => {
         navigator.clipboard.writeText(generatedLink);
         setCopiedLink(true);
         setTimeout(() => setCopiedLink(false), 2000);
+    };
+
+    const handleTransition = async (toStatus: string) => {
+        if (!activeOp?.db_id) return;
+        setIsTransitioning(true);
+        setTransitionError(null);
+        try {
+            // For in_transit: ensure tracking token exists (belt + suspenders with DB auto-provision)
+            if (toStatus === 'in_transit' && activeTenant) {
+                setIsEnsuringToken(true);
+                const tokenResult = await ensureTrackingToken(activeTenant, activeOp.db_id);
+                setIsEnsuringToken(false);
+                if (tokenResult.error) {
+                    setTransitionError(`Error creando token de tracking: ${tokenResult.error}`);
+                    setIsTransitioning(false);
+                    return;
+                }
+            }
+            await transitionOperationStatus(activeOp.db_id, toStatus);
+            await fetchOps();
+            setHasDriverToken(null); // Reset for fresh check
+        } catch (err: any) {
+            setTransitionError(err.message || 'Error al cambiar estado');
+        } finally {
+            setIsTransitioning(false);
+            setIsEnsuringToken(false);
+        }
+    };
+
+    const handleOverrideCancel = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeOp?.db_id || overrideReason.length < 10) return;
+        setIsOverriding(true);
+        setTransitionError(null);
+        try {
+            await overrideOperationStatus(activeOp.db_id, 'cancelled', overrideReason);
+            setShowOverrideModal(false);
+            setOverrideReason('');
+            await fetchOps();
+        } catch (err: any) {
+            setTransitionError(err.message || 'Error en override');
+        } finally {
+            setIsOverriding(false);
+        }
     };
 
     return (
@@ -210,6 +283,13 @@ const OperationsPage = () => {
                                         <MapPin size={13} className="text-slate-300" />
                                         <span className="text-xs text-slate-400 font-mono">{activeOp.route}</span>
                                     </div>
+
+                                    {transitionError && (
+                                        <div className="mt-3 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold flex items-center gap-2">
+                                            <AlertTriangle size={14} className="shrink-0" />
+                                            <span>{transitionError}</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Tracking Link Section */}
@@ -259,6 +339,23 @@ const OperationsPage = () => {
                                     </div>
                                 </div>
 
+                                {/* Tracking Status Indicator */}
+                                {activeOp.status === 'assigned' && (
+                                    <div className="p-3.5 bg-surface rounded-xl border border-tech-border/40 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Radio size={14} className={hasDriverToken ? 'text-emerald-500' : 'text-amber-500'} />
+                                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tracking</span>
+                                        </div>
+                                        {hasDriverToken === null ? (
+                                            <span className="text-[11px] font-medium text-slate-400">Verificando...</span>
+                                        ) : hasDriverToken ? (
+                                            <Badge variant="success">Activo</Badge>
+                                        ) : (
+                                            <Badge variant="warning">Pendiente — se crea al iniciar ruta</Badge>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Timeline */}
                                 <div>
                                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Línea de tiempo</h4>
@@ -290,19 +387,127 @@ const OperationsPage = () => {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex gap-2">
-                                    <button className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-light transition-colors shadow-sm">
-                                        <FileText size={14} /> Ver Docs
-                                    </button>
-                                    <button className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-colors">
-                                        <ShieldCheck size={14} /> Validar SAT
-                                    </button>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex flex-wrap gap-2">
+                                        {(activeOp.status === 'draft' || activeOp.status === 'planned' || activeOp.status === 'assigned') && !isViewer && (
+                                            <button
+                                                onClick={() => setShowAssignmentDrawer(true)}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                                            >
+                                                <Calendar size={14} /> {activeOp.status === 'assigned' ? 'Editar Asignación' : 'Planificar y Asignar'}
+                                            </button>
+                                        )}
+                                        {activeOp.status === 'assigned' && !isViewer && (
+                                            <button
+                                                onClick={() => handleTransition('in_transit')}
+                                                disabled={isTransitioning}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 gradient-primary text-white rounded-xl text-xs font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                                            >
+                                                {isTransitioning ? <Loader2 size={14} className="animate-spin" /> : <ArrowRightCircle size={14} />}
+                                                {isEnsuringToken ? 'Creando token...' : 'Iniciar Ruta'}
+                                            </button>
+                                        )}
+                                        {activeOp.status === 'delivered' && !isViewer && (
+                                            <button
+                                                onClick={() => handleTransition('closed')}
+                                                disabled={isTransitioning}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md transition-all disabled:opacity-50"
+                                            >
+                                                {isTransitioning ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                                                Cerrar Operación
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors shadow-sm">
+                                            <FileText size={14} /> Ver Docs
+                                        </button>
+                                        {(activeOp.status === 'draft' || activeOp.status === 'planned' || activeOp.status === 'assigned') && !isViewer && (
+                                            <button
+                                                onClick={() => handleTransition('cancelled')}
+                                                disabled={isTransitioning}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                                            >
+                                                <Ban size={14} /> Cancelar Normal
+                                            </button>
+                                        )}
+                                        {(activeOp.status === 'in_transit' || activeOp.status === 'delivered') && isAdmin && (
+                                            <button
+                                                onClick={() => { setTransitionError(null); setShowOverrideModal(true); }}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                                            >
+                                                <Ban size={14} /> Override Cancelation
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
             </div>
+
+            {/* Override Modal */}
+            {showOverrideModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+                    >
+                        <div className="px-6 py-4 border-b border-red-100 bg-red-50 flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-red-800 flex items-center gap-2">
+                                <AlertTriangle size={18} /> Default Override
+                            </h2>
+                            <button onClick={() => setShowOverrideModal(false)} className="text-red-400 hover:text-red-600">✕</button>
+                        </div>
+                        <form onSubmit={handleOverrideCancel} className="p-6 space-y-4">
+                            <div>
+                                <p className="text-xs text-slate-600 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                    Estás a punto de forzar la cancelación de una operación en estado crítico (<span className="font-bold">{activeOp?.status}</span>). Esta acción quedará registrada en el log de auditoría del sistema de manera irreversible.
+                                </p>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Razón del Override (Min 10 caracteres)</label>
+                                <textarea
+                                    required
+                                    autoFocus
+                                    minLength={10}
+                                    maxLength={280}
+                                    rows={3}
+                                    value={overrideReason}
+                                    onChange={(e) => setOverrideReason(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all resize-none"
+                                    placeholder="Explica detalladamente la razón de esta cancelación forzada..."
+                                />
+                            </div>
+
+                            {transitionError && (
+                                <div className="p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold flex items-center gap-2">
+                                    <AlertTriangle size={14} className="shrink-0" />
+                                    <span>{transitionError}</span>
+                                </div>
+                            )}
+
+                            <div className="pt-4 flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOverrideModal(false)}
+                                    className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isOverriding || overrideReason.length < 10}
+                                    className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg shadow-sm disabled:opacity-50 flex items-center gap-2 hover:bg-red-700 transition"
+                                >
+                                    {isOverriding && <Loader2 size={14} className="animate-spin" />}
+                                    Confirmar Override
+                                </button>
+                            </div>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
 
             {/* Simple Create Modal Overlay */}
             {showNewModal && (
@@ -360,6 +565,17 @@ const OperationsPage = () => {
                     </motion.div>
                 </div>
             )}
+
+            {/* Assignment Drawer */}
+            <AssignmentDrawer
+                isOpen={showAssignmentDrawer}
+                onClose={() => setShowAssignmentDrawer(false)}
+                operation={activeOp || null}
+                onAssigned={() => {
+                    setShowAssignmentDrawer(false);
+                    fetchOps(); // Refetch after assigning
+                }}
+            />
         </div>
     );
 };

@@ -24,17 +24,75 @@
   --color-sidebar-active: #1A3A6E;
 }
 
+/* ── Dark Mode Overrides ─────────────────────────────────────────────────── */
+.dark {
+  --color-primary: #4B8BF5;
+  --color-primary-light: #6AA3FF;
+  --color-primary-50: rgba(75, 139, 245, 0.08);
+  --color-primary-100: rgba(75, 139, 245, 0.15);
+  --color-accent-red: #FF6B7A;
+  --color-accent-red-50: rgba(255, 107, 122, 0.08);
+
+  --color-surface: #0F1729;
+  --color-surface-card: #1A2332;
+  --color-surface-elevated: #1E2A3A;
+  --color-tech-border: #2A3A4E;
+  --color-tech-border-light: #1E2D3F;
+
+  --color-sidebar: #0A1220;
+  --color-sidebar-hover: #11203A;
+  --color-sidebar-active: #162B4D;
+}
+
 @layer base {
   body {
     @apply bg-surface text-slate-900 font-sans antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
   
+  .dark body,
+  body:has(.dark) {
+    color: #e2e8f0;
+  }
+
   * {
     @apply border-tech-border;
   }
 }
 
-/* Glassmorphism card */
+/* ── Dark mode text overrides (applied via .dark on <html>) ─────────────── */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  color: #e2e8f0;
+}
+
+/* Slate text overrides for dark mode */
+.dark .text-slate-900 { color: #f1f5f9; }
+.dark .text-slate-800 { color: #e2e8f0; }
+.dark .text-slate-700 { color: #cbd5e1; }
+.dark .text-slate-600 { color: #94a3b8; }
+.dark .text-slate-500 { color: #64748b; }
+.dark .text-slate-400 { color: #64748b; }
+.dark .text-slate-300 { color: #475569; }
+
+/* Background overrides */
+.dark .bg-white { background-color: var(--color-surface-card); }
+.dark .bg-slate-50 { background-color: var(--color-surface); }
+.dark .bg-slate-100 { background-color: var(--color-tech-border-light); }
+
+/* Border overrides */
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-50 { border-color: var(--color-tech-border); }
+
+/* Hover states */
+.dark .hover\:bg-slate-50:hover { background-color: rgba(255,255,255,0.04); }
+.dark .hover\:bg-slate-100:hover { background-color: rgba(255,255,255,0.06); }
+
+/* Glassmorphism card — dark variant */
 .glass-card {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
@@ -42,13 +100,26 @@
   border: 1px solid rgba(226, 232, 240, 0.6);
 }
 
+.dark .glass-card {
+  background: rgba(26, 35, 50, 0.85);
+  border-color: rgba(42, 58, 78, 0.6);
+}
+
 /* Gradient accents */
 .gradient-primary {
   background: linear-gradient(135deg, #0F2B5B 0%, #1a4f8a 100%);
 }
 
+.dark .gradient-primary {
+  background: linear-gradient(135deg, #1a3f7a 0%, #4B8BF5 100%);
+}
+
 .gradient-accent {
   background: linear-gradient(135deg, #E63946 0%, #ff6b6b 100%);
+}
+
+.dark .gradient-accent {
+  background: linear-gradient(135deg, #E63946 0%, #FF6B7A 100%);
 }
 
 .gradient-success {
@@ -60,8 +131,16 @@
   box-shadow: 0 0 20px rgba(15, 43, 91, 0.08);
 }
 
+.dark .glow-primary {
+  box-shadow: 0 0 20px rgba(75, 139, 245, 0.12);
+}
+
 .glow-accent {
   box-shadow: 0 0 20px rgba(230, 57, 70, 0.08);
+}
+
+.dark .glow-accent {
+  box-shadow: 0 0 20px rgba(255, 107, 122, 0.12);
 }
 
 /* Smooth scrollbar */
@@ -80,6 +159,14 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-slate-300;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #2A3A4E;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: #3A4E65;
 }
 
 /* Animate fade in for cards */
@@ -111,4 +198,16 @@
 
 .animate-pulse-dot {
   animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Dark mode transition */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Exclude elements that have their own transitions */
+input, button, a, [class*="transition-"] {
+  transition-duration: 0.15s;
 }

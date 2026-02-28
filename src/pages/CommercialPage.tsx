@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, LayoutGrid, List, Map, Loader2, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { listPipelineDeals, moveDeal, createDeal } from '@/services/commercial.service';
+import { moveDeal, createDeal, listPipelineDeals } from '@/services/commercial.service';
 import type { PipelineColumn, LegacyDealItem, DealCreatePayload, DealStage } from '@/types/commercial';
 import { motion } from 'motion/react';
+import { DealDetailDrawer } from '@/components/commercial/DealDetailDrawer';
 
 const stageColors: Record<string, { dot: string; bg: string; border: string }> = {
     'Prospecto': { dot: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200/40' },
@@ -43,6 +44,10 @@ const CommercialPage = () => {
     const [newTitle, setNewTitle] = useState('');
     const [newCompany, setNewCompany] = useState('');
     const [newValue, setNewValue] = useState('');
+
+    // Detail Drawer
+    const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+    const [showDrawer, setShowDrawer] = useState(false);
 
     const fetchData = async () => {
         if (!activeTenant) return;
@@ -251,7 +256,13 @@ const CommercialPage = () => {
                                             key={deal.db_id || i}
                                             draggable={!isViewer && !!deal.db_id}
                                             onDragStart={(e) => handleDragStart(e, deal, col.title)}
-                                            className={`bg-surface-card rounded-xl p-4 border hover:shadow-md hover:shadow-primary/5 hover:border-primary/20 transition-all duration-200 cursor-grab active:cursor-grabbing group relative
+                                            onClick={() => {
+                                                if (deal.db_id) {
+                                                    setSelectedDealId(deal.db_id);
+                                                    setShowDrawer(true);
+                                                }
+                                            }}
+                                            className={`bg-surface-card rounded-xl p-4 border hover:shadow-md hover:shadow-primary/5 hover:border-primary/20 transition-all duration-200 cursor-pointer active:cursor-grabbing group relative
                                             ${deal.db_id === loadingId ? 'opacity-50 pointer-events-none border-primary/40' : 'border-tech-border/40'}
                                             ${draggedItem?.id === deal.db_id ? 'opacity-30' : ''}`}
                                         >
@@ -381,6 +392,13 @@ const CommercialPage = () => {
                     </motion.div>
                 </div>
             )}
+            {/* Deal Detail Drawer */}
+            <DealDetailDrawer
+                dealId={selectedDealId}
+                isOpen={showDrawer}
+                onClose={() => setShowDrawer(false)}
+                onChanged={() => fetchData()}
+            />
         </div>
     );
 };

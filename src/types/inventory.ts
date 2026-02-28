@@ -45,4 +45,5 @@ export interface InventoryInsertPayload {
     currency?: string;
     pedimento_ref?: string;
     description?: string;
+    unit?: string;
 }
