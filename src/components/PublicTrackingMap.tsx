@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
@@ -40,6 +40,8 @@ const createCustomMarker = (lastUpdateText: string = 'Reciente') => {
 interface PublicTrackingMapProps {
     currentLocation?: GeoPoint;
     lastUpdateText?: string;
+    /** Route v1: GEO-01 ofuscated route points (rounded ~1.1km) */
+    routePoints?: GeoPoint[];
 }
 
 // Component to dynamically re-center map when location changes
@@ -53,7 +55,7 @@ function MapUpdater({ center }: { center: [number, number] }) {
     return null;
 }
 
-export function PublicTrackingMap({ currentLocation, lastUpdateText }: PublicTrackingMapProps) {
+export function PublicTrackingMap({ currentLocation, lastUpdateText, routePoints }: PublicTrackingMapProps) {
     if (!currentLocation) {
         return (
             <div className="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center overflow-hidden">
@@ -92,6 +94,22 @@ export function PublicTrackingMap({ currentLocation, lastUpdateText }: PublicTra
                     radius={1100}
                     pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1.5, dashArray: '4 4' }}
                 />
+
+                {/* Route v1: GEO-01 ofuscated polyline */}
+                {routePoints && routePoints.length >= 2 && (
+                    <Polyline
+                        positions={routePoints.map(p => [p.lat, p.lng] as [number, number])}
+                        pathOptions={{
+                            color: '#6366f1',
+                            weight: 3,
+                            opacity: 0.5,
+                            dashArray: '8 6',
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                        }}
+                    />
+                )}
+
                 <Marker position={position} icon={markerIcon} />
                 <MapUpdater center={position} />
             </MapContainer>

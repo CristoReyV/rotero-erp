@@ -95,6 +95,17 @@ export interface PublicTrackingView {
      * SECURITY (GEO-04): Must be omitted when place is null (geocode failed).
      */
     currentLocation?: GeoPoint;
+    /** Route v1: GEO-01 ofuscated route points (rounded ~1.1km, max 200) */
+    routePoints?: GeoPoint[];
+}
+
+/** A GPS breadcrumb recorded during driver tracking. */
+export interface RoutePoint {
+    lat: number;
+    lng: number;
+    recorded_at: string;
+    accuracy_m?: number;
+    source: 'gps' | 'network';
 }
 
 export interface DriverView {
