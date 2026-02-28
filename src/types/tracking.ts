@@ -108,6 +108,17 @@ export interface RoutePoint {
     source: 'gps' | 'network';
 }
 
+/** Computed statistics for a route segment. */
+export interface RouteStats {
+    distanceKm: number;
+    durationMin: number;
+    avgSpeedKmh: number;
+    pointCount: number;
+}
+
+/** Time range filter for route display. */
+export type RouteTimeRange = '30m' | '1h' | 'all';
+
 export interface DriverView {
     orderRef: string;
     route: string;

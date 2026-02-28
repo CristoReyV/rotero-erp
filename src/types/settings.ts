@@ -28,6 +28,20 @@ export interface AuditEvent {
     actor_name: string | null;
 }
 
+export interface AuditFilters {
+    entity_type?: string;
+    action?: string;
+    start?: string;
+    end?: string;
+}
+
+export interface AuditResponse {
+    items: AuditEvent[];
+    total: number;
+    distinct_entities: string[];
+    distinct_actions: string[];
+}
+
 export interface TenantSettings {
     tenant_id: string;
     brand_name: string;
