@@ -5,6 +5,8 @@ import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/auth.service';
 import { Loader2 } from 'lucide-react';
 
+import LoginPage from '@/pages/LoginPage';
+
 export const AuthGuard: React.FC = () => {
     const { context } = useAuthStore();
     const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +77,10 @@ export const AuthGuard: React.FC = () => {
     }
 
     if (!isAuthenticated) {
+        // Permitir login directo desde la raíz sin redirección
+        if (window.location.pathname === '/') {
+            return <LoginPage />;
+        }
         return <Navigate to="/login" replace />;
     }
 
