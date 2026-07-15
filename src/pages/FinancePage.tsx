@@ -1,360 +1,292 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Wallet, TrendingUp, ArrowUpRight, ArrowDownRight, Truck, DollarSign, PieChart, ChevronDown, Plus, CreditCard, Loader2 } from 'lucide-react';
-import { getDates, DateFilterRange } from '@/utils/date';
-import { KPICard } from '@/components/KPICard';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, ArrowDownRight, ArrowUpRight, CircleDollarSign, Clock3, Loader2, RotateCw, ShieldAlert, Wallet } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/Badge';
+import { KPICard } from '@/components/KPICard';
+import { PageHeader } from '@/components/PageHeader';
+import { getFinanceOverview, listFinanceInvoices } from '@/services/finance.service';
 import { useAuthStore } from '@/store/authStore';
-import {
-    getFinanceOverview,
-    listFinanceInvoices,
-    createFinanceInvoice,
-    recordPayment
-} from '@/services/finance.service';
-import type { FinanceInvoice, FinanceOverview } from '@/types/finance';
-import { motion } from 'motion/react';
+import type { FinanceInvoice, FinanceOverview, InvoiceDirection, InvoiceStatus } from '@/types/finance';
 import type { BadgeVariant } from '@/types/common';
 
-const formatCurrency = (val: number, cur: string = 'MXN') => {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: cur }).format(val);
-};
+type FinanceView = 'overview' | 'ar' | 'ap' | 'overdue' | 'paid';
 
-const mapStatusToVariant = (status: string): BadgeVariant => {
-    switch (status) {
-        case 'paid': return 'success';
-        case 'overdue': return 'danger';
-        case 'open': return 'info';
-        case 'draft': return 'default';
-        case 'void': return 'default';
-        default: return 'default';
+const FINANCE_VIEWS: { value: FinanceView; label: string }[] = [
+    { value: 'overview', label: 'Resumen' },
+    { value: 'ar', label: 'Por cobrar' },
+    { value: 'ap', label: 'Por pagar' },
+    { value: 'overdue', label: 'Vencidas' },
+    { value: 'paid', label: 'Pagadas' },
+];
+
+const isFinanceView = (value: string | null): value is FinanceView =>
+    FINANCE_VIEWS.some((view) => view.value === value);
+
+const getFilters = (view: FinanceView): { status?: InvoiceStatus; direction?: InvoiceDirection } => {
+    switch (view) {
+        case 'ar':
+            return { direction: 'ar' };
+        case 'ap':
+            return { direction: 'ap' };
+        case 'overdue':
+            return { status: 'overdue' };
+        case 'paid':
+            return { status: 'paid' };
+        default:
+            return {};
     }
 };
 
-const FinancePage = () => {
-    const activeTenant = useAuthStore((s) => s.activeTenant);
-    const getRole = useAuthStore((s) => s.getRole);
-    const isViewer = getRole() === 'viewer';
+const getStatusPresentation = (status: InvoiceStatus): { label: string; variant: BadgeVariant } => {
+    switch (status) {
+        case 'paid':
+            return { label: 'Pagada', variant: 'success' };
+        case 'overdue':
+            return { label: 'Vencida', variant: 'danger' };
+        case 'open':
+            return { label: 'Abierta', variant: 'info' };
+        case 'draft':
+            return { label: 'Borrador interno', variant: 'default' };
+        case 'void':
+            return { label: 'Anulada', variant: 'default' };
+        default:
+            return { label: 'Estado interno', variant: 'default' };
+    }
+};
 
-    const [loading, setLoading] = useState(true);
+const formatCurrency = (amount: number, currency = 'MXN') => {
+    try {
+        return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amount);
+    } catch {
+        return `${amount.toLocaleString('es-MX')} ${currency}`;
+    }
+};
+
+const formatDate = (value?: string) => {
+    if (!value) return 'Sin vencimiento';
+    const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+    const date = new Date(normalizedValue);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(date);
+};
+
+const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : 'No fue posible cargar la información financiera.';
+
+const FinancePage = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTenant = useAuthStore((state) => state.activeTenant);
+    const role = useAuthStore((state) => state.getRole());
+    const isAdmin = role === 'admin';
+
+    const requestedView = searchParams.get('view');
+    const activeView: FinanceView = isFinanceView(requestedView) ? requestedView : 'overview';
+
     const [overview, setOverview] = useState<FinanceOverview | null>(null);
     const [invoices, setInvoices] = useState<FinanceInvoice[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const requestId = useRef(0);
 
-    // UI State
-    const [showNewInvoiceMode, setShowNewInvoiceMode] = useState(false);
-    const [showPayModal, setShowPayModal] = useState<FinanceInvoice | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
-    const [showDateMenu, setShowDateMenu] = useState(false);
-    const dateMenuRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dateMenuRef.current && !dateMenuRef.current.contains(event.target as Node)) {
-                setShowDateMenu(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    // Form State
-    const [formDir, setFormDir] = useState<'ar' | 'ap'>('ar');
-    const [formName, setFormName] = useState('');
-    const [formRef, setFormRef] = useState('');
-    const [formAmount, setFormAmount] = useState('');
-    const [formDate, setFormDate] = useState('');
-
-    // Pay state
-    const [payAmount, setPayAmount] = useState('');
-    const [payMethod, setPayMethod] = useState<'transfer' | 'cash' | 'card' | 'other'>('transfer');
-    const [payNote, setPayNote] = useState('');
-
-    const fetchData = async () => {
-        if (!activeTenant) return;
-        setLoading(true);
-        const { start, end } = getDates(dateRange as DateFilterRange);
-        const sStr = start ? start.toISOString().split('T')[0] : undefined;
-        const eStr = end ? end.toISOString().split('T')[0] : undefined;
-        try {
-            const [ov, invs] = await Promise.all([
-                getFinanceOverview(activeTenant, sStr, eStr),
-                listFinanceInvoices(activeTenant, 20, undefined, undefined, sStr, eStr)
-            ]);
-            setOverview(ov);
-            setInvoices(invs);
-        } catch (err) {
-            console.error('Failed to fetch finance dat', err);
-        } finally {
+    const loadFinance = useCallback(async () => {
+        const currentRequestId = ++requestId.current;
+        if (!isAdmin || !activeTenant) {
+            setOverview(null);
+            setInvoices([]);
             setLoading(false);
+            setError(null);
+            return;
         }
-    };
+
+        setLoading(true);
+        setError(null);
+        try {
+            const filters = getFilters(activeView);
+            if (activeView === 'overview') {
+                const [overviewData, invoiceData] = await Promise.all([
+                    getFinanceOverview(activeTenant),
+                    listFinanceInvoices(activeTenant, 50),
+                ]);
+                if (currentRequestId === requestId.current) {
+                    setOverview(overviewData);
+                    setInvoices(invoiceData);
+                }
+            } else {
+                const invoiceData = await listFinanceInvoices(activeTenant, 50, filters.status, filters.direction);
+                if (currentRequestId === requestId.current) {
+                    setOverview(null);
+                    setInvoices(invoiceData);
+                }
+            }
+        } catch (loadError) {
+            if (currentRequestId === requestId.current) {
+                setOverview(null);
+                setInvoices([]);
+                setError(getErrorMessage(loadError));
+            }
+        } finally {
+            if (currentRequestId === requestId.current) setLoading(false);
+        }
+    }, [activeTenant, activeView, isAdmin]);
 
     useEffect(() => {
-        fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTenant, dateRange]);
+        void loadFinance();
+        return () => {
+            requestId.current += 1;
+        };
+    }, [loadFinance]);
 
-    const handleCreateInvoice = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!activeTenant || !formName || !formAmount) return;
-        setIsSubmitting(true);
-        try {
-            await createFinanceInvoice(activeTenant, {
-                direction: formDir,
-                counterparty_name: formName,
-                reference: formRef,
-                amount: Number(formAmount),
-                due_date: formDate || undefined
-            });
-            setShowNewInvoiceMode(false);
-            setFormName(''); setFormRef(''); setFormAmount(''); setFormDate('');
-            await fetchData();
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsSubmitting(false);
-        }
+    const changeView = (view: FinanceView) => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('view', view);
+        nextParams.delete('q');
+        setSearchParams(nextParams);
     };
 
-    const handleRecordPayment = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!activeTenant || !showPayModal || !payAmount) return;
-        setIsSubmitting(true);
-        try {
-            await recordPayment(activeTenant, {
-                invoice_id: showPayModal.id,
-                amount: Number(payAmount),
-                method: payMethod,
-                note: payNote
-            });
-            setShowPayModal(null);
-            setPayAmount(''); setPayNote('');
-            await fetchData();
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    if (loading && !overview) {
+    if (!isAdmin) {
         return (
-            <div className="flex items-center justify-center p-20 min-h-[50vh]">
-                <Loader2 className="animate-spin text-slate-400" size={30} />
+            <div className="space-y-6">
+                <PageHeader title="Finanzas operativas" subtitle="Lectura operativa · Cuentas internas" />
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
+                    <ShieldAlert className="mx-auto mb-4 text-amber-600" size={32} />
+                    <h2 className="text-lg font-bold text-slate-800">Acceso limitado temporalmente</h2>
+                    <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
+                        Esta vista económica está disponible temporalmente solo para administración.
+                        La restricción definitiva debe resolverse en backend/RLS.
+                    </p>
+                </div>
             </div>
         );
     }
 
-    const oData = overview || {
-        total_ar_open: 0, total_ap_open: 0, total_overdue: 0, paid_this_month: 0, count_open_invoices: 0,
-        chart: { labels: [], values: [] }
-    };
+    const activeLabel = FINANCE_VIEWS.find((view) => view.value === activeView)?.label ?? 'Resumen';
 
     return (
-        <div className="space-y-6 relative">
-            {loading && overview && (
-                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-start justify-center pt-20 rounded-xl">
-                    <Loader2 className="animate-spin text-primary" size={24} />
+        <div className="space-y-6">
+            <PageHeader title="Finanzas operativas" subtitle="Lectura operativa · Cuentas internas" />
+
+            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 px-5 py-4">
+                <div className="flex items-start gap-3">
+                    <Wallet className="mt-0.5 shrink-0 text-amber-600" size={20} />
+                    <div>
+                        <p className="text-sm font-bold text-slate-800">Pagos y ajustes requieren backend protegido</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                            Esta pantalla presenta cuentas internas en modo read-only. No registra pagos, ajustes, complementos,
+                            notas, conversiones FX ni exportaciones.
+                        </p>
+                        <p className="mt-2 text-[11px] text-slate-500">
+                            Acceso frontend temporal para administración. La restricción definitiva debe resolverse en backend/RLS.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-tech-border/60 bg-surface-card p-4">
+                {FINANCE_VIEWS.map((view) => (
+                    <button
+                        key={view.value}
+                        type="button"
+                        onClick={() => changeView(view.value)}
+                        className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                            activeView === view.value
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'bg-slate-50 text-slate-500 hover:bg-primary-50 hover:text-primary'
+                        }`}
+                    >
+                        {view.label}
+                    </button>
+                ))}
+            </div>
+
+            {activeView === 'overview' && overview && !loading && !error && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <KPICard title="Por cobrar abierto" value={formatCurrency(overview.total_ar_open)} icon={ArrowUpRight} />
+                    <KPICard title="Por pagar abierto" value={formatCurrency(overview.total_ap_open)} icon={ArrowDownRight} />
+                    <KPICard title="Por cobrar vencido" value={formatCurrency(overview.total_overdue)} icon={Clock3} />
+                    <KPICard title="Pagos registrados este mes" value={formatCurrency(overview.paid_this_month)} icon={CircleDollarSign} />
                 </div>
             )}
 
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Finanzas</h1>
-                    <p className="text-sm text-slate-400 mt-0.5">Control de cuentas por cobrar, pagar y flujos</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative" ref={dateMenuRef}>
-                        <button onClick={() => setShowDateMenu(!showDateMenu)} className="flex items-center gap-2 px-3.5 py-2 bg-surface border border-tech-border/60 rounded-xl text-xs font-semibold text-slate-500 hover:text-primary hover:border-primary/30 transition-all">
-                            {dateRange === 'month' ? 'Este Mes' : dateRange === 'quarter' ? 'Último Trimestre' : dateRange === 'year' ? 'Este Año' : 'Todo el Histórico'} <ChevronDown size={14} />
-                        </button>
-                        {showDateMenu && (
-                            <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-20 animate-fade-in origin-top-right">
-                                <button onClick={() => { setDateRange('month'); setShowDateMenu(false); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-600 transition-colors">Este Mes</button>
-                                <button onClick={() => { setDateRange('quarter'); setShowDateMenu(false); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-600 transition-colors">Último Trimestre</button>
-                                <button onClick={() => { setDateRange('year'); setShowDateMenu(false); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-600 transition-colors">Este Año</button>
-                                <button onClick={() => { setDateRange('all'); setShowDateMenu(false); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-600 transition-colors">Todo el Histórico</button>
-                            </div>
-                        )}
-                    </div>
-                    {!isViewer && (
-                        <button onClick={() => setShowNewInvoiceMode(true)} className="flex items-center gap-2 px-3.5 py-2 bg-primary text-white rounded-xl text-xs font-semibold shadow-sm hover:bg-primary-light transition-all">
-                            <Plus size={14} /> Nueva Factura / Cuenta
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="gradient-primary rounded-2xl p-5 text-white shadow-lg shadow-primary/20 relative overflow-hidden animate-fade-in animate-fade-in-delay-1 lg:col-span-2 flex items-center gap-6 justify-between">
+            <section className="overflow-hidden rounded-2xl border border-tech-border/60 bg-surface-card">
+                <div className="flex items-center justify-between border-b border-tech-border/40 px-5 py-4">
                     <div>
-                        <div className="p-2.5 bg-white/10 rounded-xl w-fit mb-3">
-                            <DollarSign size={20} strokeWidth={1.8} />
-                        </div>
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60">Flujo Ingresado (Mes)</p>
-                        <h3 className="text-2xl font-bold mt-1">{formatCurrency(oData.paid_this_month)} <span className="text-sm font-normal text-white/50">MXN</span></h3>
+                        <h2 className="font-bold text-slate-800">Cuentas internas · {activeLabel}</h2>
+                        <p className="mt-0.5 text-[11px] text-slate-400">Máximo 50 registros recientes según los filtros soportados.</p>
                     </div>
-                    {oData.chart && oData.chart.values.length > 0 && (
-                        <div className="flex items-end gap-1.5 h-16 opacity-80 shrink-0 pr-4">
-                            {oData.chart.values.map((v, i) => (
-                                <div key={i} className="w-3 bg-white/30 rounded-t-sm" style={{ height: `${Math.max(10, (v / Math.max(...oData.chart.values)) * 100)}%` }} />
-                            ))}
+                    {!loading && !error && activeTenant && (
+                        <div className="text-right">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+                                {invoices.length} cuentas
+                            </span>
+                            {activeView === 'overview' && overview && (
+                                <p className="mt-1 text-[10px] text-slate-400">{overview.count_open_invoices} abiertas en el resumen</p>
+                            )}
                         </div>
                     )}
                 </div>
-                <KPICard title="Por Cobrar (Abierto)" value={formatCurrency(oData.total_ar_open)} change={`${oData.count_open_invoices} act`} trend="up" icon={ArrowUpRight} className="animate-fade-in animate-fade-in-delay-2" />
-                <KPICard title="Vencido" value={formatCurrency(oData.total_overdue)} change="Prioridad" trend="down" icon={ArrowDownRight} className="animate-fade-in animate-fade-in-delay-3" />
-            </div>
 
-            {/* Invoices List */}
-            <div className="bg-surface-card rounded-2xl border border-tech-border/60 overflow-hidden hover:shadow-lg hover:shadow-primary/4 transition-all duration-300">
-                <div className="p-5 flex justify-between items-center border-b border-tech-border/40">
-                    <h3 className="font-bold text-slate-800">Cuentas y Facturas Recientes</h3>
-                    <div className="flex gap-2">
-                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{invoices.length} Cuentas</span>
+                {!activeTenant ? (
+                    <div className="p-10 text-center text-sm text-slate-500">Selecciona una organización activa para consultar cuentas.</div>
+                ) : loading ? (
+                    <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="animate-spin" size={20} /> Cargando información financiera…
                     </div>
-                </div>
-                {invoices.length === 0 ? (
-                    <div className="p-8 text-center bg-slate-50/50">
-                        <p className="text-slate-400 text-sm">No hay cuentas por cobrar ni pagar registradas recientemente.</p>
+                ) : error ? (
+                    <div className="flex min-h-56 flex-col items-center justify-center p-8 text-center">
+                        <AlertCircle className="mb-3 text-red-500" size={28} />
+                        <p className="font-semibold text-slate-700">No fue posible cargar las cuentas internas</p>
+                        <p className="mt-1 max-w-lg text-xs text-slate-500">{error}</p>
+                        <button type="button" onClick={() => void loadFinance()} className="mt-4 flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                            <RotateCw size={14} /> Reintentar
+                        </button>
+                    </div>
+                ) : invoices.length === 0 ? (
+                    <div className="min-h-56 p-10 text-center">
+                        <Wallet className="mx-auto mb-3 text-slate-300" size={30} />
+                        <p className="font-semibold text-slate-600">Sin cuentas para esta vista</p>
+                        <p className="mt-1 text-xs text-slate-400">Selecciona otra vista para consultar los registros disponibles.</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50/50 border-b border-tech-border/40">
-                                <tr className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-                                    <th className="px-5 py-3">Referencia / Cliente</th>
-                                    <th className="px-5 py-3">Tipo</th>
+                        <table className="w-full min-w-[760px] text-left text-sm">
+                            <thead className="border-b border-tech-border/40 bg-slate-50/60">
+                                <tr className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                                    <th className="px-5 py-3">Contraparte</th>
+                                    <th className="px-5 py-3">Referencia</th>
+                                    <th className="px-5 py-3">Dirección</th>
                                     <th className="px-5 py-3">Vencimiento</th>
-                                    <th className="px-5 py-3">Monto</th>
+                                    <th className="px-5 py-3">Importe</th>
                                     <th className="px-5 py-3">Estado</th>
-                                    <th className="px-5 py-3 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-tech-border/40">
-                                {invoices.map((inv) => (
-                                    <tr key={inv.id} className="hover:bg-primary-50/30 transition-colors group">
-                                        <td className="px-5 py-4">
-                                            <p className="font-semibold text-slate-800 text-[13px]">{inv.reference || 'Sin Ref'}</p>
-                                            <p className="text-[11px] text-slate-400 mt-0.5">{inv.counterparty_name}</p>
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            {inv.direction === 'ar'
-                                                ? <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full"><ArrowUpRight size={12} /> Cobro (AR)</span>
-                                                : <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full"><ArrowDownRight size={12} /> Pago (AP)</span>
-                                            }
-                                        </td>
-                                        <td className="px-5 py-4 text-slate-500 text-xs">
-                                            {inv.due_date || '-'}
-                                        </td>
-                                        <td className="px-5 py-4 font-bold text-slate-800 text-[13px]">
-                                            {formatCurrency(inv.amount, inv.currency)}
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            <Badge variant={mapStatusToVariant(inv.status)}>{inv.status.toUpperCase()}</Badge>
-                                        </td>
-                                        <td className="px-5 py-4 text-right">
-                                            {!isViewer && inv.status !== 'paid' && inv.status !== 'void' && (
-                                                <button
-                                                    onClick={() => setShowPayModal(inv)}
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 px-3 py-1.5 rounded-lg flex items-center gap-1 ml-auto shadow-sm"
-                                                >
-                                                    <CreditCard size={14} /> Pagar
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {invoices.map((invoice) => {
+                                    const status = getStatusPresentation(invoice.status);
+                                    return (
+                                        <tr key={invoice.id} className="transition-colors hover:bg-primary-50/20">
+                                            <td className="px-5 py-4 font-semibold text-slate-800">{invoice.counterparty_name || 'No registrada'}</td>
+                                            <td className="px-5 py-4 font-mono text-xs text-slate-500">{invoice.reference || 'Sin referencia'}</td>
+                                            <td className="px-5 py-4">
+                                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                                                    invoice.direction === 'ar'
+                                                        ? 'bg-emerald-50 text-emerald-700'
+                                                        : 'bg-rose-50 text-rose-700'
+                                                }`}>
+                                                    {invoice.direction === 'ar' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                                                    {invoice.direction === 'ar' ? 'Por cobrar' : 'Por pagar'}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-xs text-slate-500">{formatDate(invoice.due_date)}</td>
+                                            <td className="px-5 py-4 font-bold text-slate-800">{formatCurrency(invoice.amount, invoice.currency)}</td>
+                                            <td className="px-5 py-4"><Badge variant={status.variant}>{status.label}</Badge></td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 )}
-            </div>
-
-            {/* Modal: Add Invoice/Account */}
-            {showNewInvoiceMode && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-slate-800">Nueva Operación Financiera</h2>
-                            <button onClick={() => setShowNewInvoiceMode(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-                        </div>
-                        <form onSubmit={handleCreateInvoice} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tipo de Flujo</label>
-                                    <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-1">
-                                        <button type="button" onClick={() => setFormDir('ar')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${formDir === 'ar' ? 'bg-white shadow-sm text-primary' : 'text-slate-500'}`}>Por Cobrar (AR)</button>
-                                        <button type="button" onClick={() => setFormDir('ap')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${formDir === 'ap' ? 'bg-white shadow-sm text-accent-red' : 'text-slate-500'}`}>Por Pagar (AP)</button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Monto Total *</label>
-                                    <input required type="number" step="any" min="0" value={formAmount} onChange={e => setFormAmount(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="0.00" />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Cliente / Proveedor *</label>
-                                <input required type="text" value={formName} onChange={e => setFormName(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Nombre completo o razón social" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Referencia / Folio</label>
-                                    <input type="text" value={formRef} onChange={e => setFormRef(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="F-2091" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Vencimiento</label>
-                                    <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-600" />
-                                </div>
-                            </div>
-
-                            <div className="pt-4 flex justify-end gap-3">
-                                <button type="button" onClick={() => setShowNewInvoiceMode(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700">Cancelar</button>
-                                <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg flex items-center gap-2">
-                                    {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Crear Cuenta'}
-                                </button>
-                            </div>
-                        </form>
-                    </motion.div>
-                </div>
-            )}
-
-            {/* Modal: Record Payment */}
-            {showPayModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100">
-                            <h2 className="text-lg font-bold text-slate-800">Registrar Pago</h2>
-                            <p className="text-xs text-slate-400 mt-0.5">Operación a la cuenta {showPayModal.reference || 'Sin Ref'} de {showPayModal.counterparty_name}</p>
-                        </div>
-                        <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Monto Parcial o Total</label>
-                                <input required type="number" step="any" min="0" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="0.00" />
-                                <span className="text-[10px] text-slate-400 mt-1 block">Saldo actual: {formatCurrency(showPayModal.amount, showPayModal.currency)}</span>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Método</label>
-                                <select value={payMethod} onChange={(e: any) => setPayMethod(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-700">
-                                    <option value="transfer">Transferencia</option>
-                                    <option value="cash">Efectivo</option>
-                                    <option value="card">Tarjeta</option>
-                                    <option value="other">Otro</option>
-                                </select>
-                            </div>
-                            <div className="pt-4 flex justify-end gap-3">
-                                <button type="button" onClick={() => setShowPayModal(null)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700">Cancelar</button>
-                                <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg flex items-center gap-2">
-                                    {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Confirmar'}
-                                </button>
-                            </div>
-                        </form>
-                    </motion.div>
-                </div>
-            )}
+            </section>
         </div>
     );
 };

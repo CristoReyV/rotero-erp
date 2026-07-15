@@ -3,21 +3,21 @@ import type {
     FinanceInvoice,
     FinanceOverview,
     FinanceCreateInvoicePayload,
-    FinanceRecordPaymentPayload
+    FinanceRecordPaymentPayload,
+    InvoiceDirection,
+    InvoiceStatus
 } from '@/types/finance';
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
-export async function getFinanceOverview(tenantId: string, startDate?: string, endDate?: string): Promise<FinanceOverview> {
+export async function getFinanceOverview(tenantId: string): Promise<FinanceOverview> {
     if (USE_MOCKS) {
         const { getMockFinanceOverview } = await import('@/mocks/finance.mock');
         return getMockFinanceOverview();
     }
 
     const { data, error } = await supabase.rpc('rpc_finance_overview', {
-        p_tenant_id: tenantId,
-        p_start_date: startDate || null,
-        p_end_date: endDate || null
+        p_tenant_id: tenantId
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
@@ -28,10 +28,8 @@ export async function getFinanceOverview(tenantId: string, startDate?: string, e
 export async function listFinanceInvoices(
     tenantId: string,
     limit: number = 50,
-    status?: string,
-    direction?: string,
-    startDate?: string,
-    endDate?: string
+    status?: InvoiceStatus,
+    direction?: InvoiceDirection
 ): Promise<FinanceInvoice[]> {
     if (USE_MOCKS) {
         const { getMockFinanceInvoices } = await import('@/mocks/finance.mock');
@@ -45,9 +43,7 @@ export async function listFinanceInvoices(
         p_tenant_id: tenantId,
         p_limit: limit,
         p_status: status || null,
-        p_direction: direction || null,
-        p_start_date: startDate || null,
-        p_end_date: endDate || null
+        p_direction: direction || null
     });
 
     if (error) throw error;

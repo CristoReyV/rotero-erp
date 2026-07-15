@@ -1,481 +1,381 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, History, ShieldCheck, AlertCircle, Truck, FileText, XCircle, CheckCircle, Loader2, Info } from 'lucide-react';
-import { KPICard } from '@/components/KPICard';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { AlertCircle, FileText, Loader2, RotateCw, Search, ShieldAlert, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/Badge';
+import { PageHeader } from '@/components/PageHeader';
+import { getCFDIDetail, listCFDIs } from '@/services/billing.service';
 import { useAuthStore } from '@/store/authStore';
-import { listCFDIs, createCFDI, getCFDIDetail, updateCFDI, upsertCartaPorte } from '@/services/billing.service';
-import type { CFDIListRow, CFDIWithDetail } from '@/types/billing';
+import type { CFDIFilters, CFDIListRow, CFDIStatus, CFDIWithDetail } from '@/types/billing';
 import type { BadgeVariant } from '@/types/common';
-import { motion } from 'motion/react';
-import { useModuleGate } from '@/hooks/useModuleGate';
-import { supabase } from '@/lib/supabase';
-import { isDemo } from '@/utils/appMode';
-import { useNavigate } from 'react-router-dom';
 
-const getStatusVariant = (status: string): BadgeVariant => {
-    switch (status) {
-        case 'Timbrado': return 'success';
-        case 'Pendiente': return 'warning';
-        case 'Error': return 'danger';
-        case 'Cancelado': return 'default';
-        default: return 'default';
+type BillingView = 'all' | 'draft' | 'registered' | 'error' | 'cancelled';
+
+const BILLING_VIEWS: { value: BillingView; label: string }[] = [
+    { value: 'all', label: 'Todos' },
+    { value: 'draft', label: 'Borradores' },
+    { value: 'registered', label: 'Registrados' },
+    { value: 'error', label: 'Errores' },
+    { value: 'cancelled', label: 'Cancelados' },
+];
+
+const STATUS_BY_VIEW: Partial<Record<BillingView, CFDIStatus>> = {
+    draft: 'draft',
+    registered: 'timbrado',
+    error: 'error',
+    cancelled: 'cancelado',
+};
+
+const isBillingView = (value: string | null): value is BillingView =>
+    BILLING_VIEWS.some((view) => view.value === value);
+
+const getStatusPresentation = (status: string): { label: string; variant: BadgeVariant } => {
+    switch (status.toLowerCase()) {
+        case 'timbrado':
+            return { label: 'Registrado internamente', variant: 'success' };
+        case 'draft':
+        case 'borrador':
+            return { label: 'Borrador', variant: 'default' };
+        case 'pendiente':
+            return { label: 'Pendiente interno', variant: 'warning' };
+        case 'error':
+            return { label: 'Error de registro', variant: 'danger' };
+        case 'cancelado':
+            return { label: 'Cancelado', variant: 'default' };
+        default:
+            return { label: 'Estado interno', variant: 'default' };
     }
 };
 
-const getStatusIcon = (status: string) => {
-    switch (status) {
-        case 'Timbrado': return <CheckCircle size={14} className="text-emerald-500" />;
-        case 'Pendiente': return <History size={14} className="text-amber-500" />;
-        case 'Error': return <XCircle size={14} className="text-red-500" />;
-        case 'Cancelado': return <XCircle size={14} className="text-slate-500" />;
-        default: return null;
+const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : 'No fue posible cargar la información.';
+
+const formatCurrency = (amount: number, currency = 'MXN') => {
+    try {
+        return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amount);
+    } catch {
+        return `${amount.toLocaleString('es-MX')} ${currency}`;
     }
+};
+
+const formatDate = (value?: string) => {
+    if (!value) return 'No registrado';
+    const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+    const date = new Date(normalizedValue);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(date);
 };
 
 const BillingPage = () => {
-    const activeTenant = useAuthStore((s) => s.activeTenant);
-    const getRole = useAuthStore((s) => s.getRole);
-    const isViewer = getRole() === 'viewer';
-    const isAdmin = getRole() === 'admin';
-    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTenant = useAuthStore((state) => state.activeTenant);
+    const role = useAuthStore((state) => state.getRole());
+    const isAdmin = role === 'admin';
 
+    const requestedView = searchParams.get('view');
+    const activeView: BillingView = isBillingView(requestedView) ? requestedView : 'all';
+    const query = searchParams.get('q')?.trim() ?? '';
+
+    const [queryInput, setQueryInput] = useState(query);
     const [cfdis, setCfdis] = useState<CFDIListRow[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchRfc, setSearchRfc] = useState('');
-    const [activeTab, setActiveTab] = useState('Todos');
-
-    const { isConfigured, loading: gateLoading, refresh: refreshGate } = useModuleGate('billing');
-
-    const [showNewModal, setShowNewModal] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [newClientRfc, setNewClientRfc] = useState('');
-    const [newTotal, setNewTotal] = useState('');
-    const [newStatus, setNewStatus] = useState<'timbrado' | 'draft'>('timbrado');
-
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [selectedCfdiId, setSelectedCfdiId] = useState<string | null>(null);
     const [selectedDetail, setSelectedDetail] = useState<CFDIWithDetail | null>(null);
-    const [loadingDetail, setLoadingDetail] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailError, setDetailError] = useState<string | null>(null);
+    const listRequestId = useRef(0);
+    const detailRequestId = useRef(0);
 
-    // Carta Porte Upsert Form
-    const [cpOrigin, setCpOrigin] = useState('');
-    const [cpDest, setCpDest] = useState('');
+    const filters = useMemo<CFDIFilters>(() => ({
+        status: STATUS_BY_VIEW[activeView],
+        searchText: query || undefined,
+    }), [activeView, query]);
 
-    const fetchData = async () => {
-        if (!activeTenant) return;
-        setLoading(true);
-        try {
-            const data = await listCFDIs(activeTenant, {
-                rfc: searchRfc || undefined,
-                searchText: searchTerm || undefined
-            });
-            setCfdis(data);
-        } catch (err) {
-            console.error('Failed to load CFDIs:', err);
-        } finally {
+    const loadCFDIs = useCallback(async () => {
+        const requestId = ++listRequestId.current;
+        if (!isAdmin || !activeTenant) {
+            setCfdis([]);
             setLoading(false);
+            setError(null);
+            return;
         }
-    };
+
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await listCFDIs(activeTenant, filters);
+            if (requestId === listRequestId.current) setCfdis(data);
+        } catch (loadError) {
+            if (requestId === listRequestId.current) {
+                setCfdis([]);
+                setError(getErrorMessage(loadError));
+            }
+        } finally {
+            if (requestId === listRequestId.current) setLoading(false);
+        }
+    }, [activeTenant, filters, isAdmin]);
+
+    const loadDetail = useCallback(async (cfdiId: string) => {
+        if (!isAdmin) return;
+        const requestId = ++detailRequestId.current;
+        setDetailLoading(true);
+        setDetailError(null);
+        setSelectedDetail(null);
+        try {
+            const data = await getCFDIDetail(cfdiId);
+            if (requestId === detailRequestId.current) setSelectedDetail(data);
+        } catch (loadError) {
+            if (requestId === detailRequestId.current) setDetailError(getErrorMessage(loadError));
+        } finally {
+            if (requestId === detailRequestId.current) setDetailLoading(false);
+        }
+    }, [isAdmin]);
 
     useEffect(() => {
-        if (isConfigured) {
-            fetchData();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTenant, searchRfc, searchTerm, isConfigured]);
+        setQueryInput(query);
+    }, [query]);
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!activeTenant || !newClientRfc) return;
-        setIsSubmitting(true);
-        try {
-            await createCFDI(activeTenant, {
-                rfc_receptor: newClientRfc,
-                rfc_emisor: 'DEF000000000', // Mock sender for now
-                total: newTotal ? Number(newTotal) : 0,
-                status: newStatus
-            });
-            setShowNewModal(false);
-            setNewClientRfc('');
-            setNewTotal('');
-            setNewStatus('timbrado');
-            await fetchData();
-        } catch (err) {
-            console.error('Failed to create CFDI:', err);
-        } finally {
-            setIsSubmitting(false);
-        }
+    useEffect(() => {
+        void loadCFDIs();
+        return () => {
+            listRequestId.current += 1;
+        };
+    }, [loadCFDIs]);
+
+    useEffect(() => {
+        detailRequestId.current += 1;
+        setSelectedCfdiId(null);
+        setSelectedDetail(null);
+        setDetailError(null);
+    }, [activeView, query]);
+
+    const changeView = (view: BillingView) => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('view', view);
+        setSearchParams(nextParams);
     };
 
-    const handleRowClick = async (cfdi: CFDIListRow) => {
-        if (!cfdi.db_id) return; // Ignore if mock lacking ID mapping
-        setSelectedCfdiId(cfdi.db_id);
-        setLoadingDetail(true);
-        try {
-            const data = await getCFDIDetail(cfdi.db_id);
-            setSelectedDetail(data);
-            setCpOrigin(data.carta_porte?.origin || '');
-            setCpDest(data.carta_porte?.destination || '');
-        } catch (err) {
-            console.error('Failed to load CFDI detail:', err);
-        } finally {
-            setLoadingDetail(false);
-        }
+    const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('view', activeView);
+        const nextQuery = queryInput.trim();
+        if (nextQuery) nextParams.set('q', nextQuery);
+        else nextParams.delete('q');
+        setSearchParams(nextParams);
     };
 
-    const handleUpdateStatus = async (newStat: 'timbrado' | 'cancelado' | 'error') => {
-        if (!selectedCfdiId) return;
-        setIsSubmitting(true);
-        try {
-            await updateCFDI(selectedCfdiId, { status: newStat });
-            // refresh
-            const data = await getCFDIDetail(selectedCfdiId);
-            setSelectedDetail(data);
-            await fetchData();
-        } catch (err) {
-            console.error('Failed to update status:', err);
-        } finally {
-            setIsSubmitting(false);
-        }
+    const openDetail = (cfdiId: string) => {
+        setSelectedCfdiId(cfdiId);
+        void loadDetail(cfdiId);
     };
 
-    const handleUpsertCp = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedCfdiId) return;
-        setIsSubmitting(true);
-        try {
-            await upsertCartaPorte(selectedCfdiId, {
-                origin: cpOrigin,
-                destination: cpDest,
-                trans_type: 'Autotransporte Federal'
-            });
-            // refresh
-            const data = await getCFDIDetail(selectedCfdiId);
-            setSelectedDetail(data);
-            await fetchData();
-        } catch (err) {
-            console.error('Failed to update CP:', err);
-        } finally {
-            setIsSubmitting(false);
-        }
+    const closeDetail = () => {
+        detailRequestId.current += 1;
+        setSelectedCfdiId(null);
+        setSelectedDetail(null);
+        setDetailError(null);
     };
 
-    const filteredCfdis = useMemo(() => {
-        if (activeTab === 'Todos') return cfdis;
-        return cfdis.filter(c => c.status === activeTab);
-    }, [cfdis, activeTab]);
-
-    if (gateLoading) {
+    if (!isAdmin) {
         return (
-            <div className="flex h-[80vh] items-center justify-center">
-                <Loader2 className="animate-spin text-slate-400" size={32} />
-            </div>
-        );
-    }
-
-    if (!isConfigured) {
-        return (
-            <div className="flex flex-col items-center justify-center p-12 bg-surface-card border border-tech-border/60 rounded-3xl mx-auto max-w-lg mt-20 text-center shadow-lg">
-                <div className="w-16 h-16 bg-blue-50/50 rounded-2xl flex items-center justify-center mb-6 border border-blue-100/50">
-                    <ShieldCheck size={32} className="text-blue-500" />
-                </div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-3">Configuración Requerida</h2>
-                <p className="text-sm text-slate-500 mb-8 leading-relaxed max-w-sm">
-                    Para emitir facturas y usar el módulo de finanzas/billing, requieres cargar tu información fiscal (CSD) y Llave Privada.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
-                    {isDemo && isAdmin && (
-                        <button
-                            onClick={async () => {
-                                try {
-                                    setIsSubmitting(true);
-                                    const { error } = await supabase.rpc('rpc_demo_configure_module', {
-                                        p_tenant_id: activeTenant,
-                                        p_module_name: 'billing'
-                                    });
-                                    if (error) {
-                                        alert(error.message);
-                                        return;
-                                    }
-                                    await refreshGate();
-                                } catch (err) {
-                                    console.error(err);
-                                } finally {
-                                    setIsSubmitting(false);
-                                }
-                            }}
-                            disabled={isSubmitting}
-                            className="flex items-center gap-2 px-6 py-3 bg-blue-100/50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold shadow-sm transition-all text-sm disabled:opacity-50"
-                        >
-                            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                            Configurar Certificados (Demo)
-                        </button>
-                    )}
-                    <button
-                        onClick={() => navigate('/security/settings')}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:-translate-y-0.5 transition-all text-sm disabled:opacity-50"
-                    >
-                        Ir a Configuración
-                    </button>
+            <div className="space-y-6">
+                <PageHeader
+                    title="Billing operativo y control fiscal interno"
+                    subtitle="Control interno de comprobantes · Registro fiscal interno"
+                />
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
+                    <ShieldAlert className="mx-auto mb-4 text-amber-600" size={32} />
+                    <h2 className="text-lg font-bold text-slate-800">Acceso limitado temporalmente</h2>
+                    <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
+                        Esta vista económica está disponible temporalmente solo para administración.
+                        La restricción definitiva debe resolverse en backend/RLS.
+                    </p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 relative">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Facturación & CFDI 4.0</h1>
-                    <p className="text-sm text-slate-400 mt-0.5">Salud fiscal y timbrado electrónico ({filteredCfdis.length} visibles)</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200/60 rounded-full">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot" />
-                        <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">PAC Online</span>
+        <div className="space-y-6">
+            <PageHeader
+                title="Billing operativo y control fiscal interno"
+                subtitle="Control interno de comprobantes · Registro fiscal interno"
+            />
+
+            <div className="rounded-2xl border border-blue-200/70 bg-blue-50/70 px-5 py-4">
+                <div className="flex items-start gap-3">
+                    <FileText className="mt-0.5 shrink-0 text-blue-600" size={20} />
+                    <div>
+                        <p className="text-sm font-bold text-slate-800">Sin integración SAT/PAC confirmada</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                            Los estados e identificadores se muestran como registros internos. Esta pantalla no confirma emisión,
+                            validación ni cancelación ante servicios fiscales externos.
+                        </p>
+                        <p className="mt-2 text-[11px] text-slate-500">
+                            Acceso frontend temporal para administración. La restricción definitiva debe resolverse en backend/RLS.
+                        </p>
                     </div>
-                    {!isViewer && (
-                        <button onClick={() => setShowNewModal(true)} className="flex items-center gap-2 px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold shadow-md shadow-accent-red/20 hover:shadow-lg hover:shadow-accent-red/30 transition-all">
-                            <Plus size={14} /> Nuevo CFDI
-                        </button>
-                    )}
                 </div>
             </div>
 
-            {/* Fiscal health cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard title="Folios Restantes" value="240" icon={FileText} className="animate-fade-in animate-fade-in-delay-1" />
-                <KPICard title="Timbrados" value={String(cfdis.filter(c => c.status === 'Timbrado').length)} change="ok" trend="up" icon={CheckCircle} className="animate-fade-in animate-fade-in-delay-2" />
-                <KPICard title="Pendientes" value={String(cfdis.filter(c => c.status === 'Pendiente' || c.status === 'Borrador').length)} icon={History} className="animate-fade-in animate-fade-in-delay-3" />
-                <KPICard title="Errores / Canc." value={String(cfdis.filter(c => c.status === 'Error' || c.status === 'Cancelado').length)} icon={AlertCircle} className="animate-fade-in animate-fade-in-delay-4" />
-            </div>
-
-            {/* Quick actions (Visual placeholders only, not implemented complex flows yet except for top line) */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                    { icon: Plus, label: 'Nuevo CFDI 4.0', desc: 'Generador de facturas', accent: true, onClick: !isViewer ? () => setShowNewModal(true) : undefined },
-                    { icon: Truck, label: 'Carta Porte', desc: 'Complemento logístico', accent: false },
-                    { icon: ShieldCheck, label: 'Validar RFC', desc: 'Verificación SAT', accent: false },
-                    { icon: XCircle, label: 'Cancelar UUID', desc: 'Proceso de cancelación', accent: false },
-                ].map((action, i) => (
-                    <button key={i} onClick={action.onClick} className={`p-4 rounded-2xl border text-left transition-all duration-200 group hover:scale-[1.02]
-          ${action.accent
-                            ? 'gradient-primary text-white border-transparent shadow-md shadow-primary/15'
-                            : 'bg-surface-card border-tech-border/60 hover:border-primary/30 hover:shadow-sm'}`}>
-                        <action.icon size={20} className={`mb-2 ${action.accent ? 'text-white/80' : 'text-primary group-hover:text-primary-light'}`} strokeWidth={1.8} />
-                        <p className={`text-sm font-bold ${action.accent ? 'text-white' : 'text-slate-700'}`}>{action.label}</p>
-                        <p className={`text-[10px] mt-0.5 ${action.accent ? 'text-white/60' : 'text-slate-400'}`}>{action.desc}</p>
-                    </button>
-                ))}
-            </div>
-
-            {/* Search + Filter */}
-            <div className="flex flex-wrap gap-3 items-center">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={15} />
-                    <input
-                        type="text"
-                        value={searchRfc}
-                        onChange={(e) => setSearchRfc(e.target.value)}
-                        placeholder="ENTER RFC (E.G. XAXX010101000)"
-                        className="w-full pl-9 pr-4 py-2.5 bg-surface-card border border-tech-border/60 rounded-xl text-sm placeholder:text-slate-300 uppercase focus:ring-2 focus:ring-primary/15 focus:border-primary/30 focus:outline-none transition-all font-mono"
-                    />
-                </div>
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={15} />
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Buscar UUID o Serie/Folio..."
-                        className="w-full pl-9 pr-4 py-2.5 bg-surface-card border border-tech-border/60 rounded-xl text-sm placeholder:text-slate-300 focus:ring-2 focus:ring-primary/15 focus:border-primary/30 focus:outline-none transition-all"
-                    />
-                </div>
-                <div className="flex bg-surface-card rounded-xl border border-tech-border/60 p-0.5 gap-0.5">
-                    {['Todos', 'Timbrado', 'Pendiente', 'Error', 'Borrador', 'Cancelado'].map((tab) => (
+            <div className="flex flex-col gap-4 rounded-2xl border border-tech-border/60 bg-surface-card p-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2">
+                    {BILLING_VIEWS.map((view) => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`text-[11px] font-semibold px-3.5 py-1.5 rounded-lg transition-all 
-              ${tab === activeTab ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-primary-50'}`}
+                            key={view.value}
+                            type="button"
+                            onClick={() => changeView(view.value)}
+                            className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                                activeView === view.value
+                                    ? 'bg-primary text-white shadow-sm'
+                                    : 'bg-slate-50 text-slate-500 hover:bg-primary-50 hover:text-primary'
+                            }`}
                         >
-                            {tab}
+                            {view.label}
                         </button>
                     ))}
                 </div>
+
+                <form onSubmit={submitSearch} className="flex w-full gap-2 lg:max-w-md">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={15} />
+                        <input
+                            type="search"
+                            value={queryInput}
+                            onChange={(event) => setQueryInput(event.target.value)}
+                            placeholder="Buscar UUID o folio"
+                            className="w-full rounded-xl border border-tech-border/60 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-primary/30 focus:ring-2 focus:ring-primary/15"
+                        />
+                    </div>
+                    <button type="submit" className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-light">
+                        Buscar
+                    </button>
+                </form>
             </div>
 
-            {/* SAT History Table */}
-            <div className="bg-surface-card rounded-2xl border border-tech-border/60 overflow-hidden hover:shadow-lg hover:shadow-primary/4 transition-all duration-300">
-                <div className="p-5 flex justify-between items-center border-b border-tech-border/40">
-                    <h3 className="font-bold text-slate-800">Historial SAT</h3>
-                </div>
-                <div className="divide-y divide-tech-border/40 min-h-[300px]">
-                    {loading ? (
-                        <div className="flex justify-center p-10"><Loader2 className="animate-spin text-slate-400" /></div>
-                    ) : filteredCfdis.length === 0 ? (
-                        <div className="p-10 text-center text-slate-400">Sin resultados</div>
-                    ) : (
-                        filteredCfdis.map((cfdi, i) => (
-                            <div key={i} onClick={() => handleRowClick(cfdi)} className="flex items-center gap-4 px-5 py-4 hover:bg-primary-50/20 transition-colors cursor-pointer group">
-                                <div className="shrink-0">
-                                    {getStatusIcon(cfdi.status)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-[13px] font-semibold text-slate-700">{cfdi.client}</p>
-                                        <Badge variant={getStatusVariant(cfdi.status)}>{cfdi.status}</Badge>
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                                        UUID: {cfdi.uuid} · Ref: {cfdi.folio}
-                                    </p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <p className="text-[13px] font-bold text-slate-800">{cfdi.amount}</p>
-                                    <p className={`text-[10px] font-semibold ${cfdi.cp === 'Validado' ? 'text-emerald-600' : cfdi.cp === 'Error RFC' ? 'text-red-500' : 'text-amber-500'}`}>
-                                        {cfdi.cp}
-                                    </p>
-                                </div>
-                            </div>
-                        ))
+            <section className="overflow-hidden rounded-2xl border border-tech-border/60 bg-surface-card">
+                <div className="flex items-center justify-between border-b border-tech-border/40 px-5 py-4">
+                    <div>
+                        <h2 className="font-bold text-slate-800">Comprobantes internos</h2>
+                        <p className="mt-0.5 text-[11px] text-slate-400">La búsqueda disponible cubre UUID o folio.</p>
+                    </div>
+                    {!loading && !error && activeTenant && (
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+                            {cfdis.length} registros
+                        </span>
                     )}
                 </div>
-            </div>
 
-            {/* Modals & Drawers */}
-
-            {showNewModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-slate-800">Generar CFDI Draft</h2>
-                            <button onClick={() => setShowNewModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-                        </div>
-                        <form onSubmit={handleCreate} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">RFC Receptor *</label>
-                                <input required autoFocus type="text" value={newClientRfc} onChange={(e) => setNewClientRfc(e.target.value.toUpperCase())}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                                    placeholder="XAXX010101000" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Total M.N.</label>
-                                <input type="number" min="0" step="any" value={newTotal} onChange={(e) => setNewTotal(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="0.00" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Estatus Inicial</label>
-                                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                                    <option value="draft">Borrador (Draft)</option>
-                                    <option value="timbrado">Timbrado Completo (Auto UUID)</option>
-                                </select>
-                            </div>
-                            <div className="pt-4 flex items-center justify-end gap-3">
-                                <button type="button" onClick={() => setShowNewModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700">Cancelar</button>
-                                <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg flex items-center gap-2">
-                                    {isSubmitting && <Loader2 size={14} className="animate-spin" />} Crear
+                {!activeTenant ? (
+                    <div className="p-10 text-center text-sm text-slate-500">Selecciona una organización activa para consultar registros.</div>
+                ) : loading ? (
+                    <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="animate-spin" size={20} /> Cargando comprobantes…
+                    </div>
+                ) : error ? (
+                    <div className="flex min-h-56 flex-col items-center justify-center p-8 text-center">
+                        <AlertCircle className="mb-3 text-red-500" size={28} />
+                        <p className="font-semibold text-slate-700">No fue posible cargar los comprobantes</p>
+                        <p className="mt-1 max-w-lg text-xs text-slate-500">{error}</p>
+                        <button type="button" onClick={() => void loadCFDIs()} className="mt-4 flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                            <RotateCw size={14} /> Reintentar
+                        </button>
+                    </div>
+                ) : cfdis.length === 0 ? (
+                    <div className="min-h-56 p-10 text-center">
+                        <FileText className="mx-auto mb-3 text-slate-300" size={30} />
+                        <p className="font-semibold text-slate-600">Sin registros para esta vista</p>
+                        <p className="mt-1 text-xs text-slate-400">Ajusta la vista o la búsqueda por UUID o folio.</p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-tech-border/40">
+                        {cfdis.map((cfdi) => {
+                            const status = getStatusPresentation(cfdi.status);
+                            return (
+                                <button
+                                    key={cfdi.db_id}
+                                    type="button"
+                                    onClick={() => openDetail(cfdi.db_id)}
+                                    className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-primary-50/30"
+                                >
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="truncate text-[13px] font-semibold text-slate-800">{cfdi.client || 'Receptor no registrado'}</p>
+                                            <Badge variant={status.variant}>{status.label}</Badge>
+                                        </div>
+                                        <p className="mt-1 truncate font-mono text-[10px] text-slate-400">
+                                            UUID almacenado: {cfdi.uuid || 'No registrado'} · Folio: {cfdi.folio || 'Sin folio'}
+                                        </p>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                        <p className="text-[13px] font-bold text-slate-800">{cfdi.amount}</p>
+                                        <p className="mt-0.5 text-[10px] font-semibold text-slate-400">Ver detalle interno</p>
+                                    </div>
                                 </button>
-                            </div>
-                        </form>
-                    </motion.div>
-                </div>
-            )}
+                            );
+                        })}
+                    </div>
+                )}
+            </section>
 
-            {/* CFDI Detail Drawer */}
             {selectedCfdiId && (
-                <div className="fixed inset-y-0 right-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4 w-full">
-                    <div className="flex-1 h-full w-full" onClick={() => setSelectedCfdiId(null)}></div>
-                    <motion.div initial={{ opacity: 0, x: 100 }} animate={{ opacity: 1, x: 0 }} className="bg-white h-full shadow-2xl overflow-y-auto w-full max-w-md absolute right-0">
-                        <div className="sticky top-0 bg-white/90 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between z-10">
+                <div className="fixed inset-0 z-50">
+                    <button type="button" aria-label="Cerrar detalle" onClick={closeDetail} className="absolute inset-0 bg-slate-900/35 backdrop-blur-sm" />
+                    <aside className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white shadow-2xl">
+                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-6 py-4 backdrop-blur">
                             <div>
-                                <h2 className="text-lg font-bold text-slate-800 font-mono">Detalle CFDI</h2>
+                                <h2 className="text-lg font-bold text-slate-800">Detalle interno</h2>
+                                <p className="text-[11px] text-slate-400">Consulta read-only del comprobante</p>
                             </div>
-                            <button onClick={() => setSelectedCfdiId(null)} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-lg">✕</button>
+                            <button type="button" onClick={closeDetail} aria-label="Cerrar" className="rounded-lg bg-slate-50 p-2 text-slate-400 hover:text-slate-600">
+                                <X size={18} />
+                            </button>
                         </div>
+
                         <div className="p-6">
-                            {loadingDetail || !selectedDetail ? (
-                                <div className="flex justify-center p-10"><Loader2 className="animate-spin text-slate-400" /></div>
-                            ) : (
-                                <div className="space-y-6">
-
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-500">Estado Local</span>
-                                            <Badge variant={getStatusVariant(selectedDetail.status)}>{selectedDetail.status.toUpperCase()}</Badge>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-500">UUID SAT</span>
-                                            <span className="font-semibold text-slate-700 font-mono text-xs">{selectedDetail.uuid}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-500">Receptor</span>
-                                            <span className="font-semibold text-slate-700">{selectedDetail.rfc_receptor}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm border-t border-slate-200 pt-2 mt-1">
-                                            <span className="text-slate-500">Total Pago</span>
-                                            <span className="font-bold text-slate-800">${(selectedDetail.total || 0).toLocaleString()} {selectedDetail.currency}</span>
-                                        </div>
-                                    </div>
-
-                                    {!isViewer && selectedDetail.status !== 'cancelado' && (
-                                        <div className="flex flex-wrap gap-2 pt-2">
-                                            {selectedDetail.status !== 'timbrado' && (
-                                                <button disabled={isSubmitting} onClick={() => handleUpdateStatus('timbrado')} className="flex-1 py-2 bg-emerald-50 text-emerald-700 font-semibold rounded-lg text-sm border border-emerald-100 hover:bg-emerald-100 transition-colors text-center">
-                                                    Marcar Timbrado
-                                                </button>
-                                            )}
-                                            <button disabled={isSubmitting} onClick={() => handleUpdateStatus('cancelado')} className="flex-1 py-2 bg-red-50 text-red-700 font-semibold rounded-lg text-sm border border-red-100 hover:bg-red-100 transition-colors text-center">
-                                                Cancelar CFDI
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <div className="pt-4 border-t border-slate-100">
-                                        <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-                                            <Info size={16} className="text-primary" /> Carta Porte (Complemento)
-                                        </h3>
-
-                                        {selectedDetail.carta_porte ? (
-                                            <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/50 text-sm mb-4">
-                                                <div className="flex justify-between border-b border-slate-200 pb-1 mb-1">
-                                                    <span className="text-slate-500">Origen</span> <span className="font-semibold">{selectedDetail.carta_porte.origin || 'N/A'}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-500">Destino</span> <span className="font-semibold">{selectedDetail.carta_porte.destination || 'N/A'}</span>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-slate-500 italic bg-white border border-dashed border-slate-200 p-4 rounded-xl text-center mb-4">
-                                                Sin complemento de carta porte asociado.
-                                            </p>
-                                        )}
-
-                                        {!isViewer && selectedDetail.status !== 'cancelado' && (
-                                            <form onSubmit={handleUpsertCp} className="space-y-4">
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <input
-                                                        type="text" value={cpOrigin} onChange={(e) => setCpOrigin(e.target.value)}
-                                                        placeholder="Origen (C.P.)" className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                    />
-                                                    <input
-                                                        type="text" value={cpDest} onChange={(e) => setCpDest(e.target.value)}
-                                                        placeholder="Destino (C.P.)" className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                    />
-                                                </div>
-                                                <button disabled={isSubmitting} type="submit" className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
-                                                    {isSubmitting && <Loader2 size={14} className="animate-spin" />} {selectedDetail.carta_porte ? 'Actualizar Carta Porte' : 'Vincular Carta Porte'}
-                                                </button>
-                                            </form>
-                                        )}
-                                    </div>
-
+                            {detailLoading ? (
+                                <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-slate-500">
+                                    <Loader2 className="animate-spin" size={20} /> Cargando detalle…
                                 </div>
-                            )}
+                            ) : detailError ? (
+                                <div className="flex min-h-64 flex-col items-center justify-center text-center">
+                                    <AlertCircle className="mb-3 text-red-500" size={28} />
+                                    <p className="font-semibold text-slate-700">No fue posible cargar el detalle</p>
+                                    <p className="mt-1 text-xs text-slate-500">{detailError}</p>
+                                    <button type="button" onClick={() => void loadDetail(selectedCfdiId)} className="mt-4 flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                                        <RotateCw size={14} /> Reintentar
+                                    </button>
+                                </div>
+                            ) : selectedDetail ? (
+                                <div className="space-y-5">
+                                    <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs leading-relaxed text-slate-600">
+                                        Identificadores y estados almacenados para control interno. Sin integración SAT/PAC confirmada.
+                                    </div>
+                                    <dl className="divide-y divide-slate-100 rounded-xl border border-slate-100 px-4">
+                                        {[
+                                            ['Estado del registro', getStatusPresentation(selectedDetail.status).label],
+                                            ['Serie / folio', `${selectedDetail.serie || ''}${selectedDetail.folio || ''}` || 'Sin folio'],
+                                            ['Identificador UUID almacenado', selectedDetail.uuid || 'No registrado'],
+                                            ['Receptor', selectedDetail.receptor_name || 'No registrado'],
+                                            ['RFC receptor', selectedDetail.rfc_receptor || 'No registrado'],
+                                            ['RFC emisor', selectedDetail.rfc_emisor || 'No registrado'],
+                                            ['Subtotal', formatCurrency(selectedDetail.subtotal || 0, selectedDetail.currency)],
+                                            ['Total', formatCurrency(selectedDetail.total || 0, selectedDetail.currency)],
+                                            ['Moneda', selectedDetail.currency || 'No registrada'],
+                                            ['Emisión registrada', formatDate(selectedDetail.issued_at)],
+                                            ['Alta interna', formatDate(selectedDetail.created_at)],
+                                        ].map(([label, value]) => (
+                                            <div key={label} className="py-3">
+                                                <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</dt>
+                                                <dd className="mt-1 break-words text-sm font-semibold text-slate-700">{value}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                </div>
+                            ) : null}
                         </div>
-                    </motion.div>
+                    </aside>
                 </div>
             )}
         </div>
