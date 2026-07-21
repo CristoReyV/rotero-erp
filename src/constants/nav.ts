@@ -38,7 +38,7 @@ export const ROUTE_TITLES: Record<string, string> = {
     '/inventory': 'Inventarios y Almacén',
     '/customs': 'Aduanas y Anexo 24',
     '/billing': 'Facturación y CFDI 4.0',
-    '/finance': 'Finanzas Corporativas',
+    '/finance': 'Finanzas operativas',
     '/commercial': 'Comercial y CRM',
     '/tracking': 'Tracking y GPS',
     '/reports': 'Reportes y BI',
