@@ -4,7 +4,14 @@ dist/
 coverage/
 .DS_Store
 *.log
-.env*
+
+# Environment files (never commit real values)
+.env
+.env.*
+.env.local
+.env.*.local
+.env.production
+.env.staging.local
 !.env.example
 
 # Local Netlify folder
