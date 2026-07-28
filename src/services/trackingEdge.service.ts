@@ -18,12 +18,11 @@ import type {
     DriverTrackingResponse,
     DriverEventPayload,
 } from '@/types/tracking';
+import { supabaseUrl } from '@/lib/supabase';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const BASE_URL =
-    import.meta.env.VITE_TRACKING_EDGE_BASE_URL ||
-    'https://hoxmscslxmbdfyyfkhrt.supabase.co/functions/v1';
+const BASE_URL = `${supabaseUrl}/functions/v1`;
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
