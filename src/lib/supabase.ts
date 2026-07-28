@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://hoxmscslxmbdfyyfkhrt.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'dummy_key';
+const configuredSupabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+
+if (!configuredSupabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+        'Configuración de Supabase incompleta: define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.',
+    );
+}
+
+export const supabaseUrl = configuredSupabaseUrl.replace(/\/+$/, '');
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: {
