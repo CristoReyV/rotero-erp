@@ -1,9 +1,16 @@
 # Tracking Backend — Especificación Técnica Definitiva
 
 > **Versión:** 1.0-LIVE · **Fecha:** 2026-02-24 · **Estado:** DESPLEGADO Y VERIFICADO
-> **Proyecto Supabase:** `hoxmscslxmbdfyyfkhrt` · **URL:** `https://hoxmscslxmbdfyyfkhrt.supabase.co`
+> **Proyecto Supabase:** `<SUPABASE_PROJECT_REF>` · **URL:** `https://<SUPABASE_PROJECT_REF>.supabase.co`
 > **Región:** us-east-1 · **Costo:** $0/mes
 > **Referencia:** TRACKING_TOKEN_SECURITY_DESIGN.md
+
+> **Nota de reconciliación (SEC.4B):** Las Edge Functions vigentes son
+> `track-public`, `driver-view` y `track-driver`. Se autentican mediante tokens
+> funcionales, requieren `verify_jwt=false` y todavía usan
+> `SUPABASE_SERVICE_ROLE_KEY` como estado legacy. La configuración explícita,
+> CORS staging y migración de credenciales quedan pendientes de SEC.4C–SEC.4H.
+> `track-admin` no está implementada en el árbol actual y queda fuera de SEC.4.
 
 ---
 
@@ -250,7 +257,7 @@ $$;
 
 ```
 // Conceptual — no es código de producción aún
-const token = "ce3b95c1-d7ad-4527-a1d2-5bc1bc2467bc";
+const token = "<PUBLIC_TOKEN>";
 const data = new TextEncoder().encode(token);
 const hash = await crypto.subtle.digest("SHA-256", data);
 const hex = Array.from(new Uint8Array(hash))
@@ -267,14 +274,15 @@ const hex = Array.from(new Uint8Array(hash))
    → Retorna UUID literal en la respuesta (ÚNICA VEZ)
 
 2. DISTRIBUCIÓN: El operador ERP copia el link y lo envía por WhatsApp/email
-   El token literal viaja solo en la URL: /t/ce3b95c1-d7ad-...
+   El token literal viaja solo en la URL: /t/<PUBLIC_TOKEN>
 
 3. VALIDACIÓN: Cada request calcula SHA-256(token_del_request) y busca en DB
    → Si no hay match: 404 (scope-blind)
    → Si hay match: verificar state, expires_at, scope
 
-4. ALMACENAMIENTO: La DB solo contiene el hash. Ni logs, ni audit, ni respuestas
-   de error contienen el token literal. Solo hash truncado para correlación.
+4. ALMACENAMIENTO: La DB solo contiene el hash. Las respuestas de error no
+   exponen el token. Pendiente de hardening: track-driver todavía registra los
+   primeros ocho caracteres del token en errores RPC; SEC.4B no modifica código.
 ```
 
 ---
@@ -344,13 +352,13 @@ ALTER TABLE tracking_access_log ENABLE ROW LEVEL SECURITY;
 
 ## D. Contratos de Endpoints (Edge Functions)
 
-### D.1 `GET /functions/v1/track-public?token=:publicToken`
+### D.1 `GET /functions/v1/track-public?token=<PUBLIC_TOKEN>`
 
 **Propósito:** Retorna `PublicTrackingView` sanitizado para el link del cliente.
 
 **Request:**
 ```
-GET /functions/v1/track-public?token=ce3b95c1-d7ad-4527-a1d2-5bc1bc2467bc
+GET /functions/v1/track-public?token=<PUBLIC_TOKEN>
 Headers: (ninguno requerido — acceso público)
 ```
 
@@ -364,7 +372,7 @@ Headers: (ninguno requerido — acceso público)
    2d. Redondear coordenadas a 2 decimales (GEO-01: ~1.1 km)
    2e. Omitir location si delivered (GEO-03) o si null (GEO-04)
    2f. Update last_used_at (async)
-3. Log access en tracking_access_log (fire-and-forget)
+3. Esperar el log best-effort con Promise.allSettled; un fallo no invalida la respuesta
 4. Return JSON + X-Robots-Tag: noindex + Cache-Control: 60s
 ```
 
@@ -415,8 +423,12 @@ Headers: (ninguno requerido — acceso público)
 ```
 X-Robots-Tag: noindex, nofollow
 Cache-Control: public, max-age=60, stale-while-revalidate=30
-Access-Control-Allow-Origin: *  (o restringir a dominios propios)
+Access-Control-Allow-Origin: <ORIGEN_PERMITIDO>
 ```
+
+La cabecera CORS solo se incluye para orígenes de la allowlist vigente; no se
+usa wildcard. `https://rotero-erp-staging.netlify.app` sigue pendiente de
+incorporación en SEC.4C.
 
 **NO-LEAK checklist para este endpoint:**
 - [x] No expone `orderId` UUID de DB → usa `orderRef` (referencia externa)
@@ -432,17 +444,17 @@ Access-Control-Allow-Origin: *  (o restringir a dominios propios)
 
 ---
 
-### D.2 `POST /functions/v1/driver-event`
+### D.2 `POST /functions/v1/track-driver`
 
 **Propósito:** El chofer crea un nuevo TrackingEvent.
 
 **Request:**
 ```
-POST /functions/v1/driver-event
+POST /functions/v1/track-driver
 Content-Type: application/json
 
 {
-    "driverToken": "936727b5-16b0-49e2-9449-83c70bdfe714",
+    "driverToken": "<DRIVER_TOKEN>",
     "action": "in_transit",
     "location": {
         "lat": 26.5080,
@@ -524,7 +536,7 @@ Content-Type: application/json
 
 ---
 
-### D.3 `GET /functions/v1/driver-view?token=:driverToken`
+### D.3 `GET /functions/v1/driver-view?token=<DRIVER_TOKEN>`
 
 **Propósito:** Retorna `DriverView` sanitizado para la mini-web del chofer.
 
@@ -591,7 +603,7 @@ Content-Type: application/json
 | # | Caso | Input | Expected | Verificado |
 |---|------|-------|----------|:----------:|
 | T07 | driverToken en endpoint público | `rpc_get_public_tracking(driver_token)` | `{status: 'not_found'}` (idéntico a token inexistente) | ✅ |
-| T08 | Token inexistente | `rpc_get_public_tracking('00000000-...')` | `{status: 'not_found'}` | ✅ |
+| T08 | Token inexistente | `rpc_get_public_tracking('<PUBLIC_TOKEN>')` | `{status: 'not_found'}` | ✅ |
 | T09 | PublicView no contiene IDs de DB | Inspeccionar response | Solo `orderRef`, `evt-N`. Sin UUIDs internos | ✅ |
 
 ### F.3 Anti-ruido y validaciones
@@ -628,6 +640,6 @@ Content-Type: application/json
 |---------|-----|-------|
 | Tenant | `aaaaaaaa-0000-...-0001` | WLS Rotero Test |
 | Operación | `bbbbbbbb-0000-...-0001` | ROT-26-001, Nuevo Laredo → Monterrey |
-| publicToken (activo) | hash almacenado | Literal: `ce3b95c1-d7ad-4527-a1d2-5bc1bc2467bc` |
-| driverToken (REVOCADO) | hash almacenado | Literal: `936727b5-16b0-49e2-9449-83c70bdfe714` |
+| publicToken (activo) | hash almacenado | Ejemplo: `<PUBLIC_TOKEN>` |
+| driverToken (REVOCADO) | hash almacenado | Ejemplo: `<DRIVER_TOKEN>` |
 | Eventos | 3 | departure + 2x in_transit |

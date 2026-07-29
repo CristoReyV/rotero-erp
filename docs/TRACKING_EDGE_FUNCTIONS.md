@@ -1,6 +1,11 @@
 # Edge Functions — Tracking Module
-> **Versión:** 1.0 · **Fecha:** 2026-02-24
+> **Versión:** 1.1 · **Fecha de reconciliación:** 2026-07-29
 > **Módulo:** OPS_TRACK · **Ref:** TRACKING_TOKEN_SECURITY_DESIGN.md
+
+> **Estado verificado del árbol:** existen `track-public`, `driver-view` y
+> `track-driver`. `track-admin` no está implementada en el árbol actual y queda
+> fuera del alcance de SEC.4. Los fragmentos siguientes describen el contrato y
+> el comportamiento vigente; el código fuente es la autoridad final.
 
 ---
 
@@ -8,13 +13,11 @@
 
 ```
 supabase/functions/
-├── track-public/          ← GET /functions/v1/track-public?token=xxx
+├── track-public/          ← GET /functions/v1/track-public?token=<PUBLIC_TOKEN>
 │   └── index.ts
-├── driver-view/           ← GET /functions/v1/driver-view?token=xxx
+├── driver-view/           ← GET /functions/v1/driver-view?token=<DRIVER_TOKEN>
 │   └── index.ts
-├── driver-event/          ← POST /functions/v1/driver-event
-│   └── index.ts
-├── track-admin/           ← POST /functions/v1/track-admin  (create/revoke/rotate)
+├── track-driver/          ← POST /functions/v1/track-driver
 │   └── index.ts
 └── _shared/
     ├── cors.ts            ← Headers CORS comunes
@@ -86,14 +89,20 @@ Deno.serve(async (req: Request) => {
     hard_expired: 410,
   }[status] || 404;
 
-  // Log access (fire-and-forget)
-  const ipHash = await hashString(ip + new Date().toISOString().slice(0, 10));
-  supabase.from("tracking_access_log").insert({
-    token_hash: await hashString(token),
-    ip_hash: ipHash,
-    user_agent: (req.headers.get("user-agent") || "").substring(0, 200),
-    country_code: req.headers.get("cf-ipcountry") || null,
-  }); // No await — fire and forget
+  // Log de acceso best-effort. Se espera para que el runtime ejecute la
+  // operación, pero un fallo del log no invalida la respuesta principal.
+  const [tokenHash, ipHash] = await Promise.all([
+    hashString(token),
+    hashString(ip + new Date().toISOString().slice(0, 10)),
+  ]);
+  await Promise.allSettled([
+    supabase.from("tracking_access_log").insert({
+      token_hash: tokenHash,
+      ip_hash: ipHash,
+      user_agent: (req.headers.get("user-agent") || "").substring(0, 200),
+      country_code: req.headers.get("cf-ipcountry") || null,
+    }),
+  ]);
 
   return jsonResponse(httpCode, data, {
     ...corsHeaders,
@@ -113,7 +122,7 @@ async function hashString(input: string): Promise<string> {
 
 ### Notas de diseño:
 - **Rate limit en memoria:** Usa un `Map<string, number[]>` con sliding window. En producción a escala, migrar a Deno KV o Upstash Redis.
-- **Fire-and-forget logging:** El INSERT al access_log no bloquea la respuesta.
+- **Access log best-effort:** El INSERT se espera mediante `Promise.allSettled`; su fallo no invalida la respuesta principal.
 - **Cache-Control:** 60s TTL + stale-while-revalidate para absorber ráfagas de WhatsApp.
 - **X-Robots-Tag:** Previene indexación de las respuestas.
 
@@ -171,7 +180,7 @@ Deno.serve(async (req: Request) => {
 
 ---
 
-## 3. `driver-event/index.ts` — POST TrackingEvent
+## 3. `track-driver/index.ts` — POST TrackingEvent
 
 ```typescript
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -263,7 +272,10 @@ Deno.serve(async (req: Request) => {
   });
 
   if (error) {
-    console.error("[driver-event] RPC error:", error.message);
+    console.error(
+      `[track-driver] RPC error for ${driverToken.substring(0, 8)}...:`,
+      error.message,
+    );
     return errorResponse(500, "internal_error");
   }
 
@@ -282,25 +294,34 @@ Deno.serve(async (req: Request) => {
 ## 4. `_shared/cors.ts`
 
 ```typescript
-// Dominios permitidos — restringir en producción
+// Allowlist vigente en el árbol actual.
 const ALLOWED_ORIGINS = [
   "https://erp.rotero.mx",
   "https://tracking.rotero.mx",
+  "https://roterowlsbeta.netlify.app",
+  "https://staging.rotero.mx",
   "http://localhost:3000",
   "http://localhost:5173",
 ];
 
-export function getCorsOrigin(req: Request): string {
+export function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") || "";
-  return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const headers = {
+    "Access-Control-Allow-Headers": "content-type, x-client-info",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Vary": "Origin",
+  };
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
 }
-
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",  // Restringir en producción con getCorsOrigin()
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
 ```
+
+La implementación no usa wildcard: un origen no incluido no recibe
+`Access-Control-Allow-Origin`. El dominio
+`https://rotero-erp-staging.netlify.app` todavía no forma parte de la allowlist;
+su incorporación queda pendiente para SEC.4C.
 
 ---
 
@@ -366,7 +387,7 @@ export function errorResponse(status: number, reason: string, extraHeaders: Reco
 
 ## 7. Flujo Completo Request → Response
 
-### GET /functions/v1/track-public?token=xxx
+### GET `/functions/v1/track-public?token=<PUBLIC_TOKEN>`
 
 ```
 Browser → Edge Function (track-public)
@@ -379,14 +400,14 @@ Browser → Edge Function (track-public)
   │   ├── Round coordinates GEO-01 (2 decimals)
   │   ├── Omit location if delivered (GEO-03) or null (GEO-04)
   │   └── Return JSONB {status, data: PublicTrackingView}
-  ├── Log access (fire-and-forget)
+  ├── Esperar access log best-effort con Promise.allSettled
   └── Return JSON response + X-Robots-Tag + Cache-Control
 ```
 
-### POST /functions/v1/driver-event
+### POST /functions/v1/track-driver
 
 ```
-Driver App → Edge Function (driver-event)
+Driver App → Edge Function (track-driver)
   ├── Parse + validate JSON body
   ├── Rate limit check (IP, 20 req/hour)
   ├── Resolve geocoding (if source=gps and coords present)
@@ -408,35 +429,59 @@ Driver App → Edge Function (driver-event)
 
 ---
 
-## 8. Setup para Deploy
+## 8. Configuración de autenticación y deploy
+
+Las tres rutas vigentes se autentican con tokens funcionales propios
+(`<PUBLIC_TOKEN>` o `<DRIVER_TOKEN>`), no con una sesión Supabase. Los callers
+frontend actuales no envían `Authorization` ni `apikey`; por ello estas
+funciones requieren `verify_jwt = false`.
+
+`supabase/config.toml` todavía no contiene secciones `[functions.*]` que
+declaren esa configuración. SEC.4B no modifica el archivo ni afirma que ya esté
+corregido. Hasta SEC.4C, cualquier deploy debe conservar explícitamente el
+comportamiento sin verificación JWT:
 
 ```bash
-# Crear las functions
-supabase functions new track-public
-supabase functions new driver-view
-supabase functions new driver-event
-supabase functions new track-admin
-
-# Deploy individual
 supabase functions deploy track-public --no-verify-jwt
 supabase functions deploy driver-view   --no-verify-jwt
-supabase functions deploy driver-event  --no-verify-jwt
-supabase functions deploy track-admin   # Este SÍ verifica JWT (uso interno)
-
-# Variables de entorno necesarias (ya disponibles por defecto en Supabase):
-# SUPABASE_URL
-# SUPABASE_SERVICE_ROLE_KEY
-# SUPABASE_ANON_KEY
+supabase functions deploy track-driver  --no-verify-jwt
 ```
 
-### JWT Verification:
+### Estado de credenciales
 
-| Function | `--no-verify-jwt` | Razón |
-|----------|:------------------:|-------|
-| `track-public` | ✅ Sí | Acceso público, sin login |
-| `driver-view` | ✅ Sí | El chofer no tiene cuenta, solo token |
-| `driver-event` | ✅ Sí | Idem — autenticación es por token URL |
-| `track-admin` | ❌ No | Requiere sesión autenticada del ERP |
+El código vigente crea el cliente administrativo con `SUPABASE_URL` y
+`SUPABASE_SERVICE_ROLE_KEY`. Esto describe el estado legacy actual, no el estado
+objetivo. La migración a una secret moderna todavía no se ha implementado ni
+desplegado.
+
+### Matriz `verify_jwt`
+
+| Function | Requiere `verify_jwt=false` | Autenticación funcional |
+|----------|:---------------------------:|-------------------------|
+| `track-public` | Sí | `<PUBLIC_TOKEN>` |
+| `driver-view` | Sí | `<DRIVER_TOKEN>` |
+| `track-driver` | Sí | `<DRIVER_TOKEN>` |
+
+`track-admin` no está implementada en el árbol actual y queda fuera de SEC.4.
+No debe crearse ni desplegarse como parte de este plan.
+
+### Hardening pendiente
+
+- `track-driver` todavía incluye los primeros ocho caracteres del token en el
+  log de errores RPC. Su eliminación queda pendiente; SEC.4B no modifica código.
+- La allowlist CORS todavía debe incorporar el dominio Netlify staging.
+- `verify_jwt=false` debe quedar explícito en `supabase/config.toml`.
+
+### Plan de migración vigente
+
+1. **SEC.4C:** soporte dual de secret moderna con fallback legacy temporal,
+   configuración explícita de `verify_jwt=false`, CORS staging y hardening del log.
+2. **SEC.4D:** alta manual de la secret `tracking-edge`.
+3. **SEC.4E:** canary de `driver-view`.
+4. **SEC.4F:** migración de `track-public` y `track-driver`.
+5. **SEC.4G:** QA integral de tracking.
+6. **SEC.4H:** retirar el fallback y revocar la credencial legacy cuando no
+   existan consumidores pendientes.
 
 ---
 
@@ -446,6 +491,8 @@ supabase functions deploy track-admin   # Este SÍ verifica JWT (uso interno)
 |---------------|------|---------------|-----|-------|
 | `/t/:token` | GET | `track-public` | `rpc_get_public_tracking` | `public:read` |
 | `/driver/:token` (load) | GET | `driver-view` | `rpc_get_driver_view` | `driver:write` |
-| `/driver/:token` (action) | POST | `driver-event` | `rpc_post_driver_event` | `driver:write` |
-| `/tracking` (create token) | POST | `track-admin` | `rpc_create_tracking_token` | `internal` |
-| `/tracking` (revoke token) | POST | `track-admin` | `rpc_revoke_tracking_token` | `internal` |
+| `/driver/:token` (action) | POST | `track-driver` | `rpc_post_driver_event` | `driver:write` |
+
+Las acciones internas de creación, revocación y rotación de tokens usan RPCs
+del backend existente; no existe una Edge Function `track-admin` en el árbol
+actual.

@@ -390,7 +390,7 @@ CREATE INDEX tracking_events_operation_time_idx
 
 ```
 Browser (chofer)
-    ↓  POST /functions/v1/driver-event
+    ↓  POST /functions/v1/track-driver
 Edge Function (Deno)
     ├── Valida JWT de Supabase (anon key del chofer)
     ├── sha256(driverToken) → lookup en tracking_tokens
