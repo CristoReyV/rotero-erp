@@ -8,11 +8,11 @@
  * Cache-Control: no-store (real-time driver data)
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { CACHE } from "../_shared/security-headers.ts";
 import { checkRateLimit, LIMITS } from "../_shared/rate-limit.ts";
 import { jsonResponse, errorResponse } from "../_shared/response.ts";
+import { createSupabaseAdminClient } from "../_shared/supabase-admin.ts";
 
 Deno.serve(async (req: Request) => {
     // ── CORS preflight ──
@@ -49,10 +49,16 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Call RPC ──
-    const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    let supabase: ReturnType<typeof createSupabaseAdminClient>;
+    try {
+        supabase = createSupabaseAdminClient();
+    } catch {
+        console.error("[driver-view] Admin client configuration error");
+        return errorResponse(500, "internal_error", {
+            ...corsHeaders,
+            "Cache-Control": CACHE.NO_STORE,
+        });
+    }
 
     const { data, error } = await supabase.rpc("rpc_get_driver_view", {
         p_token: token,
