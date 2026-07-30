@@ -4,15 +4,15 @@
  * Driver posts a tracking event. Delegates all validation to
  * rpc_post_driver_event (idempotency, cooldown, singletons, anomaly, etc.)
  *
- * NL-E1: Token literal NEVER in logs (only first 8 chars for correlation)
+ * NL-E1: Token literal NEVER in logs
  * NL-E5: Request body NEVER logged in full
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { CACHE } from "../_shared/security-headers.ts";
 import { checkRateLimit, LIMITS } from "../_shared/rate-limit.ts";
 import { jsonResponse, errorResponse } from "../_shared/response.ts";
+import { createSupabaseAdminClient } from "../_shared/supabase-admin.ts";
 
 const VALID_ACTIONS = new Set([
     "departure",
@@ -106,10 +106,16 @@ Deno.serve(async (req: Request) => {
     const stateName = manualPlace?.state || null;
 
     // ── Call RPC ──
-    const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    let supabase: ReturnType<typeof createSupabaseAdminClient>;
+    try {
+        supabase = createSupabaseAdminClient();
+    } catch {
+        console.error("[track-driver] Admin client configuration error");
+        return errorResponse(500, "internal_error", {
+            ...corsHeaders,
+            "Cache-Control": CACHE.NO_STORE,
+        });
+    }
 
     const { data, error } = await supabase.rpc("rpc_post_driver_event", {
         p_token: driverToken,
@@ -128,11 +134,8 @@ Deno.serve(async (req: Request) => {
     });
 
     if (error) {
-        // NL-E3: Never expose SQL error. NL-E1: only log token prefix.
-        console.error(
-            `[track-driver] RPC error for ${driverToken.substring(0, 8)}...:`,
-            error.message,
-        );
+        // NL-E3: Never expose SQL error. NL-E1: never log token material.
+        console.error("[track-driver] RPC error:", error.message);
         return errorResponse(500, "internal_error", {
             ...corsHeaders,
             "Cache-Control": CACHE.NO_STORE,

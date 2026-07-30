@@ -2,7 +2,7 @@
  * track-public — GET /functions/v1/track-public?token=xxx
  *
  * Returns PublicTrackingView sanitized by rpc_get_public_tracking.
- * Logs access to tracking_access_log (fire-and-forget).
+ * Best-effort access logging; failures do not block the main response.
  *
  * NL-18: X-Robots-Tag: noindex, nofollow
  * NL-19: CORS restricted to whitelisted origins
@@ -10,11 +10,11 @@
  * NL-E3: SQL errors NEVER exposed to client
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { CACHE } from "../_shared/security-headers.ts";
 import { checkRateLimit, LIMITS } from "../_shared/rate-limit.ts";
 import { jsonResponse, errorResponse, sha256 } from "../_shared/response.ts";
+import { createSupabaseAdminClient } from "../_shared/supabase-admin.ts";
 
 Deno.serve(async (req: Request) => {
     // ── CORS preflight ──
@@ -60,11 +60,17 @@ Deno.serve(async (req: Request) => {
         });
     }
 
-    // ── Call RPC (service_role bypasses RLS) ──
-    const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // ── Call RPC with server-side admin client ──
+    let supabase: ReturnType<typeof createSupabaseAdminClient>;
+    try {
+        supabase = createSupabaseAdminClient();
+    } catch {
+        console.error("[track-public] Admin client configuration error");
+        return errorResponse(500, "internal_error", {
+            ...corsHeaders,
+            "Cache-Control": CACHE.NO_STORE,
+        });
+    }
 
     const { data, error } = await supabase.rpc("rpc_get_public_tracking", {
         p_token: token,
