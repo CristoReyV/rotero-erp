@@ -476,7 +476,7 @@ No debe crearse ni desplegarse como parte de este plan.
 
 1. **SEC.4C:** soporte dual de secret moderna con fallback legacy temporal,
    configuración explícita de `verify_jwt=false`, CORS staging y hardening del log.
-2. **SEC.4D:** alta manual de la secret `tracking-edge`.
+2. **SEC.4D:** alta manual de la secret `trackingedge`.
 3. **SEC.4E:** canary de `driver-view`.
 4. **SEC.4F:** migración de `track-public` y `track-driver`.
 5. **SEC.4G:** QA integral de tracking.
