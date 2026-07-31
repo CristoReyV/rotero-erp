@@ -1,6 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const MODERN_SECRET_NAME = "tracking-edge";
+const MODERN_SECRET_NAME = "trackingedge";
 const CONFIGURATION_ERROR = "supabase_admin_configuration_error";
 
 type CredentialSource =
