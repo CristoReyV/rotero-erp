@@ -10,7 +10,9 @@ export const AppLayout = () => {
         <div className="flex h-screen bg-surface overflow-hidden">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <Topbar />
+                <div className="pl-12 lg:pl-0">
+                    <Topbar />
+                </div>
                 <main className="flex-1 overflow-y-auto p-6 lg:p-8">
                     <AnimatePresence mode="wait">
                         <motion.div
