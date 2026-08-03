@@ -1,6 +1,6 @@
 # Tracking Backend — Especificación Técnica Definitiva
 
-> **Versión:** 1.0-LIVE · **Fecha:** 2026-02-24 · **Estado:** DESPLEGADO Y VERIFICADO
+> **Versión:** 1.1 · **Fecha de reconciliación:** 2026-08-03 · **Estado:** LEGACY + M4.1A LOCAL PENDIENTE
 > **Proyecto Supabase:** `<SUPABASE_PROJECT_REF>` · **URL:** `https://<SUPABASE_PROJECT_REF>.supabase.co`
 > **Región:** us-east-1 · **Costo:** $0/mes
 > **Referencia:** TRACKING_TOKEN_SECURITY_DESIGN.md
@@ -11,6 +11,14 @@
 > `SUPABASE_SERVICE_ROLE_KEY` como estado legacy. La configuración explícita,
 > CORS staging y migración de credenciales quedan pendientes de SEC.4C–SEC.4H.
 > `track-admin` no está implementada en el árbol actual y queda fuera de SEC.4.
+
+> **Reconciliación local M4.1A (2026-08-03; no aplicada):** La migración
+> `20260803142928_reconcile_tracking_rpc_contracts_m4_1.sql` propone corregir
+> los RPC internos contra el esquema real (`state`, `revoked_at`,
+> `revoked_by`), cerrar sus grants a `authenticated` y conservar el overload
+> legacy de creación como wrapper. Esta nota describe código local pendiente de
+> rollout; M4 y SEC.4 continúan abiertos. El fallback de credencial legacy sigue
+> activo y no está autorizada todavía ninguna revocación de credenciales.
 
 ---
 
@@ -214,13 +222,13 @@ CREATE INDEX tracking_access_log_hash_idx
 
 | Constraint | Mecanismo | Justificación |
 |------------|-----------|---------------|
-| `departure` irrepetible | ✅ **RPC validation** | La función `rpc_post_driver_event` verifica `count(*) WHERE event_type = 'departure'` antes del INSERT |
-| `delivered` irrepetible | ✅ **RPC validation** | Idem |
-| `arrival` requiere `departure` | ✅ **RPC validation** | Verifica existencia de departure previo |
-| Max 15 `in_transit` | ✅ **RPC validation** | `count(*) WHERE event_type = 'in_transit' >= 15` |
-| Cooldown 30 min | ✅ **RPC validation** | Compara `server_timestamp` del último `in_transit` |
-| Idempotency ±5s | ✅ **RPC validation** | Busca match en `(token_id, event_type, client_timestamp ± 5s)` |
-| Anomalía geográfica | ✅ **RPC validation** | Haversine distance > 300km en < 30min → marca `is_suspicious` |
+| Acción válida | ✅ **Edge + RPC** | `departure`, `in_transit`, `arrival`, `delivered`, `incident`; una acción inválida responde `400` |
+| Cooldown `in_transit` | ✅ **RPC validation** | 30 minutos; responde `200`, `accepted:false`, `reason:cooldown` |
+| Cooldown `incident` | ✅ **RPC validation** | 10 minutos; responde `200`, `accepted:false`, `reason:cooldown` |
+| Idempotencia general por timestamp | ❌ **No vigente** | La última definición versionada no deduplica por `clientTimestamp`; queda para M4.1B/M4.6 |
+| Singletones y secuencia de eventos | ❌ **No vigentes en la definición final** | No asumir respuestas `422` de versiones históricas |
+| Anomalía por precisión | ✅ **RPC validation** | `accuracy > 5000m` marca el evento como sospechoso |
+| Puntos de ruta GPS | ✅ **RPC validation** | Inserción separada con throttling de tiempo/distancia cuando aplica |
 
 **Decisión:** Todo se valida en la RPC (`SECURITY DEFINER`), no con triggers.
 
@@ -281,8 +289,8 @@ const hex = Array.from(new Uint8Array(hash))
    → Si hay match: verificar state, expires_at, scope
 
 4. ALMACENAMIENTO: La DB solo contiene el hash. Las respuestas de error no
-   exponen el token. Pendiente de hardening: track-driver todavía registra los
-   primeros ocho caracteres del token en errores RPC; SEC.4B no modifica código.
+   exponen el token. El código Edge vigente no registra el literal ni el body
+   completo; los errores RPC se registran sin prefijo del token.
 ```
 
 ---
@@ -576,9 +584,13 @@ Content-Type: application/json
 |-----|-------|-----------|
 | `rpc_get_public_tracking(p_token)` | `public:read` | PublicTrackingView sanitizado |
 | `rpc_get_driver_view(p_token)` | `driver:write` | DriverView sanitizado |
-| `rpc_post_driver_event(p_token, ...)` | `driver:write` | Insertar evento con 13 validaciones |
-| `rpc_create_tracking_token(tenant, op, scope, ttl?)` | `internal` | Crear token, retornar literal |
-| `rpc_revoke_tracking_token(token_id)` | `internal` | Revocar token irreversiblemente |
+| `rpc_post_driver_event(p_token, ...)` | `driver:write` | Insertar evento; `400` acción inválida, `404` token ausente, `403` revocado/expirado, `200` aceptado/cooldown |
+| `rpc_create_tracking_token(tenant, op, scope, ttl, force_rotate)` | `internal core` | Crear/rotar token; el literal solo se retorna al crear/rotar |
+| `rpc_create_tracking_token(tenant, op, scope)` | `internal legacy` | Wrapper no rotante hacia el core; retiro pendiente de consumidores |
+| `rpc_create_tracking_token(tenant, op, scope, ttl)` | `internal adapter` | Compatibilidad SQL histórica; delega con `force_rotate=false` |
+| `rpc_create_tracking_token(tenant, op, scope, force_rotate)` | `internal adapter` | Compatibilidad con las llamadas frontend que omiten TTL |
+| `rpc_list_tracking_tokens(tenant)` | `internal` | Listar metadatos sanitizados; sin hash en la propuesta M4.1A |
+| `rpc_revoke_tracking_token(token_id)` | `internal` | Revocación idempotente propuesta en M4.1A; rollout pendiente |
 | `tracking_validate_token(token, scope)` | helper | Validar token + computar estado efectivo |
 | `tracking_hash_token(token)` | helper | SHA-256 hex de un token literal |
 | `tracking_expire_tokens()` | cron | Marcar tokens expirados (ejecutar c/hora) |
@@ -591,12 +603,12 @@ Content-Type: application/json
 
 | # | Caso | Input | Expected | Verificado |
 |---|------|-------|----------|:----------:|
-| T01 | Crear publicToken | `rpc_create_tracking_token(tenant, op, 'public:read')` | Retorna `{token, token_id, scope, expires_at}`. expires_at = now + 7 días | ✅ |
-| T02 | Crear driverToken | `rpc_create_tracking_token(tenant, op, 'driver:write')` | expires_at = now + 48h | ✅ |
-| T03 | Revocar driverToken | `rpc_revoke_tracking_token(token_id)` | state → 'revoked', revoked_at set | ✅ |
-| T04 | Evento post-revocación | `rpc_post_driver_event(revoked_token, ...)` | `{http: 403, reason: 'token_revoked'}` | ✅ |
+| T01 | Crear publicToken | `rpc_create_tracking_token(tenant, op, 'public:read', null, false)` | Si no existe activo, retorna `{token, token_id, scope, expires_at}`; default 7 días | ⬜ M4.1A |
+| T02 | Crear driverToken | `rpc_create_tracking_token(tenant, op, 'driver:write', null, false)` | Si no existe activo, retorna literal una vez; default 48h | ⬜ M4.1A |
+| T03 | Revocar driverToken | `rpc_revoke_tracking_token(token_id)` | `state → revoked`; `revoked_at`/`revoked_by` establecidos | ⬜ M4.1A pendiente |
+| T04 | Evento post-revocación | `rpc_post_driver_event(revoked_token, ...)` | `{http: 403, accepted:false, reason:'revoked'}` | ⬜ M4.4 |
 | T05 | publicToken sigue activo post-revocación de driver | `rpc_get_public_tracking(public_token)` | `{status: 'success'}` con datos | ✅ |
-| T06 | Rotación: crear nuevo driverToken cuando ya existe uno activo | `rpc_create_tracking_token(...)` segunda vez | Anterior → state='rotated'. Nuevo → state='active' | ✅ |
+| T06 | Rotación explícita de driverToken activo | `rpc_create_tracking_token(..., p_force_rotate=true)` | Anterior → `rotated`; nuevo → `active`; literal nuevo una sola vez | ⬜ M4.1A |
 
 ### F.2 Scope-blind y NO-LEAK
 
@@ -610,11 +622,11 @@ Content-Type: application/json
 
 | # | Caso | Input | Expected | Verificado |
 |---|------|-------|----------|:----------:|
-| T10 | departure duplicado | Enviar departure 2 veces | `{http: 422, reason: 'action_already_done'}` | ✅ |
-| T11 | in_transit aceptado | Primer in_transit | `{http: 201, accepted: true, eventId: 'evt-2'}` | ✅ |
-| T12 | in_transit cooldown | Segundo in_transit inmediato (< 30 min) | `{http: 422, reason: 'cooldown_active'}` | ⬜ (requiere timing real) |
-| T13 | Max 15 in_transit | Insertar 16 in_transit | El #16 → `{reason: 'max_events_reached'}` | ⬜ (requiere 15 inserts) |
-| T14 | same_municipality dedup | in_transit con mismo municipio que el anterior | `{reason: 'same_municipality'}` | ⬜ (requiere GPS) |
+| T10 | Acción inválida | Enviar acción fuera del allowlist | `{http: 400, accepted: false, reason: 'invalid_action'}` | ⬜ M4.4 |
+| T11 | in_transit aceptado | Primer `in_transit` elegible | `{http: 200, accepted: true, eventId: <uuid>}` | ⬜ M4.4 |
+| T12 | in_transit cooldown | Segundo `in_transit` inmediato (< 30 min) | `{http: 200, accepted: false, reason: 'cooldown'}` | ⬜ M4.4 |
+| T13 | incident cooldown | Segundo `incident` inmediato (< 10 min) | `{http: 200, accepted: false, reason: 'cooldown'}` | ⬜ M4.4 |
+| T14 | Idempotencia general | Repetir otro evento con el mismo `clientTimestamp` | No garantizada por el contrato final; deuda M4.1B/M4.6 | ⬜ |
 
 **Leyenda:** ✅ = Verificado en smoke test · ⬜ = Verificable en test de integración (requiere delays o mock de clock)
 
