@@ -1,16 +1,83 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PanelLeftClose, PanelLeftOpen, HelpCircle, LogOut, X, BookOpen, Keyboard, Mail, ExternalLink } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants/nav';
 import { SidebarItem } from './SidebarItem';
 
+const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
+
 export const Sidebar = () => {
-    const [isOpen, setIsOpen] = useState(true);
+    const { pathname } = useLocation();
+    const [isDesktop, setIsDesktop] = useState(() => window.matchMedia(DESKTOP_MEDIA_QUERY).matches);
+    const [isOpen, setIsOpen] = useState(() => window.matchMedia(DESKTOP_MEDIA_QUERY).matches);
     const [showHelp, setShowHelp] = useState(false);
+    const mobileOpenButtonRef = useRef<HTMLButtonElement>(null);
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
+        const handleBreakpointChange = (event: MediaQueryListEvent) => {
+            setIsDesktop(event.matches);
+            setIsOpen(event.matches);
+        };
+
+        mediaQuery.addEventListener('change', handleBreakpointChange);
+        return () => mediaQuery.removeEventListener('change', handleBreakpointChange);
+    }, []);
+
+    useEffect(() => {
+        if (!isDesktop) setIsOpen(false);
+    }, [isDesktop, pathname]);
+
+    useEffect(() => {
+        if (isDesktop || !isOpen) return;
+
+        closeButtonRef.current?.focus();
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsOpen(false);
+                window.requestAnimationFrame(() => mobileOpenButtonRef.current?.focus());
+            }
+        };
+
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [isDesktop, isOpen]);
+
+    const closeMobileMenu = () => {
+        setIsOpen(false);
+        window.requestAnimationFrame(() => mobileOpenButtonRef.current?.focus());
+    };
 
     return (
         <>
+            {!isDesktop && !isOpen && (
+                <button
+                    ref={mobileOpenButtonRef}
+                    type="button"
+                    aria-label="Abrir menú"
+                    aria-controls="main-sidebar"
+                    aria-expanded="false"
+                    onClick={() => setIsOpen(true)}
+                    className="fixed left-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-sidebar text-slate-300 shadow-lg transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface lg:hidden"
+                >
+                    <PanelLeftOpen size={19} />
+                </button>
+            )}
+
+            {!isDesktop && isOpen && (
+                <button
+                    type="button"
+                    aria-label="Cerrar menú al tocar fuera"
+                    onClick={closeMobileMenu}
+                    className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-[2px] lg:hidden"
+                />
+            )}
+
             <aside
-                className={`bg-sidebar transition-all duration-300 flex flex-col shrink-0 z-30 ${isOpen ? 'w-[260px]' : 'w-[72px]'}`}
+                id="main-sidebar"
+                aria-label="Navegación principal"
+                className={`fixed inset-y-0 left-0 z-50 flex w-[min(280px,calc(100vw-2rem))] shrink-0 flex-col bg-sidebar transition-transform duration-300 lg:static lg:z-30 lg:translate-x-0 lg:transition-[width] ${isOpen ? 'translate-x-0 lg:w-[260px]' : '-translate-x-full lg:w-[72px]'}`}
             >
                 {/* Logo */}
                 <div className="px-5 py-5 flex items-center gap-3">
@@ -44,8 +111,11 @@ export const Sidebar = () => {
                 {/* Bottom section */}
                 <div className="mx-3 mb-2 space-y-0.5">
                     <button
-                        onClick={() => setShowHelp(true)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-all"
+                        onClick={() => {
+                            setShowHelp(true);
+                            if (!isDesktop) setIsOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                         <div className="flex items-center justify-center w-8 h-8 rounded-lg">
                             <HelpCircle size={18} strokeWidth={1.8} />
@@ -59,11 +129,15 @@ export const Sidebar = () => {
                 {/* Collapse toggle */}
                 <div className="p-3 flex items-center justify-center">
                     <button
-                        onClick={() => setIsOpen(!isOpen)}
-                        className="p-2 text-slate-500 hover:text-white hover:bg-white/8 rounded-lg transition-all"
-                        aria-label={isOpen ? 'Colapsar menú' : 'Expandir menú'}
+                        ref={closeButtonRef}
+                        type="button"
+                        onClick={() => isDesktop ? setIsOpen(!isOpen) : closeMobileMenu()}
+                        className="p-2 text-slate-500 hover:text-white hover:bg-white/8 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-controls="main-sidebar"
+                        aria-expanded={isOpen}
+                        aria-label={isDesktop ? (isOpen ? 'Colapsar menú' : 'Expandir menú') : 'Cerrar menú'}
                     >
-                        {isOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+                        {isDesktop && !isOpen ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
                     </button>
                 </div>
             </aside>
