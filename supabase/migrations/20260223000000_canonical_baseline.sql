@@ -62,13 +62,17 @@ CREATE INDEX invitations_tenant_created_idx ON public.invitations (tenant_id, cr
 CREATE TABLE public.audit_log (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    actor_id uuid,
+    actor_user_id uuid,
+    actor_email text,
+    actor_name text,
     action text NOT NULL,
     entity_type text NOT NULL,
     entity_id uuid,
     metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    details jsonb NOT NULL DEFAULT '{}'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT audit_log_metadata_object_check CHECK (jsonb_typeof(metadata) = 'object')
+    CONSTRAINT audit_log_metadata_object_check CHECK (jsonb_typeof(metadata) = 'object'),
+    CONSTRAINT audit_log_details_object_check CHECK (jsonb_typeof(details) = 'object')
 );
 
 CREATE INDEX audit_log_tenant_created_idx ON public.audit_log (tenant_id, created_at DESC);
@@ -182,7 +186,7 @@ CREATE TABLE public.crm_deals (
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL,
     title text NOT NULL,
-    company_name text,
+    company text,
     contact_name text,
     contact_email text,
     contact_phone text,
@@ -223,10 +227,11 @@ CREATE TABLE public.crm_deal_activity (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     deal_id uuid NOT NULL REFERENCES public.crm_deals(id) ON DELETE CASCADE,
-    actor_id uuid,
-    activity_type text NOT NULL,
-    payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-    created_at timestamptz NOT NULL DEFAULT now()
+    type text NOT NULL,
+    body text,
+    created_by uuid,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT crm_deal_activity_type_check CHECK (type IN ('note', 'call', 'email', 'meeting', 'status_change'))
 );
 
 CREATE TABLE public.crm_deal_notes (
@@ -242,11 +247,24 @@ CREATE TABLE public.crm_deal_checklist_items (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     deal_id uuid NOT NULL REFERENCES public.crm_deals(id) ON DELETE CASCADE,
+    stage text NOT NULL DEFAULT 'lead',
     label text NOT NULL,
-    is_complete boolean NOT NULL DEFAULT false,
+    is_done boolean NOT NULL DEFAULT false,
     completed_by uuid,
     completed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT crm_deal_checklist_stage_check CHECK (stage IN ('lead', 'qualified', 'proposal', 'won', 'lost'))
+);
+
+CREATE TABLE public.tenant_setup_status (
+    tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    module_name text NOT NULL,
+    is_configured boolean NOT NULL DEFAULT false,
+    config_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+    updated_by uuid,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, module_name),
+    CONSTRAINT tenant_setup_status_config_object_check CHECK (jsonb_typeof(config_data) = 'object')
 );
 
 -- ---------------------------------------------------------------------------
@@ -261,15 +279,15 @@ CREATE TABLE public.operations (
     client_display_name text,
     destination_city text,
     eta_display text,
-    status text NOT NULL DEFAULT 'draft',
+    status text NOT NULL DEFAULT 'planned',
     origin_place jsonb,
     destination_place jsonb,
     eta timestamptz,
     driver_id uuid REFERENCES public.drivers(id) ON DELETE SET NULL,
     vehicle_id uuid REFERENCES public.vehicles(id) ON DELETE SET NULL,
     planned_departure timestamptz,
-    priority text NOT NULL DEFAULT 'normal',
-    required_documents jsonb NOT NULL DEFAULT '[]'::jsonb,
+    priority text DEFAULT 'normal',
+    required_documents jsonb DEFAULT '[]'::jsonb,
     driver_name text,
     vehicle_ref text,
     assigned_at timestamptz,
@@ -279,7 +297,7 @@ CREATE TABLE public.operations (
     operational_window_start timestamptz,
     operational_window_end timestamptz,
     notes text,
-    cargo_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
+    cargo_summary jsonb DEFAULT '{}'::jsonb,
     source_deal_id uuid,
     customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL,
     operation_scope text NOT NULL DEFAULT 'national',
@@ -288,14 +306,14 @@ CREATE TABLE public.operations (
     provider_name text,
     external_driver jsonb NOT NULL DEFAULT '{}'::jsonb,
     external_vehicle jsonb NOT NULL DEFAULT '{}'::jsonb,
-    provider_cost numeric(14,2),
-    customer_price numeric(14,2),
+    provider_cost_amount numeric(14,2),
+    customer_price_amount numeric(14,2),
     pricing_currency text NOT NULL DEFAULT 'MXN',
     service_catalog_item_id uuid REFERENCES public.service_catalog_items(id) ON DELETE SET NULL,
     service_catalog_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
-    boxes_placed_days integer NOT NULL DEFAULT 0,
+    boxes_placed_days integer,
     documentation_received_at timestamptz,
-    documentation_note text,
+    documentation_received_note text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT operations_tenant_reference_key UNIQUE (tenant_id, reference_code),
@@ -311,8 +329,8 @@ CREATE TABLE public.operations (
     CONSTRAINT operations_external_vehicle_object_check CHECK (jsonb_typeof(external_vehicle) = 'object'),
     CONSTRAINT operations_service_snapshot_object_check CHECK (jsonb_typeof(service_catalog_snapshot) = 'object'),
     CONSTRAINT operations_pricing_nonnegative_check CHECK (
-        (provider_cost IS NULL OR provider_cost >= 0) AND
-        (customer_price IS NULL OR customer_price >= 0)
+        (provider_cost_amount IS NULL OR provider_cost_amount >= 0) AND
+        (customer_price_amount IS NULL OR customer_price_amount >= 0)
     )
 );
 
@@ -382,7 +400,7 @@ CREATE TABLE public.tracking_events (
     accuracy_m numeric(7,2),
     municipality text,
     state_name text,
-    country_code char(2) NOT NULL DEFAULT 'MX',
+    country_code char(2),
     incident_type text,
     incident_note text,
     is_suspicious boolean NOT NULL DEFAULT false,
@@ -440,61 +458,72 @@ CREATE TABLE public.billing_cfdis (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     operation_id uuid REFERENCES public.operations(id) ON DELETE SET NULL,
-    uuid_fiscal text,
+    uuid text,
     serie text,
     folio text,
-    tipo text NOT NULL DEFAULT 'I',
     status text NOT NULL DEFAULT 'draft',
     currency text NOT NULL DEFAULT 'MXN',
     subtotal numeric(14,2) NOT NULL DEFAULT 0,
-    tax_total numeric(14,2) NOT NULL DEFAULT 0,
     total numeric(14,2) NOT NULL DEFAULT 0,
-    rfc_emisor text,
-    rfc_receptor text,
+    rfc_emisor text NOT NULL,
+    rfc_receptor text NOT NULL,
+    receptor_name text,
+    has_carta_porte boolean NOT NULL DEFAULT false,
+    has_complemento_pago boolean NOT NULL DEFAULT false,
     issued_at timestamptz,
-    payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    cancelled_at timestamptz,
+    pac_provider text,
+    notes text,
+    exchange_rate numeric(18,6),
+    exchange_rate_date date,
+    subtotal_mxn numeric(14,2),
+    iva_mxn numeric(14,2),
+    total_mxn numeric(14,2),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT billing_cfdis_status_check CHECK (status IN ('draft', 'ready', 'issued', 'cancelled')),
+    CONSTRAINT billing_cfdis_status_check CHECK (status IN ('draft', 'timbrado', 'cancelado', 'error')),
     CONSTRAINT billing_cfdis_currency_check CHECK (currency IN ('MXN', 'USD')),
-    CONSTRAINT billing_cfdis_amounts_check CHECK (subtotal >= 0 AND tax_total >= 0 AND total >= 0),
-    CONSTRAINT billing_cfdis_payload_object_check CHECK (jsonb_typeof(payload) = 'object')
+    CONSTRAINT billing_cfdis_amounts_check CHECK (subtotal >= 0 AND total >= 0),
+    CONSTRAINT billing_cfdis_exchange_rate_check CHECK (exchange_rate IS NULL OR exchange_rate > 0)
 );
 
 CREATE UNIQUE INDEX billing_cfdis_tenant_uuid_uidx
-    ON public.billing_cfdis (tenant_id, uuid_fiscal) WHERE uuid_fiscal IS NOT NULL;
+    ON public.billing_cfdis (tenant_id, uuid) WHERE uuid IS NOT NULL;
 CREATE INDEX billing_cfdis_tenant_status_idx ON public.billing_cfdis (tenant_id, status, created_at DESC);
 
 CREATE TABLE public.billing_carta_porte (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     cfdi_id uuid NOT NULL UNIQUE REFERENCES public.billing_cfdis(id) ON DELETE CASCADE,
-    payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-    status text NOT NULL DEFAULT 'draft',
+    trans_type text,
+    vehicle_plate text,
+    carrier_name text,
+    origin text,
+    destination text,
+    goods_desc text,
     created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT billing_carta_porte_status_check CHECK (status IN ('draft', 'ready', 'issued', 'cancelled')),
-    CONSTRAINT billing_carta_porte_payload_object_check CHECK (jsonb_typeof(payload) = 'object')
+    updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE public.operation_billing (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     operation_id uuid NOT NULL UNIQUE REFERENCES public.operations(id) ON DELETE CASCADE,
-    status text NOT NULL DEFAULT 'pending',
-    currency text NOT NULL DEFAULT 'MXN',
-    amount numeric(14,2) NOT NULL DEFAULT 0,
+    status text NOT NULL DEFAULT 'draft',
+    billing_reference text,
+    issued_at timestamptz,
+    issued_by uuid,
     linked_cfdi_id uuid REFERENCES public.billing_cfdis(id) ON DELETE SET NULL,
+    notes text,
     admin_closed_at timestamptz,
     admin_closed_by uuid,
+    admin_close_override boolean NOT NULL DEFAULT false,
     voided_at timestamptz,
     voided_by uuid,
     void_reason text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT operation_billing_status_check CHECK (status IN ('pending', 'ready', 'issued', 'void')),
-    CONSTRAINT operation_billing_currency_check CHECK (currency IN ('MXN', 'USD')),
-    CONSTRAINT operation_billing_amount_check CHECK (amount >= 0)
+    CONSTRAINT operation_billing_status_check CHECK (status IN ('draft', 'issued', 'voided'))
 );
 
 CREATE INDEX operation_billing_tenant_status_idx ON public.operation_billing (tenant_id, status, created_at DESC);
@@ -503,19 +532,31 @@ CREATE TABLE public.finance_invoices (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL,
+    provider_id uuid REFERENCES public.logistics_providers(id) ON DELETE SET NULL,
     operation_id uuid REFERENCES public.operations(id) ON DELETE SET NULL,
-    invoice_number text NOT NULL,
-    status text NOT NULL DEFAULT 'draft',
-    currency text NOT NULL DEFAULT 'MXN',
+    linked_cfdi_id uuid REFERENCES public.billing_cfdis(id) ON DELETE SET NULL,
+    billing_document_id uuid,
+    payroll_period_id uuid,
+    direction text NOT NULL,
+    counterparty_name text NOT NULL,
+    reference text,
     amount numeric(14,2) NOT NULL,
+    currency text NOT NULL DEFAULT 'MXN',
+    status text NOT NULL DEFAULT 'open',
     due_date date,
-    issued_at timestamptz,
+    paid_at timestamptz,
+    received_at timestamptz,
+    notes text,
+    exchange_rate numeric(18,6),
+    exchange_rate_date date,
+    amount_mxn numeric(14,2),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT finance_invoices_tenant_number_key UNIQUE (tenant_id, invoice_number),
-    CONSTRAINT finance_invoices_status_check CHECK (status IN ('draft', 'issued', 'partial', 'paid', 'overdue', 'cancelled')),
+    CONSTRAINT finance_invoices_direction_check CHECK (direction IN ('ar', 'ap')),
+    CONSTRAINT finance_invoices_status_check CHECK (status IN ('draft', 'open', 'paid', 'overdue', 'void')),
     CONSTRAINT finance_invoices_currency_check CHECK (currency IN ('MXN', 'USD')),
-    CONSTRAINT finance_invoices_amount_check CHECK (amount >= 0)
+    CONSTRAINT finance_invoices_amount_check CHECK (amount >= 0),
+    CONSTRAINT finance_invoices_exchange_rate_check CHECK (exchange_rate IS NULL OR exchange_rate > 0)
 );
 
 CREATE INDEX finance_invoices_tenant_status_idx ON public.finance_invoices (tenant_id, status, created_at DESC);
@@ -525,14 +566,20 @@ CREATE TABLE public.finance_payments (
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     invoice_id uuid NOT NULL REFERENCES public.finance_invoices(id) ON DELETE CASCADE,
     amount numeric(14,2) NOT NULL,
-    currency text NOT NULL DEFAULT 'MXN',
     paid_at timestamptz NOT NULL DEFAULT now(),
-    method text,
-    reference text,
+    method text NOT NULL DEFAULT 'transfer',
+    note text,
+    bank_reference text,
+    currency text NOT NULL DEFAULT 'MXN',
+    exchange_rate numeric(18,6),
+    exchange_rate_date date,
+    amount_mxn numeric(14,2),
     created_by uuid,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT finance_payments_amount_check CHECK (amount > 0),
-    CONSTRAINT finance_payments_currency_check CHECK (currency IN ('MXN', 'USD'))
+    CONSTRAINT finance_payments_currency_check CHECK (currency IN ('MXN', 'USD')),
+    CONSTRAINT finance_payments_method_check CHECK (method IN ('transfer', 'cash', 'card', 'other')),
+    CONSTRAINT finance_payments_exchange_rate_check CHECK (exchange_rate IS NULL OR exchange_rate > 0)
 );
 
 CREATE INDEX finance_payments_tenant_invoice_idx ON public.finance_payments (tenant_id, invoice_id, paid_at DESC);
@@ -544,14 +591,22 @@ CREATE TABLE public.inventory_lots (
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     sku text NOT NULL,
     description text,
-    quantity numeric(14,3) NOT NULL DEFAULT 0,
-    unit text NOT NULL DEFAULT 'unit',
+    warehouse text,
+    lot_code text,
+    qty_on_hand numeric(14,3) NOT NULL DEFAULT 0,
+    qty_reserved numeric(14,3) NOT NULL DEFAULT 0,
+    unit_cost numeric(14,2),
+    currency text NOT NULL DEFAULT 'MXN',
+    unit text NOT NULL DEFAULT 'Piezas',
     status text NOT NULL DEFAULT 'available',
     received_at timestamptz NOT NULL DEFAULT now(),
-    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    pedimento_ref text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT inventory_lots_quantity_check CHECK (quantity >= 0)
+    CONSTRAINT inventory_lots_quantities_check CHECK (qty_on_hand >= 0 AND qty_reserved >= 0),
+    CONSTRAINT inventory_lots_unit_cost_check CHECK (unit_cost IS NULL OR unit_cost >= 0),
+    CONSTRAINT inventory_lots_currency_check CHECK (currency IN ('MXN', 'USD')),
+    CONSTRAINT inventory_lots_status_check CHECK (status IN ('available', 'blocked', 'depleted'))
 );
 
 CREATE INDEX inventory_lots_tenant_sku_idx ON public.inventory_lots (tenant_id, sku);
@@ -560,12 +615,22 @@ CREATE TABLE public.customs_pedimentos (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     pedimento_number text NOT NULL,
+    operation_id uuid REFERENCES public.operations(id) ON DELETE SET NULL,
+    aduana text,
+    regimen text,
+    tipo_operacion text,
     status text NOT NULL DEFAULT 'draft',
-    customs_office text,
-    payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    fecha_pago date,
+    fecha_entrada date,
+    fecha_salida date,
+    total_value numeric(14,2),
+    currency text NOT NULL DEFAULT 'MXN',
+    descargo_method text NOT NULL DEFAULT 'peps',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT customs_pedimentos_tenant_number_key UNIQUE (tenant_id, pedimento_number)
+    CONSTRAINT customs_pedimentos_tenant_number_key UNIQUE (tenant_id, pedimento_number),
+    CONSTRAINT customs_pedimentos_currency_check CHECK (currency IN ('MXN', 'USD')),
+    CONSTRAINT customs_pedimentos_value_check CHECK (total_value IS NULL OR total_value >= 0)
 );
 
 CREATE TABLE public.customs_descargo_lines (
@@ -573,9 +638,14 @@ CREATE TABLE public.customs_descargo_lines (
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     pedimento_id uuid NOT NULL REFERENCES public.customs_pedimentos(id) ON DELETE CASCADE,
     sequence_no integer NOT NULL,
-    payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    sku text NOT NULL,
+    lot_code text,
+    qty numeric(14,3) NOT NULL,
+    unit text NOT NULL DEFAULT 'Piezas',
+    inventory_lot_id uuid REFERENCES public.inventory_lots(id) ON DELETE SET NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT customs_descargo_lines_sequence_check CHECK (sequence_no > 0),
+    CONSTRAINT customs_descargo_lines_qty_check CHECK (qty > 0),
     CONSTRAINT customs_descargo_lines_key UNIQUE (pedimento_id, sequence_no)
 );
 
@@ -614,6 +684,9 @@ CREATE TRIGGER vehicles_touch_updated_at
     FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 CREATE TRIGGER crm_deals_touch_updated_at
     BEFORE UPDATE ON public.crm_deals
+    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+CREATE TRIGGER tenant_setup_status_touch_updated_at
+    BEFORE UPDATE ON public.tenant_setup_status
     FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 CREATE TRIGGER operations_touch_updated_at
     BEFORE UPDATE ON public.operations
@@ -778,7 +851,7 @@ CREATE FUNCTION public.rpc_create_operation(
     p_client_display_name text DEFAULT NULL,
     p_destination_city text DEFAULT NULL,
     p_eta_display text DEFAULT NULL,
-    p_status text DEFAULT 'draft',
+    p_status text DEFAULT 'planned',
     p_origin_place jsonb DEFAULT NULL,
     p_destination_place jsonb DEFAULT NULL,
     p_eta timestamptz DEFAULT NULL
@@ -843,6 +916,142 @@ BEGIN
             WHERE e.operation_id = p_operation_id AND e.event_type = 'delivered'
         )
     );
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_assign_operation(
+    p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_vehicle_id uuid,
+    p_planned_departure timestamptz, p_priority text DEFAULT 'normal'
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'operator']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    UPDATE public.operations AS o
+    SET driver_id = p_driver_id, vehicle_id = p_vehicle_id,
+        planned_departure = p_planned_departure, priority = p_priority,
+        assigned_at = now(), status = CASE WHEN o.status IN ('planned', 'draft') THEN 'assigned' ELSE o.status END
+    WHERE o.id = p_operation_id AND o.tenant_id = p_tenant_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    RETURN jsonb_build_object('success', true);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_assign_operation_v2(
+    p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_driver_name text,
+    p_vehicle_id uuid, p_vehicle_ref text, p_planned_departure timestamptz,
+    p_priority text DEFAULT 'normal'
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'operator']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    UPDATE public.operations AS o
+    SET driver_id = p_driver_id, driver_name = NULLIF(p_driver_name, ''),
+        vehicle_id = p_vehicle_id, vehicle_ref = NULLIF(p_vehicle_ref, ''),
+        planned_departure = p_planned_departure, priority = p_priority,
+        assigned_at = now(), status = CASE WHEN o.status IN ('planned', 'draft') THEN 'assigned' ELSE o.status END
+    WHERE o.id = p_operation_id AND o.tenant_id = p_tenant_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    RETURN jsonb_build_object('success', true);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_operation_details(p_operation_id uuid, p_patch jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT o.tenant_id INTO v_tenant_id FROM public.operations AS o WHERE o.id = p_operation_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id, ARRAY['admin', 'operator']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    UPDATE public.operations AS o SET
+        route_summary = COALESCE(p_patch->>'route_summary', o.route_summary),
+        client_display_name = COALESCE(p_patch->>'client_display_name', o.client_display_name),
+        destination_city = COALESCE(p_patch->>'destination_city', o.destination_city),
+        eta_display = COALESCE(p_patch->>'eta_display', o.eta_display),
+        priority = COALESCE(p_patch->>'priority', o.priority),
+        execution_type = COALESCE(p_patch->>'execution_type', o.execution_type),
+        provider_name = COALESCE(p_patch->>'provider_name', o.provider_name),
+        notes = COALESCE(p_patch->>'notes', o.notes),
+        documentation_received_note = COALESCE(p_patch->>'documentation_received_note', o.documentation_received_note),
+        external_driver = COALESCE(p_patch->'external_driver', o.external_driver),
+        external_vehicle = COALESCE(p_patch->'external_vehicle', o.external_vehicle),
+        required_documents = COALESCE(p_patch->'required_documents', o.required_documents),
+        cargo_summary = COALESCE(p_patch->'cargo_summary', o.cargo_summary),
+        provider_cost_amount = COALESCE((p_patch->>'provider_cost_amount')::numeric, o.provider_cost_amount),
+        customer_price_amount = COALESCE((p_patch->>'customer_price_amount')::numeric, o.customer_price_amount)
+    WHERE o.id = p_operation_id;
+    RETURN jsonb_build_object('success', true);
+EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range OR check_violation THEN
+    RETURN jsonb_build_object('error', 'invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_transition_operation_status(p_operation_id uuid, p_to_status text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_operation public.operations%ROWTYPE;
+BEGIN
+    SELECT o.* INTO v_operation FROM public.operations AS o WHERE o.id = p_operation_id FOR UPDATE;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_operation.tenant_id, ARRAY['admin', 'operator']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    IF p_to_status NOT IN ('planned', 'assigned', 'in_transit', 'delivered', 'cancelled', 'closed') THEN
+        RETURN jsonb_build_object('error', 'invalid_status');
+    END IF;
+    IF p_to_status = 'in_transit' AND v_operation.driver_id IS NULL
+       AND COALESCE(v_operation.external_driver, '{}'::jsonb) = '{}'::jsonb THEN
+        RETURN jsonb_build_object('error', 'missing_driver');
+    END IF;
+    UPDATE public.operations SET status = p_to_status,
+        closed_at = CASE WHEN p_to_status = 'closed' THEN now() ELSE closed_at END,
+        cancelled_at = CASE WHEN p_to_status = 'cancelled' THEN now() ELSE cancelled_at END
+    WHERE id = p_operation_id;
+    RETURN jsonb_build_object('success', true);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_override_operation_status(p_operation_id uuid, p_to_status text, p_reason text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT o.tenant_id INTO v_tenant_id FROM public.operations AS o WHERE o.id = p_operation_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id, ARRAY['admin']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    IF NULLIF(btrim(p_reason), '') IS NULL OR p_to_status NOT IN ('planned', 'assigned', 'in_transit', 'delivered', 'cancelled', 'closed') THEN
+        RETURN jsonb_build_object('error', 'invalid_override');
+    END IF;
+    UPDATE public.operations SET status = p_to_status WHERE id = p_operation_id;
+    INSERT INTO public.audit_log (tenant_id, actor_user_id, action, entity_type, entity_id, metadata, details)
+    VALUES (v_tenant_id, auth.uid(), 'operation_status_override', 'operation', p_operation_id,
+            jsonb_build_object('to_status', p_to_status), jsonb_build_object('reason', p_reason));
+    RETURN jsonb_build_object('success', true);
 END;
 $function$;
 
@@ -1004,6 +1213,38 @@ AS $function$
     );
 $function$;
 
+CREATE FUNCTION public.rpc_create_tracking_token(
+    p_tenant_id uuid,
+    p_operation_id uuid,
+    p_scope text,
+    p_ttl_hours integer
+)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+    SELECT public.rpc_create_tracking_token(
+        p_tenant_id, p_operation_id, p_scope, p_ttl_hours, false
+    );
+$function$;
+
+CREATE FUNCTION public.rpc_create_tracking_token(
+    p_tenant_id uuid,
+    p_operation_id uuid,
+    p_scope text,
+    p_force_rotate boolean
+)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+    SELECT public.rpc_create_tracking_token(
+        p_tenant_id, p_operation_id, p_scope, NULL::integer, p_force_rotate
+    );
+$function$;
+
 CREATE FUNCTION public.rpc_revoke_tracking_token(p_token_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -1087,36 +1328,72 @@ AS $function$
 DECLARE
     v_token record;
     v_operation public.operations%ROWTYPE;
+    v_last_event public.tracking_events%ROWTYPE;
+    v_events jsonb;
+    v_route_points jsonb;
+    v_status text;
+    v_soft_expired boolean;
 BEGIN
     SELECT * INTO v_token FROM public.tracking_validate_token(p_token, 'public:read');
     IF v_token.token_id IS NULL THEN
-        RETURN jsonb_build_object('http', 404, 'error', 'not_found');
+        RETURN jsonb_build_object('status', 'not_found');
     END IF;
-    IF v_token.token_state <> 'active' OR v_token.expires_at <= now() THEN
-        RETURN jsonb_build_object('http', 403, 'error', 'expired');
+    IF v_token.token_state = 'revoked' THEN
+        RETURN jsonb_build_object('status', 'revoked');
+    END IF;
+    IF v_token.token_state IN ('hard_expired', 'rotated') OR v_token.expires_at + interval '48 hours' <= now() THEN
+        RETURN jsonb_build_object('status', 'hard_expired');
     END IF;
     SELECT o.* INTO v_operation FROM public.operations AS o WHERE o.id = v_token.operation_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('status', 'not_found'); END IF;
+
+    SELECT e.* INTO v_last_event FROM public.tracking_events AS e
+    WHERE e.operation_id = v_token.operation_id AND e.event_type <> 'incident' AND NOT e.is_suspicious
+    ORDER BY e.server_timestamp DESC LIMIT 1;
+
+    SELECT COALESCE(jsonb_agg(to_jsonb(x) - 'rank' - 'total' ORDER BY x.rank), '[]'::jsonb)
+    INTO v_events FROM (
+        SELECT 'evt-' || row_number() OVER (ORDER BY e.server_timestamp) AS id,
+            CASE e.event_type WHEN 'departure' THEN 'Salida de almacén' WHEN 'in_transit' THEN 'En camino'
+                WHEN 'arrival' THEN 'En punto de entrega' WHEN 'delivered' THEN 'Entregado'
+                WHEN 'incident' THEN 'Retraso reportado' ELSE 'Actualización' END AS title,
+            CASE WHEN e.municipality IS NOT NULL THEN concat_ws(', ', e.municipality, e.state_name)
+                ELSE 'Actualización logística' END AS subtitle,
+            e.server_timestamp AS timestamp,
+            CASE WHEN row_number() OVER (ORDER BY e.server_timestamp) = count(*) OVER () THEN 'current' ELSE 'done' END AS status,
+            CASE e.event_type WHEN 'departure' THEN 'truck' WHEN 'delivered' THEN 'check-circle'
+                WHEN 'incident' THEN 'alert-triangle' ELSE 'map-pin' END AS icon,
+            row_number() OVER (ORDER BY e.server_timestamp) AS rank,
+            count(*) OVER () AS total
+        FROM public.tracking_events AS e
+        WHERE e.operation_id = v_token.operation_id AND NOT e.is_suspicious
+        ORDER BY e.server_timestamp LIMIT 20
+    ) AS x;
+
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('lat', round(x.lat::numeric,2), 'lng', round(x.lng::numeric,2)) ORDER BY x.recorded_at), '[]'::jsonb)
+    INTO v_route_points FROM (
+        SELECT r.lat,r.lng,r.recorded_at FROM public.tracking_route_points AS r
+        WHERE r.operation_id=v_token.operation_id ORDER BY r.recorded_at DESC LIMIT 200
+    ) AS x;
+
+    v_status := CASE v_last_event.event_type WHEN 'departure' THEN 'En Tránsito' WHEN 'in_transit' THEN 'En Tránsito'
+        WHEN 'arrival' THEN 'En Destino' WHEN 'delivered' THEN 'Entregado' ELSE 'En Espera' END;
+    v_soft_expired := v_token.token_state = 'soft_expired' OR v_token.expires_at <= now();
     UPDATE public.tracking_tokens SET last_used_at = now() WHERE id = v_token.token_id;
     RETURN jsonb_build_object(
-        'http', 200,
-        'operation', jsonb_build_object(
-            'reference_code', v_operation.reference_code,
-            'route_summary', v_operation.route_summary,
-            'client_display_name', v_operation.client_display_name,
-            'status', v_operation.status,
-            'eta_display', v_operation.eta_display
-        ),
-        'events', COALESCE((
-            SELECT jsonb_agg(jsonb_build_object(
-                'event_type', e.event_type,
-                'server_timestamp', e.server_timestamp,
-                'municipality', e.municipality,
-                'state_name', e.state_name
-            ) ORDER BY e.server_timestamp)
-            FROM public.tracking_events AS e
-            WHERE e.operation_id = v_token.operation_id
-              AND NOT e.is_suspicious
-        ), '[]'::jsonb)
+        'status', CASE WHEN v_soft_expired THEN 'soft_expired' ELSE 'success' END,
+        'expired', v_soft_expired,
+        'data', jsonb_strip_nulls(jsonb_build_object(
+            'orderRef', v_operation.reference_code,
+            'route', v_operation.route_summary,
+            'currentStatus', v_status,
+            'eta', v_operation.eta_display,
+            'events', v_events,
+            'currentLocation', CASE WHEN v_last_event.event_type <> 'delivered' AND v_last_event.municipality IS NOT NULL
+                AND v_last_event.lat IS NOT NULL AND v_last_event.lng IS NOT NULL
+                THEN jsonb_build_object('lat',round(v_last_event.lat,2),'lng',round(v_last_event.lng,2)) END,
+            'routePoints', CASE WHEN v_last_event.event_type <> 'delivered' THEN v_route_points END
+        ))
     );
 END;
 $function$;
@@ -1130,23 +1407,38 @@ AS $function$
 DECLARE
     v_token record;
     v_operation public.operations%ROWTYPE;
+    v_last_event public.tracking_events%ROWTYPE;
+    v_status text;
 BEGIN
     SELECT * INTO v_token FROM public.tracking_validate_token(p_token, 'driver:write');
     IF v_token.token_id IS NULL THEN
-        RETURN jsonb_build_object('http', 404, 'error', 'not_found');
+        RETURN jsonb_build_object('status', 'not_found');
     END IF;
+    IF v_token.token_state = 'revoked' THEN RETURN jsonb_build_object('status', 'revoked'); END IF;
     IF v_token.token_state <> 'active' OR v_token.expires_at <= now() THEN
-        RETURN jsonb_build_object('http', 403, 'error', 'expired');
+        RETURN jsonb_build_object('status', 'expired');
     END IF;
     SELECT o.* INTO v_operation FROM public.operations AS o WHERE o.id = v_token.operation_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('status', 'not_found'); END IF;
+    SELECT e.* INTO v_last_event FROM public.tracking_events AS e
+    WHERE e.operation_id=v_token.operation_id AND e.event_type<>'incident'
+    ORDER BY e.server_timestamp DESC LIMIT 1;
+    v_status := CASE v_last_event.event_type WHEN 'departure' THEN 'in_transit' WHEN 'in_transit' THEN 'in_transit'
+        WHEN 'arrival' THEN 'at_destination' WHEN 'delivered' THEN 'delivered' ELSE 'assigned' END;
     UPDATE public.tracking_tokens SET last_used_at = now() WHERE id = v_token.token_id;
     RETURN jsonb_build_object(
-        'http', 200,
-        'operation_id', v_operation.id,
-        'reference_code', v_operation.reference_code,
-        'status', v_operation.status,
-        'origin_place', v_operation.origin_place,
-        'destination_place', v_operation.destination_place
+        'status', 'success',
+        'data', jsonb_strip_nulls(jsonb_build_object(
+            'orderRef', v_operation.reference_code,
+            'route', v_operation.route_summary,
+            'currentStatus', v_status,
+            'eta', CASE WHEN v_status <> 'delivered' THEN v_operation.eta_display END,
+            'clientName', left(v_operation.client_display_name,20),
+            'destinationCity', v_operation.destination_city,
+            'lastEvent', CASE WHEN v_last_event.municipality IS NOT NULL THEN jsonb_build_object(
+                'municipality',concat_ws(', ',v_last_event.municipality,v_last_event.state_name),
+                'timestamp',v_last_event.server_timestamp) END
+        ))
     );
 END;
 $function$;
@@ -1217,6 +1509,726 @@ END;
 $function$;
 
 -- ---------------------------------------------------------------------------
+-- Dashboard, reports, and authenticated route RPCs
+-- ---------------------------------------------------------------------------
+
+CREATE FUNCTION public.rpc_dashboard_overview(p_tenant_id uuid,p_start_date timestamptz DEFAULT NULL,p_end_date timestamptz DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN jsonb_build_object('kpis',jsonb_build_object(
+        'ops_total',(SELECT count(*) FROM public.operations AS o WHERE o.tenant_id=p_tenant_id AND (p_start_date IS NULL OR o.created_at>=p_start_date) AND (p_end_date IS NULL OR o.created_at<=p_end_date)),
+        'ops_in_transit',(SELECT count(*) FROM public.operations AS o WHERE o.tenant_id=p_tenant_id AND o.status='in_transit' AND (p_start_date IS NULL OR o.created_at>=p_start_date) AND (p_end_date IS NULL OR o.created_at<=p_end_date)),
+        'billing_total',COALESCE((SELECT sum(c.total) FROM public.billing_cfdis AS c WHERE c.tenant_id=p_tenant_id AND c.status='timbrado' AND (p_start_date IS NULL OR c.created_at>=p_start_date) AND (p_end_date IS NULL OR c.created_at<=p_end_date)),0),
+        'inventory_value',COALESCE((SELECT sum(i.qty_on_hand*COALESCE(i.unit_cost,0)) FROM public.inventory_lots AS i WHERE i.tenant_id=p_tenant_id),0)),
+        'chart',jsonb_build_object('data','[]'::jsonb,'labels','[]'::jsonb));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_dashboard_recent_activity(p_tenant_id uuid,p_start_date timestamptz DEFAULT NULL,p_end_date timestamptz DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object('id',o.reference_code,'client',COALESCE(o.client_display_name,'N/A'),
+        'status',o.status,'route',COALESCE(o.route_summary,o.destination_city,'N/A'),'eta',COALESCE(o.eta_display,'')) ORDER BY o.updated_at DESC)
+        FROM (SELECT * FROM public.operations AS x WHERE x.tenant_id=p_tenant_id AND (p_start_date IS NULL OR x.created_at>=p_start_date)
+            AND (p_end_date IS NULL OR x.created_at<=p_end_date) ORDER BY x.updated_at DESC LIMIT 10) AS o),'[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_dashboard_alerts(p_tenant_id uuid,p_start_date timestamptz DEFAULT NULL,p_end_date timestamptz DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_alerts jsonb := '[]'::jsonb;
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    IF EXISTS (SELECT 1 FROM public.finance_invoices AS i WHERE i.tenant_id=p_tenant_id AND i.status='overdue') THEN
+        v_alerts:=v_alerts||jsonb_build_array(jsonb_build_object('type','warning','title','Facturas vencidas','description','Hay cuentas vencidas por revisar'));
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.inventory_lots AS i WHERE i.tenant_id=p_tenant_id AND i.qty_on_hand-i.qty_reserved<=10) THEN
+        v_alerts:=v_alerts||jsonb_build_array(jsonb_build_object('type','info','title','Stock bajo','description','Hay lotes con disponibilidad baja'));
+    END IF;
+    RETURN v_alerts;
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_reports_financial_summary(p_tenant_id uuid,p_period text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_revenue numeric; v_expenses numeric;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    SELECT COALESCE(sum(i.amount) FILTER (WHERE i.direction='ar'),0),
+           COALESCE(sum(i.amount) FILTER (WHERE i.direction='ap'),0)
+    INTO v_revenue,v_expenses FROM public.finance_invoices AS i WHERE i.tenant_id=p_tenant_id;
+    RETURN jsonb_build_object('revenue_by_month','[]'::jsonb,'ar_open_by_month','[]'::jsonb,'ap_open_by_month','[]'::jsonb,
+        'cashflow_by_month','[]'::jsonb,'total_revenue_ytd',COALESCE(v_revenue,0),'total_expenses_ytd',COALESCE(v_expenses,0),
+        'net_position',COALESCE(v_revenue,0)-COALESCE(v_expenses,0));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_reports_pipeline_summary(p_tenant_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_total bigint; v_won bigint;
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    SELECT count(*),count(*) FILTER(WHERE d.stage='won') INTO v_total,v_won FROM public.crm_deals AS d WHERE d.tenant_id=p_tenant_id;
+    RETURN jsonb_build_object('deals_by_stage',jsonb_build_object(
+        'lead',(SELECT count(*) FROM public.crm_deals AS d WHERE d.tenant_id=p_tenant_id AND d.stage='lead'),
+        'contacted',(SELECT count(*) FROM public.crm_deals AS d WHERE d.tenant_id=p_tenant_id AND d.stage='qualified'),
+        'proposal',(SELECT count(*) FROM public.crm_deals AS d WHERE d.tenant_id=p_tenant_id AND d.stage='proposal'),
+        'won',v_won),'total_pipeline_value',COALESCE((SELECT sum(d.value) FROM public.crm_deals AS d WHERE d.tenant_id=p_tenant_id AND d.stage<>'lost'),0),
+        'conversion_rate',CASE WHEN v_total=0 THEN 0 ELSE round(v_won::numeric*100/v_total,2) END);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_reports_inventory_summary(p_tenant_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN jsonb_build_object('inventory_total_value',COALESCE((SELECT sum(i.qty_on_hand*COALESCE(i.unit_cost,0)) FROM public.inventory_lots AS i WHERE i.tenant_id=p_tenant_id),0),
+        'blocked_count',(SELECT count(*) FROM public.inventory_lots AS i WHERE i.tenant_id=p_tenant_id AND i.status='blocked'),
+        'low_stock_count',(SELECT count(*) FROM public.inventory_lots AS i WHERE i.tenant_id=p_tenant_id AND i.qty_on_hand-i.qty_reserved<=10),
+        'top_skus_by_value',COALESCE((SELECT jsonb_agg(jsonb_build_object('sku',x.sku,'value',x.value) ORDER BY x.value DESC) FROM (
+            SELECT i.sku,sum(i.qty_on_hand*COALESCE(i.unit_cost,0)) AS value FROM public.inventory_lots AS i WHERE i.tenant_id=p_tenant_id GROUP BY i.sku ORDER BY value DESC LIMIT 5) AS x),'[]'::jsonb));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_reports_operations_summary(p_tenant_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN jsonb_build_object('operations_per_month','[]'::jsonb,'avg_delivery_time',COALESCE((SELECT avg(extract(epoch FROM (o.updated_at-o.created_at))/3600) FROM public.operations AS o WHERE o.tenant_id=p_tenant_id AND o.status IN ('delivered','closed')),0),
+        'active_routes_count',(SELECT count(*) FROM public.operations AS o WHERE o.tenant_id=p_tenant_id AND o.status IN ('assigned','in_transit')));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_route_points(p_operation_id uuid,p_start timestamptz DEFAULT NULL,p_end timestamptz DEFAULT NULL,p_limit integer DEFAULT 2000)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT o.tenant_id INTO v_tenant_id FROM public.operations AS o WHERE o.id=p_operation_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_is_member(v_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object('lat',x.lat,'lng',x.lng,'recorded_at',x.recorded_at,'accuracy_m',x.accuracy_m,'source',x.source) ORDER BY x.recorded_at)
+        FROM (SELECT r.lat,r.lng,r.recorded_at,r.accuracy_m,r.source FROM public.tracking_route_points AS r WHERE r.operation_id=p_operation_id
+            AND (p_start IS NULL OR r.recorded_at>=p_start) AND (p_end IS NULL OR r.recorded_at<=p_end)
+            ORDER BY r.recorded_at DESC LIMIT LEAST(GREATEST(p_limit,1),5000)) AS x),'[]'::jsonb);
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- Commercial / CRM RPCs consumed by the ERP
+
+CREATE FUNCTION public.rpc_list_deals(p_tenant_id uuid,p_filters jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.updated_at DESC) FROM public.crm_deals AS d WHERE d.tenant_id=p_tenant_id
+        AND (NOT (p_filters ? 'stage') OR d.stage=p_filters->>'stage')
+        AND (NOT (p_filters ? 'owner') OR d.owner_user_id=(p_filters->>'owner')::uuid)
+        AND (NOT (p_filters ? 'priority') OR d.priority=p_filters->>'priority')
+        AND (NOT (p_filters ? 'searchText') OR d.title ILIKE '%'||(p_filters->>'searchText')||'%'
+             OR d.company ILIKE '%'||(p_filters->>'searchText')||'%')), '[]'::jsonb);
+EXCEPTION WHEN invalid_text_representation THEN RETURN jsonb_build_object('error','invalid_filters');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_create_deal(p_tenant_id uuid,p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_id uuid;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    INSERT INTO public.crm_deals (tenant_id,title,company,contact_name,contact_email,contact_phone,value,currency,stage,priority,notes,owner_user_id)
+    VALUES (p_tenant_id,p_payload->>'title',p_payload->>'company',p_payload->>'contact_name',p_payload->>'contact_email',p_payload->>'contact_phone',
+        (p_payload->>'value')::numeric,COALESCE(p_payload->>'currency','MXN'),COALESCE(p_payload->>'stage','lead'),
+        COALESCE(p_payload->>'priority','medium'),p_payload->>'notes',(p_payload->>'owner_user_id')::uuid) RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id',v_id);
+EXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_deal(p_deal_id uuid,p_patch jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    UPDATE public.crm_deals AS d SET title=COALESCE(p_patch->>'title',d.title),company=COALESCE(p_patch->>'company',d.company),
+        contact_name=COALESCE(p_patch->>'contact_name',d.contact_name),contact_email=COALESCE(p_patch->>'contact_email',d.contact_email),
+        contact_phone=COALESCE(p_patch->>'contact_phone',d.contact_phone),value=COALESCE((p_patch->>'value')::numeric,d.value),
+        currency=COALESCE(p_patch->>'currency',d.currency),stage=COALESCE(p_patch->>'stage',d.stage),
+        priority=COALESCE(p_patch->>'priority',d.priority),notes=COALESCE(p_patch->>'notes',d.notes),
+        owner_user_id=COALESCE((p_patch->>'owner_user_id')::uuid,d.owner_user_id),last_touch_at=now() WHERE d.id=p_deal_id;
+    RETURN jsonb_build_object('success',true);
+EXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_move_deal(p_deal_id uuid,p_new_stage text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid; v_old_stage text;
+BEGIN
+    SELECT d.tenant_id,d.stage INTO v_tenant_id,v_old_stage FROM public.crm_deals AS d WHERE d.id=p_deal_id FOR UPDATE;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    IF p_new_stage NOT IN ('lead','qualified','proposal','won','lost') THEN RETURN jsonb_build_object('error','invalid_stage'); END IF;
+    UPDATE public.crm_deals SET stage=p_new_stage,last_touch_at=now() WHERE id=p_deal_id;
+    INSERT INTO public.crm_deal_activity (tenant_id,deal_id,type,body,created_by)
+    VALUES (v_tenant_id,p_deal_id,'status_change',v_old_stage||' -> '||p_new_stage,auth.uid());
+    RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_get_deal(p_deal_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_is_member(v_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN (SELECT to_jsonb(d)||jsonb_build_object('owner_name',u.raw_user_meta_data->>'full_name')
+        FROM public.crm_deals AS d LEFT JOIN auth.users AS u ON u.id=d.owner_user_id WHERE d.id=p_deal_id);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_deal_activities(p_deal_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_is_member(v_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(a)||jsonb_build_object('creator_name',u.raw_user_meta_data->>'full_name') ORDER BY a.created_at DESC)
+        FROM public.crm_deal_activity AS a LEFT JOIN auth.users AS u ON u.id=a.created_by WHERE a.deal_id=p_deal_id),'[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_add_deal_activity(p_deal_id uuid,p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid; v_id uuid;
+BEGIN
+    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    INSERT INTO public.crm_deal_activity (tenant_id,deal_id,type,body,created_by)
+    VALUES (v_tenant_id,p_deal_id,p_payload->>'type',p_payload->>'body',auth.uid()) RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id',v_id);
+EXCEPTION WHEN not_null_violation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_add_deal_note(p_deal_id uuid,p_note text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid; v_id uuid;
+BEGIN
+    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    IF NULLIF(btrim(p_note),'') IS NULL THEN RETURN jsonb_build_object('error','invalid_payload'); END IF;
+    INSERT INTO public.crm_deal_notes (tenant_id,deal_id,author_id,note) VALUES (v_tenant_id,p_deal_id,auth.uid(),p_note) RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id',v_id);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_deal_notes(p_deal_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_is_member(v_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object('id',n.id,'note',n.note,'author_name',u.raw_user_meta_data->>'full_name','created_at',n.created_at) ORDER BY n.created_at DESC)
+        FROM public.crm_deal_notes AS n LEFT JOIN auth.users AS u ON u.id=n.author_id WHERE n.deal_id=p_deal_id),'[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_deal_checklist(p_deal_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_is_member(v_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'stage',c.stage,'label',c.label,'is_done',c.is_done,'updated_at',c.created_at) ORDER BY c.created_at)
+        FROM public.crm_deal_checklist_items AS c WHERE c.deal_id=p_deal_id),'[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_toggle_deal_checklist_item(p_item_id uuid,p_is_done boolean)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT c.tenant_id INTO v_tenant_id FROM public.crm_deal_checklist_items AS c WHERE c.id=p_item_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    UPDATE public.crm_deal_checklist_items SET is_done=p_is_done,completed_by=CASE WHEN p_is_done THEN auth.uid() ELSE NULL END,
+        completed_at=CASE WHEN p_is_done THEN now() ELSE NULL END WHERE id=p_item_id;
+    RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- Billing, finance, inventory, and customs RPCs consumed by the ERP
+
+CREATE FUNCTION public.rpc_list_cfdis(p_tenant_id uuid, p_filters jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.created_at DESC) FROM public.billing_cfdis AS c
+        WHERE c.tenant_id = p_tenant_id
+          AND (NOT (p_filters ? 'status') OR c.status = p_filters->>'status')
+          AND (NOT (p_filters ? 'rfc') OR c.rfc_emisor ILIKE '%' || (p_filters->>'rfc') || '%' OR c.rfc_receptor ILIKE '%' || (p_filters->>'rfc') || '%')
+          AND (NOT (p_filters ? 'searchText') OR c.folio ILIKE '%' || (p_filters->>'searchText') || '%'
+               OR c.receptor_name ILIKE '%' || (p_filters->>'searchText') || '%')), '[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_get_cfdi_detail(p_cfdi_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_cfdi public.billing_cfdis%ROWTYPE;
+BEGIN
+    SELECT c.* INTO v_cfdi FROM public.billing_cfdis AS c WHERE c.id = p_cfdi_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_cfdi.tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    RETURN to_jsonb(v_cfdi) || jsonb_build_object('carta_porte',
+        (SELECT to_jsonb(cp) FROM public.billing_carta_porte AS cp WHERE cp.cfdi_id = p_cfdi_id));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_create_cfdi(p_tenant_id uuid, p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_id uuid;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    INSERT INTO public.billing_cfdis (tenant_id, operation_id, uuid, serie, folio, rfc_emisor, rfc_receptor,
+        receptor_name, subtotal, total, currency, status, has_carta_porte, has_complemento_pago, issued_at, pac_provider, notes)
+    VALUES (p_tenant_id, (p_payload->>'operation_id')::uuid, p_payload->>'uuid', p_payload->>'serie', p_payload->>'folio',
+        p_payload->>'rfc_emisor', p_payload->>'rfc_receptor', p_payload->>'receptor_name', COALESCE((p_payload->>'subtotal')::numeric, 0),
+        (p_payload->>'total')::numeric, COALESCE(p_payload->>'currency', 'MXN'), COALESCE(p_payload->>'status', 'draft'),
+        COALESCE((p_payload->>'has_carta_porte')::boolean, false), COALESCE((p_payload->>'has_complemento_pago')::boolean, false),
+        (p_payload->>'issued_at')::timestamptz, p_payload->>'pac_provider', p_payload->>'notes') RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id', v_id);
+EXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation OR foreign_key_violation THEN
+    RETURN jsonb_build_object('error', 'invalid_payload');
+    WHEN unique_violation THEN RETURN jsonb_build_object('error', 'uuid_conflict');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_cfdi(p_cfdi_id uuid, p_patch jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT c.tenant_id INTO v_tenant_id FROM public.billing_cfdis AS c WHERE c.id = p_cfdi_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    UPDATE public.billing_cfdis AS c SET
+        status = COALESCE(p_patch->>'status', c.status),
+        cancelled_at = CASE WHEN p_patch ? 'cancelled_at' THEN (p_patch->>'cancelled_at')::timestamptz ELSE c.cancelled_at END,
+        notes = CASE WHEN p_patch ? 'notes' THEN p_patch->>'notes' ELSE c.notes END,
+        has_carta_porte = COALESCE((p_patch->>'has_carta_porte')::boolean, c.has_carta_porte),
+        has_complemento_pago = COALESCE((p_patch->>'has_complemento_pago')::boolean, c.has_complemento_pago)
+    WHERE c.id = p_cfdi_id;
+    RETURN jsonb_build_object('success', true);
+EXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error', 'invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_upsert_carta_porte(p_cfdi_id uuid, p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid; v_id uuid;
+BEGIN
+    SELECT c.tenant_id INTO v_tenant_id FROM public.billing_cfdis AS c WHERE c.id = p_cfdi_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    INSERT INTO public.billing_carta_porte (tenant_id, cfdi_id, trans_type, vehicle_plate, carrier_name, origin, destination, goods_desc)
+    VALUES (v_tenant_id, p_cfdi_id, p_payload->>'trans_type', p_payload->>'vehicle_plate', p_payload->>'carrier_name',
+        p_payload->>'origin', p_payload->>'destination', p_payload->>'goods_desc')
+    ON CONFLICT (cfdi_id) DO UPDATE SET trans_type = EXCLUDED.trans_type, vehicle_plate = EXCLUDED.vehicle_plate,
+        carrier_name = EXCLUDED.carrier_name, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
+        goods_desc = EXCLUDED.goods_desc RETURNING id INTO v_id;
+    UPDATE public.billing_cfdis SET has_carta_porte = true WHERE id = p_cfdi_id;
+    RETURN jsonb_build_object('id', v_id);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_finance_overview(p_tenant_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    RETURN jsonb_build_object(
+        'total_ar_open', COALESCE((SELECT sum(i.amount) FROM public.finance_invoices AS i WHERE i.tenant_id=p_tenant_id AND i.direction='ar' AND i.status IN ('open','overdue')),0),
+        'total_ap_open', COALESCE((SELECT sum(i.amount) FROM public.finance_invoices AS i WHERE i.tenant_id=p_tenant_id AND i.direction='ap' AND i.status IN ('open','overdue')),0),
+        'total_overdue', COALESCE((SELECT sum(i.amount) FROM public.finance_invoices AS i WHERE i.tenant_id=p_tenant_id AND i.status='overdue'),0),
+        'paid_this_month', COALESCE((SELECT sum(p.amount) FROM public.finance_payments AS p WHERE p.tenant_id=p_tenant_id AND date_trunc('month',p.paid_at)=date_trunc('month',now())),0),
+        'count_open_invoices', (SELECT count(*) FROM public.finance_invoices AS i WHERE i.tenant_id=p_tenant_id AND i.status IN ('open','overdue')),
+        'chart', jsonb_build_object('labels','[]'::jsonb,'values','[]'::jsonb));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_finance_invoices(p_tenant_id uuid, p_limit integer DEFAULT 50, p_status text DEFAULT NULL, p_direction text DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.created_at DESC) FROM (
+        SELECT * FROM public.finance_invoices AS i WHERE i.tenant_id=p_tenant_id
+          AND (p_status IS NULL OR i.status=p_status) AND (p_direction IS NULL OR i.direction=p_direction)
+        ORDER BY i.created_at DESC LIMIT LEAST(GREATEST(p_limit,1),200)) AS x), '[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_create_finance_invoice(p_tenant_id uuid, p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_id uuid;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    INSERT INTO public.finance_invoices (tenant_id,direction,counterparty_name,reference,amount,currency,status,due_date,notes,
+        customer_id,provider_id,operation_id,linked_cfdi_id)
+    VALUES (p_tenant_id,p_payload->>'direction',p_payload->>'counterparty_name',p_payload->>'reference',(p_payload->>'amount')::numeric,
+        COALESCE(p_payload->>'currency','MXN'),COALESCE(p_payload->>'status','open'),(p_payload->>'due_date')::date,p_payload->>'notes',
+        (p_payload->>'customer_id')::uuid,(p_payload->>'provider_id')::uuid,(p_payload->>'operation_id')::uuid,(p_payload->>'linked_cfdi_id')::uuid)
+    RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id',v_id);
+EXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation OR foreign_key_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_record_payment(p_tenant_id uuid, p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_invoice public.finance_invoices%ROWTYPE; v_id uuid; v_total numeric;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    SELECT i.* INTO v_invoice FROM public.finance_invoices AS i WHERE i.id=(p_payload->>'invoice_id')::uuid AND i.tenant_id=p_tenant_id FOR UPDATE;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    INSERT INTO public.finance_payments (tenant_id,invoice_id,amount,paid_at,method,note,bank_reference,currency,created_by)
+    VALUES (p_tenant_id,v_invoice.id,(p_payload->>'amount')::numeric,COALESCE((p_payload->>'paid_at')::timestamptz,now()),
+        COALESCE(p_payload->>'method','transfer'),p_payload->>'note',p_payload->>'bank_reference',COALESCE(p_payload->>'currency',v_invoice.currency),auth.uid())
+    RETURNING id INTO v_id;
+    SELECT COALESCE(sum(p.amount),0) INTO v_total FROM public.finance_payments AS p WHERE p.invoice_id=v_invoice.id;
+    IF v_total >= v_invoice.amount THEN UPDATE public.finance_invoices SET status='paid',paid_at=now() WHERE id=v_invoice.id; END IF;
+    RETURN jsonb_build_object('id',v_id);
+EXCEPTION WHEN invalid_text_representation OR check_violation OR foreign_key_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_finance_invoice_status(p_tenant_id uuid,p_id uuid,p_status text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    UPDATE public.finance_invoices SET status=p_status,paid_at=CASE WHEN p_status='paid' THEN COALESCE(paid_at,now()) ELSE paid_at END
+    WHERE id=p_id AND tenant_id=p_tenant_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    RETURN jsonb_build_object('success',true);
+EXCEPTION WHEN check_violation THEN RETURN jsonb_build_object('error','invalid_status');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_inventory_lots(p_tenant_id uuid,p_filters jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(i) ORDER BY i.received_at) FROM public.inventory_lots AS i
+        WHERE i.tenant_id=p_tenant_id AND (NOT (p_filters ? 'sku') OR i.sku ILIKE '%'||(p_filters->>'sku')||'%')), '[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_create_inventory_lot(p_tenant_id uuid,p_sku text,p_lot_code text,p_qty_on_hand numeric,p_warehouse text,
+    p_received_at timestamptz,p_currency text,p_pedimento_ref text,p_description text,p_unit text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_id uuid;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    INSERT INTO public.inventory_lots (tenant_id,sku,lot_code,qty_on_hand,warehouse,received_at,currency,pedimento_ref,description,unit)
+    VALUES (p_tenant_id,p_sku,p_lot_code,p_qty_on_hand,p_warehouse,p_received_at,p_currency,p_pedimento_ref,p_description,p_unit) RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id',v_id);
+EXCEPTION WHEN not_null_violation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_inventory_lot(p_id uuid,p_patch jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT i.tenant_id INTO v_tenant_id FROM public.inventory_lots AS i WHERE i.id=p_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    UPDATE public.inventory_lots AS i SET qty_reserved=COALESCE((p_patch->>'qty_reserved')::numeric,i.qty_reserved),
+        status=COALESCE(p_patch->>'status',i.status),warehouse=COALESCE(p_patch->>'warehouse',i.warehouse),
+        description=COALESCE(p_patch->>'description',i.description) WHERE i.id=p_id;
+    RETURN jsonb_build_object('success',true);
+EXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_pedimentos(p_tenant_id uuid,p_filters jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY p.created_at DESC) FROM public.customs_pedimentos AS p
+        WHERE p.tenant_id=p_tenant_id AND (NOT (p_filters ? 'pedimento_number') OR p.pedimento_number ILIKE '%'||(p_filters->>'pedimento_number')||'%')), '[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_create_pedimento(p_tenant_id uuid,p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_id uuid;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    INSERT INTO public.customs_pedimentos (tenant_id,pedimento_number,operation_id,aduana,regimen,tipo_operacion,status,fecha_pago,total_value,currency)
+    VALUES (p_tenant_id,p_payload->>'pedimento_number',(p_payload->>'operation_id')::uuid,p_payload->>'aduana',p_payload->>'regimen',
+        p_payload->>'tipo_operacion',COALESCE(p_payload->>'status','draft'),(p_payload->>'fecha_pago')::date,
+        (p_payload->>'total_value')::numeric,COALESCE(p_payload->>'currency','MXN')) RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id',v_id);
+EXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation OR foreign_key_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+    WHEN unique_violation THEN RETURN jsonb_build_object('error','pedimento_conflict');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_pedimento(p_id uuid,p_patch jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT p.tenant_id INTO v_tenant_id FROM public.customs_pedimentos AS p WHERE p.id=p_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    UPDATE public.customs_pedimentos AS p SET status=COALESCE(p_patch->>'status',p.status),aduana=COALESCE(p_patch->>'aduana',p.aduana),
+        regimen=COALESCE(p_patch->>'regimen',p.regimen),fecha_pago=COALESCE((p_patch->>'fecha_pago')::date,p.fecha_pago),
+        fecha_entrada=COALESCE((p_patch->>'fecha_entrada')::date,p.fecha_entrada),fecha_salida=COALESCE((p_patch->>'fecha_salida')::date,p.fecha_salida),
+        total_value=COALESCE((p_patch->>'total_value')::numeric,p.total_value),currency=COALESCE(p_patch->>'currency',p.currency) WHERE p.id=p_id;
+    RETURN jsonb_build_object('success',true);
+EXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_descargo_lines(p_pedimento_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid;
+BEGIN
+    SELECT p.tenant_id INTO v_tenant_id FROM public.customs_pedimentos AS p WHERE p.id=p_pedimento_id;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_is_member(v_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.sequence_no) FROM public.customs_descargo_lines AS d WHERE d.pedimento_id=p_pedimento_id),'[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_add_descargo_line(p_pedimento_id uuid,p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_tenant_id uuid; v_id uuid; v_sequence integer;
+BEGIN
+    SELECT p.tenant_id INTO v_tenant_id FROM public.customs_pedimentos AS p WHERE p.id=p_pedimento_id FOR UPDATE;
+    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
+    SELECT COALESCE(max(d.sequence_no),0)+1 INTO v_sequence FROM public.customs_descargo_lines AS d WHERE d.pedimento_id=p_pedimento_id;
+    INSERT INTO public.customs_descargo_lines (tenant_id,pedimento_id,sequence_no,sku,lot_code,qty,unit,inventory_lot_id)
+    VALUES (v_tenant_id,p_pedimento_id,v_sequence,p_payload->>'sku',p_payload->>'lot_code',(p_payload->>'qty')::numeric,
+        COALESCE(p_payload->>'unit','Piezas'),(p_payload->>'inventory_lot_id')::uuid) RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id',v_id);
+EXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation OR foreign_key_violation THEN RETURN jsonb_build_object('error','invalid_payload');
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- Settings, membership, invitations, audit, and module gating RPCs
+
+CREATE FUNCTION public.rpc_get_tenant_settings(p_tenant_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    RETURN COALESCE((SELECT to_jsonb(s) FROM public.tenant_settings AS s WHERE s.tenant_id = p_tenant_id),
+        jsonb_build_object('tenant_id', p_tenant_id, 'brand_name', 'ROTERO', 'primary_color', '#0F2B5B',
+            'logo_url', NULL, 'timezone', 'America/Mexico_City', 'notifications_enabled', true,
+            'allow_demo_mode', false, 'created_at', now(), 'updated_at', now()));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_tenant_settings(p_tenant_id uuid, p_payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    INSERT INTO public.tenant_settings (tenant_id, brand_name, primary_color, logo_url, timezone, notifications_enabled, allow_demo_mode)
+    VALUES (p_tenant_id, COALESCE(p_payload->>'brand_name', 'ROTERO'), COALESCE(p_payload->>'primary_color', '#0F2B5B'),
+        p_payload->>'logo_url', COALESCE(p_payload->>'timezone', 'America/Mexico_City'),
+        COALESCE((p_payload->>'notifications_enabled')::boolean, true), COALESCE((p_payload->>'allow_demo_mode')::boolean, false))
+    ON CONFLICT (tenant_id) DO UPDATE SET
+        brand_name = COALESCE(p_payload->>'brand_name', public.tenant_settings.brand_name),
+        primary_color = COALESCE(p_payload->>'primary_color', public.tenant_settings.primary_color),
+        logo_url = CASE WHEN p_payload ? 'logo_url' THEN p_payload->>'logo_url' ELSE public.tenant_settings.logo_url END,
+        timezone = COALESCE(p_payload->>'timezone', public.tenant_settings.timezone),
+        notifications_enabled = COALESCE((p_payload->>'notifications_enabled')::boolean, public.tenant_settings.notifications_enabled),
+        allow_demo_mode = COALESCE((p_payload->>'allow_demo_mode')::boolean, public.tenant_settings.allow_demo_mode);
+    RETURN jsonb_build_object('success', true);
+EXCEPTION WHEN invalid_text_representation THEN RETURN jsonb_build_object('error', 'invalid_payload');
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_update_member_role(p_tenant_id uuid, p_member_user_id uuid, p_new_role text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    IF p_new_role NOT IN ('admin', 'operator', 'finance', 'viewer') THEN RETURN jsonb_build_object('error', 'invalid_role'); END IF;
+    UPDATE public.memberships SET role = p_new_role WHERE tenant_id = p_tenant_id AND user_id = p_member_user_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    RETURN jsonb_build_object('success', true);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_deactivate_member(p_tenant_id uuid, p_member_user_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    IF p_member_user_id = auth.uid() THEN RETURN jsonb_build_object('error', 'cannot_deactivate_self'); END IF;
+    DELETE FROM public.memberships WHERE tenant_id = p_tenant_id AND user_id = p_member_user_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    RETURN jsonb_build_object('success', true);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_create_invitation(p_tenant_id uuid, p_email text, p_role text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public, extensions
+AS $function$
+DECLARE v_token text; v_id uuid;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    IF p_role NOT IN ('admin', 'operator', 'finance', 'viewer') OR position('@' IN lower(btrim(p_email))) <= 1 THEN
+        RETURN jsonb_build_object('error', 'invalid_payload');
+    END IF;
+    v_token := encode(extensions.gen_random_bytes(24), 'hex');
+    INSERT INTO public.invitations (tenant_id, email, role, token_hash, created_by, expires_at)
+    VALUES (p_tenant_id, lower(btrim(p_email)), p_role, encode(extensions.digest(v_token, 'sha256'), 'hex'), auth.uid(), now() + interval '7 days')
+    RETURNING id INTO v_id;
+    RETURN jsonb_build_object('id', v_id, 'token', v_token);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_accept_invitation(p_token text, p_password text, p_full_name text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public, extensions
+AS $function$
+DECLARE v_invitation public.invitations%ROWTYPE; v_email text;
+BEGIN
+    IF auth.uid() IS NULL THEN RETURN jsonb_build_object('error', 'authentication_required'); END IF;
+    SELECT u.email INTO v_email FROM auth.users AS u WHERE u.id = auth.uid();
+    SELECT i.* INTO v_invitation FROM public.invitations AS i
+    WHERE i.token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex')
+      AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+    FOR UPDATE;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'invalid_or_expired'); END IF;
+    IF lower(v_email) <> v_invitation.email THEN RETURN jsonb_build_object('error', 'email_mismatch'); END IF;
+    INSERT INTO public.memberships (tenant_id, user_id, role)
+    VALUES (v_invitation.tenant_id, auth.uid(), v_invitation.role)
+    ON CONFLICT (user_id, tenant_id) DO UPDATE SET role = EXCLUDED.role;
+    UPDATE public.invitations SET accepted_at = now() WHERE id = v_invitation.id;
+    INSERT INTO public.audit_log (tenant_id, actor_user_id, actor_email, actor_name, action, entity_type, entity_id, metadata)
+    VALUES (v_invitation.tenant_id, auth.uid(), v_email, NULLIF(p_full_name, ''), 'invitation_accepted', 'membership', auth.uid(),
+        jsonb_build_object('invitation_id', v_invitation.id));
+    RETURN jsonb_build_object('success', true);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_audit_log(
+    p_tenant_id uuid, p_limit integer DEFAULT 50, p_offset integer DEFAULT 0,
+    p_entity_type text DEFAULT NULL, p_action text DEFAULT NULL,
+    p_start timestamptz DEFAULT NULL, p_end timestamptz DEFAULT NULL
+)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'viewer']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    RETURN jsonb_build_object(
+        'items', COALESCE((SELECT jsonb_agg(x.row_json ORDER BY x.created_at DESC) FROM (
+            SELECT a.created_at, jsonb_build_object('id', a.id, 'action', a.action, 'entity_type', a.entity_type,
+                'entity_id', a.entity_id, 'created_at', a.created_at, 'metadata', a.metadata,
+                'actor_id', a.actor_user_id, 'actor_email', a.actor_email, 'actor_name', a.actor_name) AS row_json
+            FROM public.audit_log AS a WHERE a.tenant_id = p_tenant_id
+              AND (p_entity_type IS NULL OR a.entity_type = p_entity_type) AND (p_action IS NULL OR a.action = p_action)
+              AND (p_start IS NULL OR a.created_at >= p_start) AND (p_end IS NULL OR a.created_at <= p_end)
+            ORDER BY a.created_at DESC LIMIT LEAST(GREATEST(p_limit, 1), 200) OFFSET GREATEST(p_offset, 0)
+        ) AS x), '[]'::jsonb),
+        'total', (SELECT count(*) FROM public.audit_log AS a WHERE a.tenant_id = p_tenant_id
+            AND (p_entity_type IS NULL OR a.entity_type = p_entity_type) AND (p_action IS NULL OR a.action = p_action)
+            AND (p_start IS NULL OR a.created_at >= p_start) AND (p_end IS NULL OR a.created_at <= p_end)),
+        'distinct_entities', COALESCE((SELECT jsonb_agg(x.entity_type) FROM (SELECT DISTINCT a.entity_type FROM public.audit_log AS a WHERE a.tenant_id = p_tenant_id) AS x), '[]'::jsonb),
+        'distinct_actions', COALESCE((SELECT jsonb_agg(x.action) FROM (SELECT DISTINCT a.action FROM public.audit_log AS a WHERE a.tenant_id = p_tenant_id) AS x), '[]'::jsonb));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_validate_module_access(p_tenant_id uuid, p_module_name text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_row public.tenant_setup_status%ROWTYPE;
+BEGIN
+    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error', 'unauthorized', 'is_configured', false); END IF;
+    SELECT s.* INTO v_row FROM public.tenant_setup_status AS s WHERE s.tenant_id = p_tenant_id AND s.module_name = p_module_name;
+    RETURN jsonb_build_object('is_configured', COALESCE(v_row.is_configured, false), 'config_data', COALESCE(v_row.config_data, '{}'::jsonb));
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_demo_configure_module(p_tenant_id uuid, p_module_name text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_demo boolean;
+BEGIN
+    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
+    SELECT s.allow_demo_mode INTO v_demo FROM public.tenant_settings AS s WHERE s.tenant_id = p_tenant_id;
+    IF v_demo IS NOT TRUE THEN RETURN jsonb_build_object('error', 'demo_mode_disabled'); END IF;
+    IF p_module_name NOT IN ('inventory', 'customs', 'billing') THEN RETURN jsonb_build_object('error', 'invalid_module'); END IF;
+    INSERT INTO public.tenant_setup_status (tenant_id, module_name, is_configured, config_data, updated_by)
+    VALUES (p_tenant_id, p_module_name, true, jsonb_build_object('mode', 'demo'), auth.uid())
+    ON CONFLICT (tenant_id, module_name) DO UPDATE SET is_configured = true, config_data = EXCLUDED.config_data,
+        updated_by = EXCLUDED.updated_by, updated_at = now();
+    RETURN jsonb_build_object('success', true);
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
 -- RLS policies. Table privileges remain revoked: application access is RPC-first.
 -- ---------------------------------------------------------------------------
 
@@ -1234,6 +2246,7 @@ ALTER TABLE public.crm_deals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_deal_activity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_deal_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_deal_checklist_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenant_setup_status ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tracking_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tracking_events ENABLE ROW LEVEL SECURITY;
@@ -1317,6 +2330,12 @@ CREATE POLICY crm_notes_select_members ON public.crm_deal_notes
     FOR SELECT TO authenticated USING (public.tanda1_user_is_member(tenant_id));
 CREATE POLICY crm_checklist_select_members ON public.crm_deal_checklist_items
     FOR SELECT TO authenticated USING (public.tanda1_user_is_member(tenant_id));
+CREATE POLICY tenant_setup_status_select_members ON public.tenant_setup_status
+    FOR SELECT TO authenticated USING (public.tanda1_user_is_member(tenant_id));
+CREATE POLICY tenant_setup_status_manage_admin ON public.tenant_setup_status
+    FOR ALL TO authenticated
+    USING (public.tanda1_user_has_role(tenant_id, ARRAY['admin']))
+    WITH CHECK (public.tanda1_user_has_role(tenant_id, ARRAY['admin']));
 
 CREATE POLICY operations_select_members ON public.operations
     FOR SELECT TO authenticated USING (public.tanda1_user_is_member(tenant_id));
@@ -1365,6 +2384,12 @@ CREATE POLICY customs_descargo_select_members ON public.customs_descargo_lines
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
+
+-- The public tracking Edge Function records only a one-way token hash and
+-- request metadata. This is the sole approved direct table write.
+GRANT INSERT (token_hash, ip_hash, user_agent, country_code)
+    ON public.tracking_access_log TO service_role;
 
 REVOKE ALL ON FUNCTION public.touch_updated_at() FROM PUBLIC, anon, authenticated, service_role;
 
@@ -1397,8 +2422,68 @@ REVOKE ALL ON FUNCTION public.rpc_revoke_tracking_token(uuid) FROM PUBLIC, anon,
 REVOKE ALL ON FUNCTION public.rpc_list_tracking_tokens(uuid) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_create_tracking_token(uuid, uuid, text, integer, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_create_tracking_token(uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_tracking_token(uuid, uuid, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_tracking_token(uuid, uuid, text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_revoke_tracking_token(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_list_tracking_tokens(uuid) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rpc_assign_operation(uuid, uuid, uuid, uuid, timestamptz, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_assign_operation_v2(uuid, uuid, uuid, text, uuid, text, timestamptz, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_operation_details(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_transition_operation_status(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_override_operation_status(uuid, text, text) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rpc_dashboard_overview(uuid, timestamptz, timestamptz) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_dashboard_recent_activity(uuid, timestamptz, timestamptz) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_dashboard_alerts(uuid, timestamptz, timestamptz) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_reports_financial_summary(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_reports_pipeline_summary(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_reports_inventory_summary(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_reports_operations_summary(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_route_points(uuid, timestamptz, timestamptz, integer) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rpc_list_deals(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_deal(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_deal(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_move_deal(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_get_deal(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_deal_activities(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_add_deal_activity(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_add_deal_note(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_deal_notes(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_deal_checklist(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_toggle_deal_checklist_item(uuid, boolean) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rpc_list_cfdis(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_get_cfdi_detail(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_cfdi(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_cfdi(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_upsert_carta_porte(uuid, jsonb) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rpc_finance_overview(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_finance_invoices(uuid, integer, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_finance_invoice(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_record_payment(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_finance_invoice_status(uuid, uuid, text) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rpc_list_inventory_lots(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_inventory_lot(uuid, text, text, numeric, text, timestamptz, text, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_inventory_lot(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_pedimentos(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_pedimento(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_pedimento(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_descargo_lines(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_add_descargo_line(uuid, jsonb) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rpc_get_tenant_settings(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_tenant_settings(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_member_role(uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_deactivate_member(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_create_invitation(uuid, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_accept_invitation(text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_audit_log(uuid, integer, integer, text, text, timestamptz, timestamptz) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_validate_module_access(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_demo_configure_module(uuid, text) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.rpc_get_public_tracking(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.rpc_get_driver_view(text) FROM PUBLIC, anon, authenticated;

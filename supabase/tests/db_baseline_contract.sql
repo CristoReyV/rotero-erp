@@ -15,7 +15,8 @@ BEGIN
         'tracking_tokens', 'tracking_events', 'tracking_route_points',
         'billing_cfdis', 'billing_carta_porte', 'operation_billing',
         'finance_invoices', 'finance_payments', 'audit_log',
-        'invitations', 'tenant_settings'
+        'invitations', 'tenant_settings', 'tenant_setup_status',
+        'inventory_lots', 'customs_pedimentos', 'customs_descargo_lines'
     ]) AS required(name)
     WHERE to_regclass('public.' || name) IS NULL;
 
@@ -51,7 +52,7 @@ BEGIN
     ) OR NOT EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'operations'
-          AND column_name = 'provider_cost' AND data_type = 'numeric'
+          AND column_name = 'provider_cost_amount' AND data_type = 'numeric'
     ) OR NOT EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'tracking_tokens'
@@ -125,6 +126,8 @@ BEGIN
        OR to_regprocedure('public.rpc_list_members(uuid)') IS NULL
        OR to_regprocedure('public.rpc_create_tracking_token(uuid,uuid,text)') IS NULL
        OR to_regprocedure('public.rpc_create_tracking_token(uuid,uuid,text,integer,boolean)') IS NULL
+       OR to_regprocedure('public.rpc_create_tracking_token(uuid,uuid,text,integer)') IS NULL
+       OR to_regprocedure('public.rpc_create_tracking_token(uuid,uuid,text,boolean)') IS NULL
        OR to_regprocedure('public.rpc_revoke_tracking_token(uuid)') IS NULL
        OR to_regprocedure('public.rpc_list_tracking_tokens(uuid)') IS NULL THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: helper/RPC signatures are incomplete';
@@ -175,6 +178,7 @@ BEGIN
     IF NOT has_function_privilege('authenticated', 'public.rpc_get_my_context()', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.rpc_list_operations(uuid)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.rpc_create_tracking_token(uuid,uuid,text,integer,boolean)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.rpc_create_tracking_token(uuid,uuid,text,boolean)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.rpc_list_tracking_tokens(uuid)', 'EXECUTE') THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: authenticated RPC grants are incomplete';
     END IF;
