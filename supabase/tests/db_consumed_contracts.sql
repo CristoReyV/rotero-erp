@@ -1,5 +1,9 @@
 \set ON_ERROR_STOP on
 
+-- INV.1 intentionally removes the frontend's legacy three-argument invitation
+-- acceptance contract. The UI remains safely blocked until INV.3 migrates to
+-- the authenticated, password-free signature asserted below.
+
 BEGIN;
 
 DO $columns$
@@ -67,6 +71,9 @@ BEGIN
         'audit_log.actor_email:text',
         'audit_log.actor_name:text',
         'audit_log.details:jsonb',
+        'invitations.accepted_by:uuid',
+        'invitations.revoked_by:uuid',
+        'invitations.updated_at:timestamp with time zone',
         'tracking_events.country_code:character',
         'tenant_setup_status.module_name:text',
         'tenant_setup_status.config_data:jsonb'
@@ -134,7 +141,9 @@ BEGIN
         'public.rpc_update_member_role(uuid,uuid,text)',
         'public.rpc_deactivate_member(uuid,uuid)',
         'public.rpc_create_invitation(uuid,text,text)',
-        'public.rpc_accept_invitation(text,text,text)',
+        'public.rpc_accept_invitation(text)',
+        'public.rpc_list_invitations(uuid)',
+        'public.rpc_revoke_invitation(uuid)',
         'public.rpc_list_audit_log(uuid,integer,integer,text,text,timestamptz,timestamptz)',
         'public.rpc_validate_module_access(uuid,text)',
         'public.rpc_demo_configure_module(uuid,text)',
@@ -208,6 +217,10 @@ BEGIN
         END IF;
     END LOOP;
 
+    IF to_regprocedure('public.rpc_accept_invitation(text,text,text)') IS NOT NULL THEN
+        RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: password-bearing invitation RPC returned';
+    END IF;
+
     FOREACH v_signature IN ARRAY ARRAY[
         'public.rpc_get_public_tracking(text)',
         'public.rpc_get_driver_view(text)',
@@ -236,7 +249,7 @@ BEGIN
         RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: authenticated can read auth.users globally';
     END IF;
     FOREACH v_role IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
-        FOREACH v_table IN ARRAY ARRAY['public.operations','public.billing_cfdis','public.finance_invoices','public.inventory_lots','public.customs_pedimentos'] LOOP
+        FOREACH v_table IN ARRAY ARRAY['public.operations','public.billing_cfdis','public.finance_invoices','public.inventory_lots','public.customs_pedimentos','public.invitations'] LOOP
             IF has_table_privilege(v_role,v_table,'SELECT,INSERT,UPDATE,DELETE') THEN
                 RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: direct DML leaked: % %',v_role,v_table;
             END IF;

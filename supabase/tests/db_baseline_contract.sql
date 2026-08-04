@@ -57,6 +57,18 @@ BEGIN
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'tracking_tokens'
           AND column_name = 'token_hash' AND is_nullable = 'NO'
+    ) OR NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'invitations'
+          AND column_name = 'accepted_by' AND data_type = 'uuid' AND is_nullable = 'YES'
+    ) OR NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'invitations'
+          AND column_name = 'revoked_by' AND data_type = 'uuid' AND is_nullable = 'YES'
+    ) OR NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'invitations'
+          AND column_name = 'updated_at' AND data_type = 'timestamp with time zone' AND is_nullable = 'NO'
     ) THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: fundamental column contract is incomplete';
     END IF;
@@ -86,6 +98,10 @@ BEGIN
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_indexes
         WHERE schemaname = 'public' AND indexname = 'operations_tenant_status_idx'
+    ) OR NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_indexes
+        WHERE schemaname = 'public' AND indexname = 'invitations_pending_tenant_email_uidx'
+          AND indexdef LIKE '%UNIQUE INDEX%WHERE ((accepted_at IS NULL) AND (revoked_at IS NULL))%'
     ) THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: essential indexes are missing';
     END IF;
@@ -96,7 +112,7 @@ BEGIN
             'tenants', 'memberships', 'operations', 'customers',
             'logistics_providers', 'tracking_tokens', 'tracking_events',
             'tracking_route_points', 'billing_cfdis', 'operation_billing',
-            'finance_invoices', 'finance_payments'
+            'finance_invoices', 'finance_payments', 'invitations'
         ]) AS required(name)
         JOIN pg_catalog.pg_class AS c ON c.oid = ('public.' || required.name)::regclass
         WHERE NOT c.relrowsecurity
@@ -116,6 +132,10 @@ BEGIN
         SELECT 1 FROM pg_catalog.pg_policies
         WHERE schemaname = 'public' AND tablename = 'tracking_tokens'
           AND policyname = 'tracking_tokens_select_members'
+    ) OR NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_policies
+        WHERE schemaname = 'public' AND tablename = 'invitations'
+          AND policyname = 'invitations_select_admin'
     ) THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: essential policies are missing';
     END IF;
@@ -129,7 +149,12 @@ BEGIN
        OR to_regprocedure('public.rpc_create_tracking_token(uuid,uuid,text,integer)') IS NULL
        OR to_regprocedure('public.rpc_create_tracking_token(uuid,uuid,text,boolean)') IS NULL
        OR to_regprocedure('public.rpc_revoke_tracking_token(uuid)') IS NULL
-       OR to_regprocedure('public.rpc_list_tracking_tokens(uuid)') IS NULL THEN
+       OR to_regprocedure('public.rpc_list_tracking_tokens(uuid)') IS NULL
+       OR to_regprocedure('public.rpc_create_invitation(uuid,text,text)') IS NULL
+       OR to_regprocedure('public.rpc_accept_invitation(text)') IS NULL
+       OR to_regprocedure('public.rpc_list_invitations(uuid)') IS NULL
+       OR to_regprocedure('public.rpc_revoke_invitation(uuid)') IS NULL
+       OR to_regprocedure('public.rpc_accept_invitation(text,text,text)') IS NOT NULL THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: helper/RPC signatures are incomplete';
     END IF;
 
@@ -152,8 +177,13 @@ BEGIN
         WHERE tgrelid = 'public.operations'::regclass
           AND tgname = 'operations_touch_updated_at'
           AND NOT tgisinternal
+    ) OR NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_trigger
+        WHERE tgrelid = 'public.invitations'::regclass
+          AND tgname = 'invitations_touch_updated_at'
+          AND NOT tgisinternal
     ) THEN
-        RAISE EXCEPTION 'DB BASELINE TEST FAILED: operations updated_at trigger is missing';
+        RAISE EXCEPTION 'DB BASELINE TEST FAILED: updated_at trigger is missing';
     END IF;
 END;
 $contract$;
@@ -167,7 +197,7 @@ BEGIN
         FOREACH v_table IN ARRAY ARRAY[
             'public.tenants', 'public.memberships', 'public.operations',
             'public.tracking_tokens', 'public.tracking_events',
-            'public.billing_cfdis', 'public.finance_invoices'
+            'public.billing_cfdis', 'public.finance_invoices', 'public.invitations'
         ] LOOP
             IF has_table_privilege(v_role, v_table, 'SELECT,INSERT,UPDATE,DELETE') THEN
                 RAISE EXCEPTION 'DB BASELINE TEST FAILED: role % has direct DML on %', v_role, v_table;
@@ -179,14 +209,22 @@ BEGIN
        OR NOT has_function_privilege('authenticated', 'public.rpc_list_operations(uuid)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.rpc_create_tracking_token(uuid,uuid,text,integer,boolean)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.rpc_create_tracking_token(uuid,uuid,text,boolean)', 'EXECUTE')
-       OR NOT has_function_privilege('authenticated', 'public.rpc_list_tracking_tokens(uuid)', 'EXECUTE') THEN
+       OR NOT has_function_privilege('authenticated', 'public.rpc_list_tracking_tokens(uuid)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.rpc_create_invitation(uuid,text,text)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.rpc_accept_invitation(text)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.rpc_list_invitations(uuid)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.rpc_revoke_invitation(uuid)', 'EXECUTE') THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: authenticated RPC grants are incomplete';
     END IF;
 
     IF has_function_privilege('anon', 'public.rpc_create_tracking_token(uuid,uuid,text,integer,boolean)', 'EXECUTE')
        OR has_function_privilege('service_role', 'public.rpc_create_tracking_token(uuid,uuid,text,integer,boolean)', 'EXECUTE')
        OR has_function_privilege('anon', 'public.rpc_list_members(uuid)', 'EXECUTE')
-       OR has_function_privilege('service_role', 'public.rpc_list_members(uuid)', 'EXECUTE') THEN
+       OR has_function_privilege('service_role', 'public.rpc_list_members(uuid)', 'EXECUTE')
+       OR has_function_privilege('anon', 'public.rpc_accept_invitation(text)', 'EXECUTE')
+       OR has_function_privilege('service_role', 'public.rpc_accept_invitation(text)', 'EXECUTE')
+       OR has_function_privilege('anon', 'public.rpc_list_invitations(uuid)', 'EXECUTE')
+       OR has_function_privilege('service_role', 'public.rpc_list_invitations(uuid)', 'EXECUTE') THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: internal RPC grant leaked';
     END IF;
 

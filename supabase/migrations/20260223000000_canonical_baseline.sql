@@ -51,13 +51,25 @@ CREATE TABLE public.invitations (
     created_by uuid NOT NULL,
     expires_at timestamptz NOT NULL,
     accepted_at timestamptz,
+    accepted_by uuid,
     revoked_at timestamptz,
+    revoked_by uuid,
     created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT invitations_role_check CHECK (role IN ('admin', 'operator', 'finance', 'viewer')),
-    CONSTRAINT invitations_email_check CHECK (email = lower(btrim(email)) AND position('@' IN email) > 1)
+    CONSTRAINT invitations_email_check CHECK (
+        email = lower(btrim(email))
+        AND email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+    ),
+    CONSTRAINT invitations_acceptance_pair_check CHECK ((accepted_at IS NULL) = (accepted_by IS NULL)),
+    CONSTRAINT invitations_revocation_pair_check CHECK ((revoked_at IS NULL) = (revoked_by IS NULL)),
+    CONSTRAINT invitations_terminal_state_check CHECK (accepted_at IS NULL OR revoked_at IS NULL)
 );
 
 CREATE INDEX invitations_tenant_created_idx ON public.invitations (tenant_id, created_at DESC);
+CREATE UNIQUE INDEX invitations_pending_tenant_email_uidx
+    ON public.invitations (tenant_id, email)
+    WHERE accepted_at IS NULL AND revoked_at IS NULL;
 
 CREATE TABLE public.audit_log (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -666,6 +678,9 @@ $function$;
 
 CREATE TRIGGER tenants_settings_touch_updated_at
     BEFORE UPDATE ON public.tenant_settings
+    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+CREATE TRIGGER invitations_touch_updated_at
+    BEFORE UPDATE ON public.invitations
     FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 CREATE TRIGGER customers_touch_updated_at
     BEFORE UPDATE ON public.customers
@@ -2131,42 +2146,195 @@ CREATE FUNCTION public.rpc_create_invitation(p_tenant_id uuid, p_email text, p_r
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO pg_catalog, public, extensions
 AS $function$
-DECLARE v_token text; v_id uuid;
+DECLARE
+    v_actor uuid := auth.uid();
+    v_email text := lower(btrim(p_email));
+    v_token text;
+    v_id uuid;
+    v_expires_at timestamptz := now() + interval '7 days';
 BEGIN
-    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;
-    IF p_role NOT IN ('admin', 'operator', 'finance', 'viewer') OR position('@' IN lower(btrim(p_email))) <= 1 THEN
+    IF v_actor IS NULL THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'authentication_required');
+    END IF;
+    IF p_tenant_id IS NULL OR NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'unauthorized');
+    END IF;
+    IF p_role IS NULL OR p_role NOT IN ('admin', 'operator', 'finance', 'viewer')
+       OR v_email IS NULL
+       OR v_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' THEN
         RETURN jsonb_build_object('error', 'invalid_payload');
     END IF;
+
+    -- Serialize create/resend for the same tenant/email before rotating tokens.
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(p_tenant_id::text || ':' || v_email, 0)
+    );
+
+    UPDATE public.invitations AS i
+    SET revoked_at = now(), revoked_by = v_actor
+    WHERE i.tenant_id = p_tenant_id
+      AND i.email = v_email
+      AND i.accepted_at IS NULL
+      AND i.revoked_at IS NULL;
+
     v_token := encode(extensions.gen_random_bytes(24), 'hex');
     INSERT INTO public.invitations (tenant_id, email, role, token_hash, created_by, expires_at)
-    VALUES (p_tenant_id, lower(btrim(p_email)), p_role, encode(extensions.digest(v_token, 'sha256'), 'hex'), auth.uid(), now() + interval '7 days')
+    VALUES (p_tenant_id, v_email, p_role, encode(extensions.digest(v_token, 'sha256'), 'hex'), v_actor, v_expires_at)
     RETURNING id INTO v_id;
-    RETURN jsonb_build_object('id', v_id, 'token', v_token);
+
+    INSERT INTO public.audit_log (tenant_id, actor_user_id, action, entity_type, entity_id, metadata)
+    VALUES (p_tenant_id, v_actor, 'invitation_created', 'invitation', v_id, jsonb_build_object('role', p_role));
+
+    RETURN jsonb_build_object(
+        'accepted', true,
+        'state', 'created',
+        'invitation_id', v_id,
+        'expires_at', v_expires_at,
+        'token', v_token
+    );
 END;
 $function$;
 
-CREATE FUNCTION public.rpc_accept_invitation(p_token text, p_password text, p_full_name text)
+CREATE FUNCTION public.rpc_accept_invitation(p_token text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO pg_catalog, public, extensions
 AS $function$
-DECLARE v_invitation public.invitations%ROWTYPE; v_email text;
+DECLARE
+    v_actor uuid := auth.uid();
+    v_email text;
+    v_invitation public.invitations%ROWTYPE;
+    v_membership_inserted integer := 0;
+    v_state text;
 BEGIN
-    IF auth.uid() IS NULL THEN RETURN jsonb_build_object('error', 'authentication_required'); END IF;
-    SELECT u.email INTO v_email FROM auth.users AS u WHERE u.id = auth.uid();
+    IF v_actor IS NULL THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'authentication_required');
+    END IF;
+
+    SELECT lower(btrim(u.email))
+    INTO v_email
+    FROM auth.users AS u
+    WHERE u.id = v_actor
+      AND u.email IS NOT NULL
+      AND u.email_confirmed_at IS NOT NULL;
+
+    IF NOT FOUND OR p_token IS NULL OR p_token !~ '^[0-9a-f]{48}$' THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');
+    END IF;
+
     SELECT i.* INTO v_invitation FROM public.invitations AS i
     WHERE i.token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex')
-      AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
     FOR UPDATE;
-    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'invalid_or_expired'); END IF;
-    IF lower(v_email) <> v_invitation.email THEN RETURN jsonb_build_object('error', 'email_mismatch'); END IF;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');
+    END IF;
+    IF v_invitation.accepted_at IS NOT NULL THEN
+        IF v_invitation.accepted_by = v_actor THEN
+            RETURN jsonb_build_object('accepted', true, 'state', 'already_accepted');
+        END IF;
+        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');
+    END IF;
+    IF v_invitation.revoked_at IS NOT NULL
+       OR v_invitation.expires_at <= now()
+       OR v_invitation.email <> v_email
+       OR v_invitation.role NOT IN ('admin', 'operator', 'finance', 'viewer')
+       OR NOT EXISTS (SELECT 1 FROM public.tenants AS t WHERE t.id = v_invitation.tenant_id) THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');
+    END IF;
+
     INSERT INTO public.memberships (tenant_id, user_id, role)
-    VALUES (v_invitation.tenant_id, auth.uid(), v_invitation.role)
-    ON CONFLICT (user_id, tenant_id) DO UPDATE SET role = EXCLUDED.role;
-    UPDATE public.invitations SET accepted_at = now() WHERE id = v_invitation.id;
-    INSERT INTO public.audit_log (tenant_id, actor_user_id, actor_email, actor_name, action, entity_type, entity_id, metadata)
-    VALUES (v_invitation.tenant_id, auth.uid(), v_email, NULLIF(p_full_name, ''), 'invitation_accepted', 'membership', auth.uid(),
-        jsonb_build_object('invitation_id', v_invitation.id));
-    RETURN jsonb_build_object('success', true);
+    VALUES (v_invitation.tenant_id, v_actor, v_invitation.role)
+    ON CONFLICT (user_id, tenant_id) DO NOTHING;
+    GET DIAGNOSTICS v_membership_inserted = ROW_COUNT;
+
+    v_state := CASE WHEN v_membership_inserted = 1 THEN 'accepted' ELSE 'already_member' END;
+
+    UPDATE public.invitations
+    SET accepted_at = now(), accepted_by = v_actor
+    WHERE id = v_invitation.id;
+
+    INSERT INTO public.audit_log (tenant_id, actor_user_id, action, entity_type, entity_id, metadata)
+    VALUES (
+        v_invitation.tenant_id,
+        v_actor,
+        CASE WHEN v_membership_inserted = 1 THEN 'invitation_accepted' ELSE 'invitation_already_member' END,
+        'invitation',
+        v_invitation.id,
+        jsonb_build_object('role', v_invitation.role)
+    );
+
+    RETURN jsonb_build_object('accepted', true, 'state', v_state);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_list_invitations(p_tenant_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+BEGIN
+    IF auth.uid() IS NULL OR p_tenant_id IS NULL
+       OR NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+
+    RETURN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'id', i.id,
+            'email', i.email,
+            'role', i.role,
+            'state', CASE
+                WHEN i.accepted_at IS NOT NULL THEN 'accepted'
+                WHEN i.revoked_at IS NOT NULL THEN 'revoked'
+                WHEN i.expires_at <= now() THEN 'expired'
+                ELSE 'pending'
+            END,
+            'created_at', i.created_at,
+            'expires_at', i.expires_at,
+            'accepted_at', i.accepted_at,
+            'revoked_at', i.revoked_at
+        ) ORDER BY i.created_at DESC)
+        FROM public.invitations AS i
+        WHERE i.tenant_id = p_tenant_id
+    ), '[]'::jsonb);
+END;
+$function$;
+
+CREATE FUNCTION public.rpc_revoke_invitation(p_invitation_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE
+    v_actor uuid := auth.uid();
+    v_invitation public.invitations%ROWTYPE;
+BEGIN
+    IF v_actor IS NULL OR p_invitation_id IS NULL THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');
+    END IF;
+
+    SELECT i.* INTO v_invitation
+    FROM public.invitations AS i
+    WHERE i.id = p_invitation_id
+      AND public.tanda1_user_has_role(i.tenant_id, ARRAY['admin'])
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');
+    END IF;
+    IF v_invitation.accepted_at IS NOT NULL THEN
+        RETURN jsonb_build_object('accepted', false, 'state', 'already_accepted');
+    END IF;
+    IF v_invitation.revoked_at IS NOT NULL THEN
+        RETURN jsonb_build_object('accepted', true, 'state', 'already_revoked');
+    END IF;
+
+    UPDATE public.invitations
+    SET revoked_at = now(), revoked_by = v_actor
+    WHERE id = v_invitation.id;
+
+    INSERT INTO public.audit_log (tenant_id, actor_user_id, action, entity_type, entity_id)
+    VALUES (v_invitation.tenant_id, v_actor, 'invitation_revoked', 'invitation', v_invitation.id);
+
+    RETURN jsonb_build_object('accepted', true, 'state', 'revoked');
 END;
 $function$;
 
@@ -2277,9 +2445,9 @@ CREATE POLICY tenant_settings_manage_admin ON public.tenant_settings
     USING (public.tanda1_user_has_role(tenant_id, ARRAY['admin']))
     WITH CHECK (public.tanda1_user_has_role(tenant_id, ARRAY['admin']));
 
-CREATE POLICY invitations_select_admin_operator ON public.invitations
+CREATE POLICY invitations_select_admin ON public.invitations
     FOR SELECT TO authenticated
-    USING (public.tanda1_user_has_role(tenant_id, ARRAY['admin', 'operator']));
+    USING (public.tanda1_user_has_role(tenant_id, ARRAY['admin']));
 CREATE POLICY audit_log_select_members ON public.audit_log
     FOR SELECT TO authenticated
     USING (public.tanda1_user_is_member(tenant_id));
@@ -2479,8 +2647,15 @@ GRANT EXECUTE ON FUNCTION public.rpc_get_tenant_settings(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_update_tenant_settings(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_update_member_role(uuid, uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_deactivate_member(uuid, uuid) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.rpc_create_invitation(uuid, text, text) FROM PUBLIC, anon, service_role;
+REVOKE EXECUTE ON FUNCTION public.rpc_accept_invitation(text) FROM PUBLIC, anon, service_role;
+REVOKE EXECUTE ON FUNCTION public.rpc_list_invitations(uuid) FROM PUBLIC, anon, service_role;
+REVOKE EXECUTE ON FUNCTION public.rpc_revoke_invitation(uuid) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_create_invitation(uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.rpc_accept_invitation(text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_accept_invitation(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_list_invitations(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_revoke_invitation(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_list_audit_log(uuid, integer, integer, text, text, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_validate_module_access(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_demo_configure_module(uuid, text) TO authenticated;

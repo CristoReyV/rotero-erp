@@ -14,8 +14,9 @@ Cambios contractuales principales:
   campos de asignación y el expediente broker-first.
 - Billing, Finance, Inventario, Aduanas y Auditoría usan columnas planas
   compatibles con los services, no payloads genéricos sustitutivos.
-- Se canonizan sólo los 66 RPC publicados que tienen consumidor versionado,
-  más helpers y contratos Edge necesarios.
+- Se canonizan 68 RPC: los contratos versionados reconciliados, la aceptación
+  segura de invitaciones y sus operaciones administrativas de listado y
+  revocación, más helpers y contratos Edge necesarios.
 - `tenant_setup_status` es la única tabla adicional incorporada porque
   `useModuleGate` y los CTAs demo la consumen mediante RPC.
 - `public.users` permanece excluida.
@@ -41,7 +42,7 @@ Este trabajo no alinea staging y no autoriza `migration repair`, `db push` ni ap
 | `tracking_tokens`, `tracking_events`, `tracking_route_points`, `tracking_access_log` | B. Canónico corregido | Constraints e índices consolidados; tablas sin acceso directo y RPCs separados por superficie ERP/Edge. |
 | `billing_cfdis`, `billing_carta_porte` | B. Canónico corregido | Contrato plano UUID/RFC/estados/Carta Porte/tipo de cambio, sin SAT/PAC productivo. |
 | `operation_billing`, `finance_invoices`, `finance_payments` | B. Canónico corregido | Estados y campos AR/AP consumidos, relaciones opcionales y pagos internos. |
-| `audit_log`, `invitations`, `tenant_settings` | B. Canónico corregido | Sin datos iniciales; invitaciones no escriben en `auth.users` desde SQL canónico. |
+| `audit_log`, `invitations`, `tenant_settings` | B. Canónico corregido | Sin datos iniciales; invitaciones admin-only, token con hash, aceptación Auth y sin escritura en `auth.users`. |
 | `inventory_lots`, `customs_*` | B. Canónico corregido | Cantidades, almacén, lote, costo, pedimento y descargos en columnas planas consumidas. |
 | `tenant_setup_status` | A. Canónico seguro | Dependencia mínima de configuración de módulos, sólo accesible mediante RPC. |
 | helpers RBAC | B. Canónico corregido | `SECURITY DEFINER`, autorización interna y `search_path` explícito. |
@@ -65,9 +66,20 @@ No existe consumidor directo de `public.users` en `src`. Los únicos consumidore
 - no concede `SELECT` sobre `auth.users` ni crea una vista global.
 
 `rpc_get_my_context` sólo consulta la fila de `auth.users` correspondiente a
-`auth.uid()`. `rpc_accept_invitation` no crea usuarios ni cambia contraseñas:
-acepta únicamente una sesión Auth ya existente cuyo email coincide con la
-invitación. No existe grant directo para `anon` o `service_role` sobre RPC ERP.
+`auth.uid()`. `rpc_accept_invitation(text)` no crea usuarios, no recibe nombre o
+contraseña y no cambia credenciales: acepta únicamente una sesión Auth con email
+confirmado que coincide con la invitación. La función crea la membresía sólo si
+no existe y nunca reemplaza su rol; una repetición del mismo actor devuelve
+`already_accepted` sin mutar datos.
+
+`rpc_create_invitation` es admin-only, genera 192 bits aleatorios, persiste sólo
+SHA-256 y revoca de forma atómica cualquier pendiente anterior del mismo
+tenant/email antes de emitir un literal nuevo. `rpc_list_invitations` y
+`rpc_revoke_invitation` también son admin-only; nunca devuelven el token o su
+hash y la revocación conserva la fila. `accepted_by` y `revoked_by` son UUID sin
+FK, igual que `memberships.user_id` y `created_by`, para no acoplar el baseline
+reproducible al esquema interno de Auth. No existe grant directo para `anon` o
+`service_role` sobre estas RPC ERP ni DML directo sobre `invitations`.
 
 Staging todavía contiene la vista insegura `public.users`. El baseline no la
 crea. Una migración forward DB.0D debe revocar primero el acceso de
@@ -89,6 +101,13 @@ La arquitectura es RPC-first:
 - `anon` no ejecuta RPC internos ni de tracking directamente;
 - RLS permanece habilitado como defensa adicional y sus policies reflejan aislamiento tenant y roles;
 - ninguna respuesta pública devuelve `SQLERRM`, hashes de token o secretos.
+
+La firma legacy `rpc_accept_invitation(text,text,text)` queda deliberadamente
+ausente. El frontend actual continúa enviando password y nombre y, por tanto,
+queda bloqueado de forma segura hasta INV.3. INV.2 orquestará desde una Edge
+Function autenticada la creación interna y el envío mediante Supabase Auth; no
+se afirma todavía un flujo end-to-end funcional. Site URL, redirect URLs, SMTP,
+plantillas y demás Auth settings no se modifican en INV.1.
 
 El baseline conserva la firma principal de cinco argumentos y los adaptadores
 consumidos de tres y cuatro argumentos, sin defaults ambiguos. PR #10 puede
@@ -124,10 +143,17 @@ Get-Content supabase/tests/db_baseline_contract.sql -Raw |
 El test usa `BEGIN/ROLLBACK`, genera únicamente fixtures sintéticos y valida catálogo, constraints, índices, RLS, policies, grants, firmas, `SECURITY DEFINER`, `search_path`, roles e aislamiento. No imprime literales ni hashes de token.
 
 Ejecutar además `supabase/tests/db_consumed_contracts.sql` con el mismo comando.
-Este segundo harness enumera las columnas y las 66 firmas RPC consumidas,
+Este segundo harness enumera las columnas y las 68 firmas RPC canónicas,
 valida grants y `search_path`, y prueba con fixtures sintéticos Operations, CRM,
 Billing, Finance, Inventory, Customs, Dashboard, Tracking y la matriz
 admin/operator/finance/viewer.
+
+Ejecutar finalmente `supabase/tests/db_invitation_contract.sql`. El tercer
+harness usa identidades Auth sintéticas exclusivamente dentro de
+`BEGIN/ROLLBACK` y cubre creación admin-only, rotación, hash, aislamiento tenant,
+aceptación autenticada, email confirmado, rol existente, listado, revocación,
+idempotencia, grants y ausencia de la firma con password. No deja usuarios,
+membresías ni invitaciones residuales.
 
 ## Fingerprint sanitizado
 
@@ -157,6 +183,10 @@ La migración de PR #10 no forma parte de esta rama. La validación autorizada c
 
 Staging conserva su historia actual. No debe ejecutarse `migration repair`, modificar `schema_migrations` ni marcar versiones hasta comparar el fingerprint canónico, revisar los objetos D y aprobar un mapa explícito de equivalencias.
 
+PR #11 no debe desplegarse de forma aislada. El contrato de INV.1 requiere una
+migración forward DB.0D revisada y el rollout coordinado de INV.2/INV.3; hasta
+entonces el frontend de invitaciones permanece intencionalmente incompatible.
+
 Rollback local de DB.0B: descartar la rama sin mergear y detener Supabase local. El legado permanece intacto en Git. Un rollback remoto no aplica porque DB.0B no escribe en servicios remotos.
 
 ## Riesgos y migración forward DB.0D
@@ -164,7 +194,8 @@ Rollback local de DB.0B: descartar la rama sin mergear y detener Supabase local.
 - Los cuerpos originales de 17 versiones remotas siguen sin recuperarse.
 - Los módulos fiscal/PAC, documentos, nómina, notificaciones y reporting avanzado no están canonizados.
 - La línea canónica es reproducible pero no pretende igualar los objetos clase D de staging.
-- La ruta actual de invitación que entrega contraseña al RPC requiere rediseño frontend/Edge: el baseline seguro exige una sesión Auth existente y no escribe manualmente en `auth.users`.
+- La ruta actual de invitación que entrega contraseña al RPC queda bloqueada por diseño hasta INV.3; el baseline seguro exige una sesión Auth con email confirmado y no escribe manualmente en `auth.users`.
+- INV.2 debe implementar envío mediante Edge/Auth. Redirects, SMTP, Site URL y Auth settings siguen pendientes y no fueron modificados por INV.1.
 - Los campos opcionales `billing_document_id` y `payroll_period_id` se conservan como UUID sin FK porque sus familias completas son clase D y no tienen consumidor actual.
 - PR #10 debe permanecer draft hasta rebasarse sobre PR #11 y repetir los dos harnesses en su rama.
 
