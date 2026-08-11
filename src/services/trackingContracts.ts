@@ -220,3 +220,11 @@ export function createOneTimeTrackingLink(
         rotatedPrevious: result.rotatedPrevious,
     };
 }
+
+export function getOneTimeCapabilityUrl(link: OneTimeTrackingLink | null): string | null {
+    return link?.link ?? null;
+}
+
+export function clearOneTimeTrackingLink(): null {
+    return null;
+}

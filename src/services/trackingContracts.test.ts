@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import {
     buildTrackingUrl,
     canManageTracking,
+    clearOneTimeTrackingLink,
     createOneTimeTrackingLink,
     filterTrackingTokens,
+    getOneTimeCapabilityUrl,
     getTrackingDisplayState,
     normalizeCreateResult,
     normalizeRevokeResult,
@@ -84,6 +86,9 @@ assert.deepEqual(oneTime, {
     rotatedPrevious: false,
 });
 assert.equal(oneTime && 'token' in oneTime, false);
+assert.equal(getOneTimeCapabilityUrl(oneTime), oneTime?.link);
+assert.equal(getOneTimeCapabilityUrl(null), null);
+assert.equal(clearOneTimeTrackingLink(), null);
 
 const rotated = normalizeCreateResult({
     token_id: 'rotated-id',
@@ -105,8 +110,7 @@ const existing = normalizeCreateResult({
 });
 assert.equal(existing.kind, 'existing');
 assert.equal(createOneTimeTrackingLink(existing, 'https://staging.example'), null);
+assert.equal(getOneTimeCapabilityUrl(createOneTimeTrackingLink(existing, 'https://staging.example')), null);
 
 assert.deepEqual(normalizeRevokeResult({ success: true, status: 'revoked' }), { success: true, status: 'revoked' });
 assert.deepEqual(normalizeRevokeResult({ success: true, status: 'already_revoked' }), { success: true, status: 'already_revoked' });
-
-console.log('trackingContracts tests passed');

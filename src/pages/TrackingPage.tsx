@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import {
     AlertTriangle,
     Copy,
@@ -6,7 +7,6 @@ import {
     Loader2,
     MessageCircle,
     Plus,
-    QrCode,
     RefreshCw,
     RotateCcw,
     Search,
@@ -25,8 +25,10 @@ import {
 } from '@/services/trackingAdmin.service';
 import {
     canManageTracking,
+    clearOneTimeTrackingLink,
     createOneTimeTrackingLink,
     filterTrackingTokens,
+    getOneTimeCapabilityUrl,
     getScopeConfig,
     getTrackingDisplayState,
     TRACKING_SCOPE_OPTIONS,
@@ -90,6 +92,14 @@ export default function TrackingPage() {
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [oneTimeLink, setOneTimeLink] = useState<OneTimeTrackingLink | null>(null);
+    const oneTimeCapabilityUrl = useMemo(
+        () => getOneTimeCapabilityUrl(oneTimeLink),
+        [oneTimeLink],
+    );
+
+    const closeOneTimeLink = useCallback(() => {
+        setOneTimeLink(clearOneTimeTrackingLink());
+    }, []);
 
     const showToast = useCallback((message: string) => {
         setToast(message);
@@ -129,9 +139,9 @@ export default function TrackingPage() {
     }, [loadData]);
 
     useEffect(() => {
-        setOneTimeLink(null);
+        closeOneTimeLink();
         setCreateOpen(false);
-    }, [activeTenant]);
+    }, [activeTenant, closeOneTimeLink]);
 
     useEffect(() => {
         setTtlHours(getScopeConfig(scope).defaultTtlHours);
@@ -488,7 +498,7 @@ export default function TrackingPage() {
                 </div>
             )}
 
-            {oneTimeLink && (
+            {oneTimeLink && oneTimeCapabilityUrl && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
                     <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
                         <div className="flex items-start justify-between gap-4">
@@ -496,26 +506,33 @@ export default function TrackingPage() {
                                 <h2 className="text-lg font-bold text-slate-800">Enlace listo para compartir</h2>
                                 <p className="mt-1 text-sm text-slate-500">Guarda o comparte este enlace ahora. Por seguridad no podrá volver a mostrarse.</p>
                             </div>
-                            <button type="button" onClick={() => setOneTimeLink(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+                            <button type="button" onClick={closeOneTimeLink} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
                         </div>
                         <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
                             <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">{scopeLabel(oneTimeLink.scope)}</p>
-                            <p className="mt-2 break-all font-mono text-xs text-blue-900">{oneTimeLink.link}</p>
+                            <p className="mt-2 break-all font-mono text-xs text-blue-900">{oneTimeCapabilityUrl}</p>
                             <p className="mt-2 text-xs text-blue-600">Expira: {formatDate(oneTimeLink.expiresAt)}</p>
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                            <button type="button" onClick={() => void copyLink(oneTimeLink.link)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><Copy size={16} /> Copiar</button>
-                            <button type="button" onClick={() => void shareLink(oneTimeLink.link)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><Share2 size={16} /> Compartir</button>
-                            <button type="button" onClick={() => shareWhatsApp(oneTimeLink.link)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 px-3 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"><MessageCircle size={16} /> WhatsApp</button>
+                            <button type="button" onClick={() => void copyLink(oneTimeCapabilityUrl)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><Copy size={16} /> Copiar</button>
+                            <button type="button" onClick={() => void shareLink(oneTimeCapabilityUrl)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><Share2 size={16} /> Compartir</button>
+                            <button type="button" onClick={() => shareWhatsApp(oneTimeCapabilityUrl)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 px-3 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"><MessageCircle size={16} /> WhatsApp</button>
                         </div>
-                        <div className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <QrCode size={20} className="mt-0.5 shrink-0 text-slate-400" />
-                            <div>
-                                <p className="text-sm font-semibold text-slate-600">QR no disponible en esta compilación</p>
-                                <p className="mt-0.5 text-xs text-slate-400">Se retiró el generador externo para no transmitir el enlace de capacidad a un tercero. Usa Copiar o Compartir.</p>
+                        <div className="mt-4 flex justify-center rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="w-full max-w-56 rounded-lg bg-white p-2 shadow-sm">
+                                <QRCodeSVG
+                                    value={oneTimeCapabilityUrl}
+                                    level="M"
+                                    marginSize={4}
+                                    size={224}
+                                    bgColor="#ffffff"
+                                    fgColor="#0f172a"
+                                    title="Código QR del enlace de seguimiento"
+                                    className="h-auto w-full"
+                                />
                             </div>
                         </div>
-                        <button type="button" onClick={() => setOneTimeLink(null)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">Ya guardé el enlace</button>
+                        <button type="button" onClick={closeOneTimeLink} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">Ya guardé el enlace</button>
                     </div>
                 </div>
             )}
