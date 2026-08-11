@@ -4,8 +4,16 @@
 
 > **Estado verificado del árbol:** existen `track-public`, `driver-view` y
 > `track-driver`. `track-admin` no está implementada en el árbol actual y queda
-> fuera del alcance de SEC.4. Los fragmentos siguientes describen el contrato y
-> el comportamiento vigente; el código fuente es la autoridad final.
+> fuera del alcance de SEC.4. Los fragmentos extensos conservados abajo son
+> referencias históricas; el código fuente es la autoridad final.
+
+> **Reconciliación M4.1A (local, no desplegada):** los RPC internos se endurecen
+> en una migración nueva, sin modificar estas Edge Functions. `track-driver`
+> conserva `400` para acción inválida; la definición SQL final solo aplica
+> cooldown a `in_transit` (30 min) e `incident` (10 min), ambos con `200` y
+> `accepted:false`. No hay idempotencia general por `clientTimestamp` ni contrato
+> `422` vigente. El fallback legacy continúa activo y la revocación de
+> credenciales no está autorizada.
 
 ---
 
@@ -31,7 +39,7 @@ supabase/functions/
 
 ```typescript
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createSupabaseAdminClient } from "../_shared/supabase-admin.ts";
 import { corsHeaders, jsonResponse, errorResponse } from "../_shared/response.ts";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 
@@ -201,7 +209,7 @@ Deno.serve(async (req: Request) => {
   try {
     body = await req.json();
   } catch {
-    return errorResponse(400, "invalid_json");
+    return errorResponse(400, "invalid_request");
   }
 
   const {
@@ -250,10 +258,7 @@ Deno.serve(async (req: Request) => {
     // stateName = geo?.state;
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const supabase = createSupabaseAdminClient();
 
   const { data, error } = await supabase.rpc("rpc_post_driver_event", {
     p_token: driverToken,
@@ -272,10 +277,7 @@ Deno.serve(async (req: Request) => {
   });
 
   if (error) {
-    console.error(
-      `[track-driver] RPC error for ${driverToken.substring(0, 8)}...:`,
-      error.message,
-    );
+    console.error("[track-driver] RPC error:", error.message);
     return errorResponse(500, "internal_error");
   }
 
@@ -300,6 +302,7 @@ const ALLOWED_ORIGINS = [
   "https://tracking.rotero.mx",
   "https://roterowlsbeta.netlify.app",
   "https://staging.rotero.mx",
+  "https://rotero-erp-staging.netlify.app",
   "http://localhost:3000",
   "http://localhost:5173",
 ];
@@ -449,10 +452,10 @@ supabase functions deploy track-driver  --no-verify-jwt
 
 ### Estado de credenciales
 
-El código vigente crea el cliente administrativo con `SUPABASE_URL` y
-`SUPABASE_SERVICE_ROLE_KEY`. Esto describe el estado legacy actual, no el estado
-objetivo. La migración a una secret moderna todavía no se ha implementado ni
-desplegado.
+El código vigente usa el helper compartido `createSupabaseAdminClient()`. La
+resolución prioriza `modern_named`, después `modern_local`, y conserva
+`legacy_fallback` como compatibilidad temporal. La evidencia previa de staging
+registró `modern_named`; M4.1A no despliega funciones ni retira el fallback.
 
 ### Matriz `verify_jwt`
 
@@ -467,10 +470,10 @@ No debe crearse ni desplegarse como parte de este plan.
 
 ### Hardening pendiente
 
-- `track-driver` todavía incluye los primeros ocho caracteres del token en el
-  log de errores RPC. Su eliminación queda pendiente; SEC.4B no modifica código.
-- La allowlist CORS todavía debe incorporar el dominio Netlify staging.
-- `verify_jwt=false` debe quedar explícito en `supabase/config.toml`.
+- El código actual no registra el literal, prefijos del token ni el body completo.
+- La allowlist incluye los orígenes staging vigentes del árbol actual.
+- Las tres funciones remotas se verificaron con `verify_jwt=false`; la
+  reconciliación de configuración versionada queda fuera de M4.1A.
 
 ### Plan de migración vigente
 
