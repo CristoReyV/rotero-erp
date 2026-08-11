@@ -240,14 +240,3 @@ export async function postDriverEvent(
         return { ok: false, error: 'network_error' };
     }
 }
-
-/**
- * GET internal tracking list (for the ERP Tracking dashboard).
- * Dynamically imports tracking.mock to avoid static bundle inclusion warning.
- */
-export async function fetchInternalTrackingList() {
-    // In the future this uses a real RPC. For now just mock.
-    if (!USE_MOCKS) return [];
-    const { MOCK_INTERNAL_TRACKING_LIST } = await import('@/mocks/tracking.mock');
-    return MOCK_INTERNAL_TRACKING_LIST;
-}

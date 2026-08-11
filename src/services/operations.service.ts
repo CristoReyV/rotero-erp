@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Operation } from '@/types/operations';
 import type { Place } from '@/types/tracking';
 import type { BadgeVariant } from '@/types/common';
+import { createTrackingToken, getTrackingErrorMessage } from '@/services/trackingAdmin.service';
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
@@ -259,26 +260,29 @@ export async function ensureTrackingToken(tenantId: string, operationId: string)
     }
 
     // Create driver:write token (idempotent — RPC returns existing if active)
-    const { data, error } = await supabase.rpc('rpc_create_tracking_token', {
-        p_tenant_id: tenantId,
-        p_operation_id: operationId,
-        p_scope: 'driver:write',
-        p_ttl_hours: 48,
-        p_force_rotate: false
-    });
+    let driverResult;
+    try {
+        driverResult = await createTrackingToken({
+            tenantId,
+            operationId,
+            scope: 'driver:write',
+            ttlHours: 48,
+            forceRotate: false,
+        });
+    } catch (error) {
+        return { existed: false, created: false, error: getTrackingErrorMessage(error) };
+    }
 
-    if (error) return { existed: false, created: false, error: error.message };
-    if (data?.error) return { existed: false, created: false, error: data.error };
-
-    const alreadyExisted = data?.already_existed === true;
+    const alreadyExisted = driverResult.kind === 'existing';
 
     // Also create public:read token (idempotent, non-critical)
     try {
-        await supabase.rpc('rpc_create_tracking_token', {
-            p_tenant_id: tenantId,
-            p_operation_id: operationId,
-            p_scope: 'public:read',
-            p_force_rotate: false
+        await createTrackingToken({
+            tenantId,
+            operationId,
+            scope: 'public:read',
+            ttlHours: null,
+            forceRotate: false,
         });
     } catch {
         // Non-critical
