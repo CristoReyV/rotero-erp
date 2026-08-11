@@ -10,9 +10,29 @@ import {
     normalizeCreateResult,
     normalizeRevokeResult,
     normalizeTrackingList,
+    resolveOneTimeTrackingLinkForAction,
+    resolvePublicAppBaseUrl,
 } from './trackingContracts';
 
 const NOW = new Date('2026-08-11T12:00:00Z');
+const STAGING_BASE_URL = 'https://rotero-erp-staging.netlify.app';
+
+assert.equal(
+    resolvePublicAppBaseUrl(`${STAGING_BASE_URL}/`, 'http://127.0.0.1:5173'),
+    STAGING_BASE_URL,
+);
+assert.equal(
+    resolvePublicAppBaseUrl(undefined, 'http://127.0.0.1:5173/'),
+    'http://127.0.0.1:5173',
+);
+assert.equal(buildTrackingUrl(STAGING_BASE_URL, 'public:read', 'public-token'), `${STAGING_BASE_URL}/t/public-token`);
+assert.equal(buildTrackingUrl(STAGING_BASE_URL, 'driver:write', 'driver-token'), `${STAGING_BASE_URL}/driver/driver-token`);
+
+const rawEncodedToken = 'token/with space%2F';
+const encodedUrl = buildTrackingUrl(STAGING_BASE_URL, 'public:read', rawEncodedToken);
+assert.equal(encodedUrl, `${STAGING_BASE_URL}/t/token%2Fwith%20space%252F`);
+assert.equal(decodeURIComponent(encodedUrl.split('/t/')[1]), rawEncodedToken);
+assert.equal(encodedUrl.includes('localhost'), false);
 
 const rows = normalizeTrackingList([
     {
@@ -101,6 +121,11 @@ const rotated = normalizeCreateResult({
 assert.equal(rotated.kind, 'created');
 assert.equal(rotated.kind === 'created' && rotated.rotatedPrevious, true);
 assert.equal(buildTrackingUrl('https://staging.example', 'driver:write', 'driver-token'), 'https://staging.example/driver/driver-token');
+const rotatedOneTime = resolveOneTimeTrackingLinkForAction('rotate', rotated, STAGING_BASE_URL);
+assert.equal(rotatedOneTime?.link, `${STAGING_BASE_URL}/driver/rotated-literal`);
+assert.equal(getOneTimeCapabilityUrl(rotatedOneTime), rotatedOneTime?.link);
+assert.equal(resolveOneTimeTrackingLinkForAction('revoke', null, STAGING_BASE_URL), null);
+assert.equal(resolveOneTimeTrackingLinkForAction('revoke', created, STAGING_BASE_URL), null);
 
 const existing = normalizeCreateResult({
     token_id: 'existing-id',

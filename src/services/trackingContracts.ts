@@ -37,6 +37,7 @@ export interface ExistingTrackingToken {
 }
 
 export type TrackingCreateResult = CreatedTrackingToken | ExistingTrackingToken;
+export type OneTimeTrackingAction = 'create' | 'rotate' | 'revoke';
 
 export interface RevokeTrackingTokenResult {
     success: boolean;
@@ -200,25 +201,54 @@ export function filterTrackingTokens(
     });
 }
 
-export function buildTrackingUrl(origin: string, scope: TrackingScope, token: string): string {
-    const normalizedOrigin = origin.replace(/\/+$/, '');
+export function resolvePublicAppBaseUrl(
+    configuredBaseUrl: string | undefined,
+    fallbackOrigin: string,
+): string {
+    const selectedBaseUrl = configuredBaseUrl?.trim() || fallbackOrigin.trim();
+    let parsed: URL;
+
+    try {
+        parsed = new URL(selectedBaseUrl);
+    } catch {
+        throw new Error('invalid_public_app_base_url');
+    }
+
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error('invalid_public_app_base_url');
+    }
+
+    return selectedBaseUrl.replace(/\/+$/, '');
+}
+
+export function buildTrackingUrl(baseUrl: string, scope: TrackingScope, token: string): string {
+    const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
     const path = scope === 'driver:write' ? '/driver/' : '/t/';
-    return `${normalizedOrigin}${path}${encodeURIComponent(token)}`;
+    return `${normalizedBaseUrl}${path}${encodeURIComponent(token)}`;
 }
 
 export function createOneTimeTrackingLink(
     result: TrackingCreateResult,
-    origin: string,
+    baseUrl: string,
 ): OneTimeTrackingLink | null {
     if (result.kind !== 'created') return null;
 
     return {
         tokenId: result.tokenId,
         scope: result.scope,
-        link: buildTrackingUrl(origin, result.scope, result.token),
+        link: buildTrackingUrl(baseUrl, result.scope, result.token),
         expiresAt: result.expiresAt,
         rotatedPrevious: result.rotatedPrevious,
     };
+}
+
+export function resolveOneTimeTrackingLinkForAction(
+    action: OneTimeTrackingAction,
+    result: TrackingCreateResult | null,
+    baseUrl: string,
+): OneTimeTrackingLink | null {
+    if (action === 'revoke' || !result) return null;
+    return createOneTimeTrackingLink(result, baseUrl);
 }
 
 export function getOneTimeCapabilityUrl(link: OneTimeTrackingLink | null): string | null {

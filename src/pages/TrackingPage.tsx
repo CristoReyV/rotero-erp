@@ -26,11 +26,12 @@ import {
 import {
     canManageTracking,
     clearOneTimeTrackingLink,
-    createOneTimeTrackingLink,
     filterTrackingTokens,
     getOneTimeCapabilityUrl,
     getScopeConfig,
     getTrackingDisplayState,
+    resolveOneTimeTrackingLinkForAction,
+    resolvePublicAppBaseUrl,
     TRACKING_SCOPE_OPTIONS,
     type OneTimeTrackingLink,
     type TrackingFilter,
@@ -74,6 +75,10 @@ export default function TrackingPage() {
     const activeTenant = useAuthStore((state) => state.activeTenant);
     const role = useAuthStore((state) => state.getRole());
     const canManage = canManageTracking(role);
+    const publicAppBaseUrl = resolvePublicAppBaseUrl(
+        import.meta.env.VITE_PUBLIC_APP_URL,
+        window.location.origin,
+    );
 
     const [tokens, setTokens] = useState<TrackingTokenMetadata[]>([]);
     const [operations, setOperations] = useState<Operation[]>([]);
@@ -195,7 +200,7 @@ export default function TrackingPage() {
                 setCreateOpen(false);
                 showToast('Ya existe un enlace activo. Rótalo si necesitas un literal nuevo.');
             } else {
-                setOneTimeLink(createOneTimeTrackingLink(result, window.location.origin));
+                setOneTimeLink(resolveOneTimeTrackingLinkForAction('create', result, publicAppBaseUrl));
                 setCreateOpen(false);
                 showToast('Enlace creado. Guárdalo o compártelo ahora.');
             }
@@ -220,7 +225,7 @@ export default function TrackingPage() {
                 ttlHours: getScopeConfig(token.scope).defaultTtlHours,
                 forceRotate: true,
             });
-            const oneTime = createOneTimeTrackingLink(result, window.location.origin);
+            const oneTime = resolveOneTimeTrackingLinkForAction('rotate', result, publicAppBaseUrl);
             if (!oneTime) throw new Error('invalid_rotate_result');
             setOneTimeLink(oneTime);
             showToast('Enlace rotado. Comparte el nuevo enlace ahora.');
@@ -234,6 +239,7 @@ export default function TrackingPage() {
 
     const handleRevoke = async (token: TrackingTokenMetadata) => {
         if (!canManage) return;
+        setOneTimeLink(resolveOneTimeTrackingLinkForAction('revoke', null, publicAppBaseUrl));
         if (!window.confirm('Este enlace dejará de funcionar. ¿Deseas revocarlo?')) return;
 
         setActionTokenId(token.id);

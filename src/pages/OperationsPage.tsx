@@ -23,6 +23,7 @@ import {
     transitionOperationStatus,
 } from '@/services/operations.service';
 import { createTrackingToken, getTrackingErrorMessage } from '@/services/trackingAdmin.service';
+import { buildTrackingUrl, resolvePublicAppBaseUrl } from '@/services/trackingContracts';
 import { useAuthStore } from '@/store/authStore';
 import type { Operation } from '@/types/operations';
 
@@ -223,8 +224,12 @@ const OperationsPage = () => {
         const literal = type === 'driver' ? driverToken : publicToken;
         if (!literal) return;
 
-        const path = type === 'driver' ? '/driver/' : '/t/';
-        const url = `${window.location.origin}${path}${literal}`;
+        const publicAppBaseUrl = resolvePublicAppBaseUrl(
+            import.meta.env.VITE_PUBLIC_APP_URL,
+            window.location.origin,
+        );
+        const scope = type === 'driver' ? 'driver:write' : 'public:read';
+        const url = buildTrackingUrl(publicAppBaseUrl, scope, literal);
         const markCopied = () => {
             setCopiedStatus(type);
             window.setTimeout(() => setCopiedStatus(null), 2000);

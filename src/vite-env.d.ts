@@ -6,6 +6,7 @@ interface ImportMetaEnv {
     readonly VITE_USE_MOCKS: string;
     readonly VITE_SUPABASE_URL: string;
     readonly VITE_SUPABASE_ANON_KEY: string;
+    readonly VITE_PUBLIC_APP_URL?: string;
     // Add other VITE_ variables here as needed
 }
 
