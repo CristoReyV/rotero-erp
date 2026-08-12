@@ -1,0 +1,4 @@
+interface:
+  display_name: "ROTERO Database QA"
+  short_description: "Validate ROTERO database changes safely"
+  default_prompt: "Use $rotero-db-qa to validate the specified database contract without schema drift."

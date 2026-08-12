@@ -1,0 +1,4 @@
+interface:
+  display_name: "ROTERO Staging Release"
+  short_description: "Release approved ROTERO changes to staging"
+  default_prompt: "Use $rotero-release-staging to publish the approved change only to staging."

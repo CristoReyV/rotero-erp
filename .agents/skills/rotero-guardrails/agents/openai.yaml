@@ -1,0 +1,4 @@
+interface:
+  display_name: "ROTERO Guardrails"
+  short_description: "Apply ROTERO safety and scope guardrails"
+  default_prompt: "Use $rotero-guardrails to execute this ROTERO ERP task within its approved scope."
