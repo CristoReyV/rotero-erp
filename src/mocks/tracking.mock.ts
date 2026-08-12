@@ -120,12 +120,6 @@ export const MOCK_TRACKING_LINKS: TrackingLink[] = [
     }
 ];
 
-export const MOCK_INTERNAL_TRACKING_LIST = [
-    { id: 'OP-8492', client: 'Autopartes de México', route: 'Laredo → MTY', link: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', status: 'in_transit', lastLocation: 'Ciénega de Flores, N.L.', lastUpdate: '12:47', linkState: 'active' as const, expiresAt: '2026-10-31T23:59:59Z' },
-    { id: 'OP-8493', client: 'ElectroTech R', route: 'Querétaro → CDMX', link: 'b2c3d4e5-f6a7-8901-bcde-f12345678901', status: 'in_transit', lastLocation: 'Tepotzotlán, Méx.', lastUpdate: '11:20', linkState: 'soft_expired' as const, expiresAt: '2024-10-23T23:59:59Z' },
-    { id: 'OP-8494', client: 'Global Logistics', route: 'Manzanillo → GDL', link: 'c3d4e5f6-a7b8-9012-cdef-123456789012', status: 'delivered', lastLocation: 'Guadalajara, Jal.', lastUpdate: 'Ayer', linkState: 'revoked' as const, expiresAt: '2026-10-31T23:59:59Z' },
-];
-
 import type { PublicTrackingResponse } from '@/types/tracking';
 
 export function getMockPublicTracking(token: string): PublicTrackingResponse {

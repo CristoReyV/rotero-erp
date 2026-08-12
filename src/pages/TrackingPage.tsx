@@ -1,347 +1,551 @@
-import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/store/authStore';
-import { PageHeader } from '@/components/PageHeader';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import {
+    AlertTriangle,
+    Copy,
+    Link2,
+    Loader2,
+    MessageCircle,
+    Plus,
+    RefreshCw,
+    RotateCcw,
+    Search,
+    Share2,
+    ShieldOff,
+    X,
+} from 'lucide-react';
 import { Badge } from '@/components/Badge';
-import { MapPin, ExternalLink, RefreshCw, Send, Settings, Search, CheckCircle, AlertTriangle, Copy, QrCode, MessageCircle, Check, X, ShieldOff } from 'lucide-react';
-import { fetchInternalTrackingList } from '@/services/trackingEdge.service';
-import { ORDER_STATES, TRACKING_LINK_STATES } from '@/constants/states';
-import { reverseGeocode, getGeoCacheStats } from '@/services/trackingGeo.service';
-import type { GeoPoint } from '@/types/tracking';
+import { PageHeader } from '@/components/PageHeader';
+import { listOperations } from '@/services/operations.service';
+import {
+    createTrackingToken,
+    getTrackingErrorMessage,
+    listTrackingTokens,
+    revokeTrackingToken,
+} from '@/services/trackingAdmin.service';
+import {
+    canManageTracking,
+    clearOneTimeTrackingLink,
+    filterTrackingTokens,
+    getOneTimeCapabilityUrl,
+    getScopeConfig,
+    getTrackingDisplayState,
+    resolveOneTimeTrackingLinkForAction,
+    resolvePublicAppBaseUrl,
+    TRACKING_SCOPE_OPTIONS,
+    type OneTimeTrackingLink,
+    type TrackingFilter,
+    type TrackingScope,
+    type TrackingTokenMetadata,
+} from '@/services/trackingContracts';
+import { useAuthStore } from '@/store/authStore';
+import type { BadgeVariant } from '@/types/common';
+import type { Operation } from '@/types/operations';
 
-// Simulated GPS coordinates for each order (in production these come from driver app)
-const SIMULATED_GPS: Record<string, GeoPoint> = {
-    'OP-8492': { lat: 25.6866, lng: -100.3161 },   // Monterrey area
-    'OP-8493': { lat: 19.5684, lng: -99.2116 },     // Tepotzotlán area 
-    'OP-8494': { lat: 20.6597, lng: -103.3496 },    // Guadalajara area
+const FILTER_OPTIONS: ReadonlyArray<{ value: TrackingFilter; label: string }> = [
+    { value: 'all', label: 'Todos' },
+    { value: 'active', label: 'Activos' },
+    { value: 'revoked', label: 'Revocados' },
+    { value: 'expired', label: 'Expirados' },
+    { value: 'public', label: 'Públicos' },
+    { value: 'driver', label: 'Operador' },
+];
+
+const DISPLAY_STATES: Record<string, { label: string; badge: BadgeVariant }> = {
+    active: { label: 'Activo', badge: 'success' },
+    revoked: { label: 'Revocado', badge: 'danger' },
+    expired: { label: 'Expirado', badge: 'warning' },
 };
 
-interface GeoResult {
-    orderId: string;
-    label: string;
-    success: boolean;
-    fromCache: boolean;
+function formatDate(value: string | null): string {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return new Intl.DateTimeFormat('es-MX', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(date);
+}
+
+function scopeLabel(scope: TrackingScope): string {
+    return scope === 'driver:write' ? 'Operador / chofer' : 'Público';
 }
 
 export default function TrackingPage() {
-    const [isUpdating, setIsUpdating] = useState(false);
-    const [trackingList, setTrackingList] = useState<any[]>([]);
+    const activeTenant = useAuthStore((state) => state.activeTenant);
+    const role = useAuthStore((state) => state.getRole());
+    const canManage = canManageTracking(role);
+    const publicAppBaseUrl = resolvePublicAppBaseUrl(
+        import.meta.env.VITE_PUBLIC_APP_URL,
+        window.location.origin,
+    );
 
-    useEffect(() => {
-        let mounted = true;
-        fetchInternalTrackingList().then(data => {
-            if (mounted) setTrackingList(data);
-        });
-        return () => { mounted = false; };
+    const [tokens, setTokens] = useState<TrackingTokenMetadata[]>([]);
+    const [operations, setOperations] = useState<Operation[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [query, setQuery] = useState('');
+    const [filter, setFilter] = useState<TrackingFilter>('all');
+    const [toast, setToast] = useState<string | null>(null);
+    const [actionTokenId, setActionTokenId] = useState<string | null>(null);
+
+    const [createOpen, setCreateOpen] = useState(false);
+    const [operationId, setOperationId] = useState('');
+    const [scope, setScope] = useState<TrackingScope>('public:read');
+    const [ttlHours, setTtlHours] = useState(getScopeConfig('public:read').defaultTtlHours);
+    const [submitting, setSubmitting] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [oneTimeLink, setOneTimeLink] = useState<OneTimeTrackingLink | null>(null);
+    const oneTimeCapabilityUrl = useMemo(
+        () => getOneTimeCapabilityUrl(oneTimeLink),
+        [oneTimeLink],
+    );
+
+    const closeOneTimeLink = useCallback(() => {
+        setOneTimeLink(clearOneTimeTrackingLink());
     }, []);
-    const [lastGeoResults, setLastGeoResults] = useState<GeoResult[]>([]);
-    const [showResults, setShowResults] = useState(false);
-    const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
-    const [qrData, setQrData] = useState<{ link: string; orderId: string } | null>(null);
 
-    const role = useAuthStore(state => state.getRole());
-    const isViewer = role === 'viewer';
+    const showToast = useCallback((message: string) => {
+        setToast(message);
+        window.setTimeout(() => setToast(null), 2500);
+    }, []);
 
-    const handleRevoke = (id: string) => {
-        setTrackingList(prev => prev.map(t => t.id === id ? { ...t, linkState: 'revoked' as const } : t));
-        showToast('Enlace revocado permanentemente');
-    };
-
-    const showToast = (message: string) => {
-        setToast({ message, visible: true });
-        setTimeout(() => setToast({ message: '', visible: false }), 2500);
-    };
-
-    const getFullLink = (token: string) => `${window.location.origin}/t/${token}`;
-
-    const handleCopyLink = (token: string) => {
-        navigator.clipboard.writeText(getFullLink(token));
-        showToast('Link copiado al portapapeles');
-    };
-
-    const handleWhatsApp = (token: string, orderId: string) => {
-        const text = encodeURIComponent(`Hola, aquí tienes el link de seguimiento para tu orden ${orderId}: ${getFullLink(token)}`);
-        window.open(`https://wa.me/?text=${text}`, '_blank');
-    };
-
-    const handleSimulateUpdate = async () => {
-        setIsUpdating(true);
-        setShowResults(false);
-        const results: GeoResult[] = [];
-
-        for (const track of trackingList) {
-            const gps = SIMULATED_GPS[track.id];
-            if (!gps) continue;
-
-            const { place, fromCache, error } = await reverseGeocode(gps);
-
-            if (place) {
-                results.push({
-                    orderId: track.id,
-                    label: `${place.municipality}, ${place.state}`,
-                    success: true,
-                    fromCache,
-                });
-            } else {
-                results.push({
-                    orderId: track.id,
-                    label: error ? `Error: ${error}` : 'Ubicación actualizada',
-                    success: false,
-                    fromCache,
-                });
-            }
+    const loadData = useCallback(async (asRefresh = false) => {
+        if (!activeTenant) {
+            setTokens([]);
+            setOperations([]);
+            setError('Selecciona un tenant para consultar Tracking.');
+            setLoading(false);
+            return;
         }
 
-        const stats = getGeoCacheStats();
-        console.log('[TrackingGeo] Cache stats:', stats);
+        if (asRefresh) setRefreshing(true);
+        else setLoading(true);
+        setError(null);
 
-        setLastGeoResults(results);
-        setShowResults(true);
-        setIsUpdating(false);
+        try {
+            const [tokenRows, operationRows] = await Promise.all([
+                listTrackingTokens(activeTenant),
+                canManage ? listOperations(activeTenant) : Promise.resolve([]),
+            ]);
+            setTokens(tokenRows);
+            setOperations(operationRows);
+        } catch (loadError) {
+            setError(getTrackingErrorMessage(loadError));
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [activeTenant, canManage]);
+
+    useEffect(() => {
+        void loadData();
+    }, [loadData]);
+
+    useEffect(() => {
+        closeOneTimeLink();
+        setCreateOpen(false);
+    }, [activeTenant, closeOneTimeLink]);
+
+    useEffect(() => {
+        setTtlHours(getScopeConfig(scope).defaultTtlHours);
+    }, [scope]);
+
+    const filteredTokens = useMemo(
+        () => filterTrackingTokens(tokens, query, filter),
+        [tokens, query, filter],
+    );
+
+    const counts = useMemo(() => tokens.reduce(
+        (result, token) => {
+            result[getTrackingDisplayState(token)] += 1;
+            return result;
+        },
+        { active: 0, revoked: 0, expired: 0 },
+    ), [tokens]);
+
+    const openCreate = () => {
+        setOperationId(operations.find((operation) => operation.db_id)?.db_id ?? '');
+        setScope('public:read');
+        setFormError(null);
+        setCreateOpen(true);
+    };
+
+    const handleCreate = async (event: FormEvent) => {
+        event.preventDefault();
+        if (!activeTenant || !operationId) {
+            setFormError('Selecciona una operación.');
+            return;
+        }
+
+        const scopeConfig = getScopeConfig(scope);
+        if (!Number.isInteger(ttlHours) || ttlHours <= 0 || ttlHours > scopeConfig.maxTtlHours) {
+            setFormError(`La vigencia debe estar entre 1 y ${scopeConfig.maxTtlHours} horas.`);
+            return;
+        }
+
+        setSubmitting(true);
+        setFormError(null);
+        try {
+            const result = await createTrackingToken({
+                tenantId: activeTenant,
+                operationId,
+                scope,
+                ttlHours,
+                forceRotate: false,
+            });
+
+            if (result.kind === 'existing') {
+                setCreateOpen(false);
+                showToast('Ya existe un enlace activo. Rótalo si necesitas un literal nuevo.');
+            } else {
+                setOneTimeLink(resolveOneTimeTrackingLinkForAction('create', result, publicAppBaseUrl));
+                setCreateOpen(false);
+                showToast('Enlace creado. Guárdalo o compártelo ahora.');
+            }
+            await loadData(true);
+        } catch (createError) {
+            setFormError(getTrackingErrorMessage(createError));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleRotate = async (token: TrackingTokenMetadata) => {
+        if (!activeTenant || !canManage) return;
+        if (!window.confirm('El enlace anterior dejará de ser válido. ¿Deseas rotarlo?')) return;
+
+        setActionTokenId(token.id);
+        try {
+            const result = await createTrackingToken({
+                tenantId: activeTenant,
+                operationId: token.operationId,
+                scope: token.scope,
+                ttlHours: getScopeConfig(token.scope).defaultTtlHours,
+                forceRotate: true,
+            });
+            const oneTime = resolveOneTimeTrackingLinkForAction('rotate', result, publicAppBaseUrl);
+            if (!oneTime) throw new Error('invalid_rotate_result');
+            setOneTimeLink(oneTime);
+            showToast('Enlace rotado. Comparte el nuevo enlace ahora.');
+            await loadData(true);
+        } catch (rotateError) {
+            showToast(getTrackingErrorMessage(rotateError));
+        } finally {
+            setActionTokenId(null);
+        }
+    };
+
+    const handleRevoke = async (token: TrackingTokenMetadata) => {
+        if (!canManage) return;
+        setOneTimeLink(resolveOneTimeTrackingLinkForAction('revoke', null, publicAppBaseUrl));
+        if (!window.confirm('Este enlace dejará de funcionar. ¿Deseas revocarlo?')) return;
+
+        setActionTokenId(token.id);
+        try {
+            const result = await revokeTrackingToken(token.id);
+            if (result.status === 'revoked') showToast('Enlace revocado.');
+            else if (result.status === 'already_revoked') showToast('El enlace ya estaba revocado.');
+            else showToast('No fue posible revocar este enlace.');
+            await loadData(true);
+        } catch (revokeError) {
+            showToast(getTrackingErrorMessage(revokeError));
+        } finally {
+            setActionTokenId(null);
+        }
+    };
+
+    const copyLink = async (link: string) => {
+        try {
+            if (!navigator.clipboard?.writeText) throw new Error('clipboard_unavailable');
+            await navigator.clipboard.writeText(link);
+            showToast('Enlace copiado.');
+        } catch {
+            window.prompt('Copia el enlace:', link);
+        }
+    };
+
+    const shareLink = async (link: string) => {
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: 'Enlace de seguimiento ROTERO', url: link });
+                return;
+            } catch {
+                return;
+            }
+        }
+        await copyLink(link);
+    };
+
+    const shareWhatsApp = (link: string) => {
+        const text = encodeURIComponent(`Enlace de seguimiento ROTERO: ${link}`);
+        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+    };
+
+    const renderActions = (token: TrackingTokenMetadata) => {
+        const state = getTrackingDisplayState(token);
+        if (!canManage) return <span className="text-xs text-slate-400">Solo lectura</span>;
+        const working = actionTokenId === token.id;
+
+        return (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                    type="button"
+                    onClick={() => void handleRotate(token)}
+                    disabled={working}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+                >
+                    {working ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                    Rotar
+                </button>
+                {state === 'active' && (
+                    <button
+                        type="button"
+                        onClick={() => void handleRevoke(token)}
+                        disabled={working}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-100 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                        <ShieldOff size={14} /> Revocar
+                    </button>
+                )}
+            </div>
+        );
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-surface font-sans h-full">
-            <div className="max-w-[1400px] mx-auto px-6 py-8">
+        <div className="h-full flex-1 overflow-y-auto bg-surface font-sans">
+            <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
                 <PageHeader
                     title="Control de Tracking"
-                    subtitle="Monitoreo GPS, geocercas y links de seguimiento"
+                    subtitle="Enlaces reales de seguimiento y acceso del operador"
                     actions={
-                        <div className="flex gap-3">
-                            {!isViewer && (
-                                <button className="flex items-center gap-2 px-4 py-2 bg-white border border-tech-border text-slate-600 rounded-xl hover:bg-slate-50 hover:text-primary transition-colors text-sm font-semibold shadow-sm">
-                                    <Settings size={16} /> Configuración
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => void loadData(true)}
+                                disabled={loading || refreshing}
+                                className="inline-flex items-center gap-2 rounded-xl border border-tech-border bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                                Actualizar
+                            </button>
+                            {canManage && (
+                                <button
+                                    type="button"
+                                    onClick={openCreate}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+                                >
+                                    <Plus size={16} /> Nuevo enlace
                                 </button>
                             )}
-                            <button
-                                onClick={handleSimulateUpdate}
-                                disabled={isUpdating}
-                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 text-sm font-semibold disabled:opacity-50"
-                            >
-                                <RefreshCw size={16} className={isUpdating ? 'animate-spin' : ''} />
-                                {isUpdating ? 'Geocodificando…' : 'Forzar Sincronización'}
-                            </button>
                         </div>
                     }
                 />
 
-                {/* Geocoding results toast */}
-                {showResults && lastGeoResults.length > 0 && (
-                    <div className="bg-white rounded-xl border border-tech-border shadow-sm mb-6 p-4 animate-in fade-in slide-in-from-top-2">
-                        <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resultado de Geocodificación</h4>
-                            <button
-                                onClick={() => setShowResults(false)}
-                                className="text-xs text-slate-400 hover:text-slate-600 transition-colors font-medium"
-                            >
-                                Cerrar ✕
-                            </button>
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {(['active', 'revoked', 'expired'] as const).map((state) => (
+                        <div key={state} className="rounded-xl border border-tech-border bg-white p-4 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{DISPLAY_STATES[state].label}</p>
+                            <p className="mt-1 text-2xl font-bold text-slate-800">{counts[state]}</p>
                         </div>
-                        <div className="space-y-2">
-                            {lastGeoResults.map((r) => (
-                                <div key={r.orderId} className="flex items-center gap-3 py-1.5">
-                                    {r.success ? (
-                                        <CheckCircle size={16} className="text-emerald-500 shrink-0" />
-                                    ) : (
-                                        <AlertTriangle size={16} className="text-amber-500 shrink-0" />
-                                    )}
-                                    <span className="text-sm font-semibold text-slate-700 w-20">{r.orderId}</span>
-                                    <span className={`text-sm font-medium ${r.success ? 'text-emerald-700' : 'text-amber-600'}`}>
-                                        {r.label}
-                                    </span>
-                                    {r.fromCache && (
-                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full ml-auto">
-                                            CACHÉ
-                                        </span>
-                                    )}
-                                </div>
-                            ))}
+                    ))}
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-tech-border bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            placeholder="Buscar referencia, operación, scope o estado"
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                    </div>
+                    <select
+                        value={filter}
+                        onChange={(event) => setFilter(event.target.value as TrackingFilter)}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                        {FILTER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                </div>
+
+                {error && (
+                    <div className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                            <p className="font-semibold">No fue posible cargar Tracking</p>
+                            <p className="mt-0.5">{error}</p>
                         </div>
+                        <button type="button" onClick={() => void loadData()} className="font-semibold underline">Reintentar</button>
                     </div>
                 )}
 
-                {/* Filter bar */}
-                <div className="bg-white p-4 rounded-xl border border-tech-border shadow-sm mb-6 flex items-center justify-between">
-                    <div className="relative w-full max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                            type="text"
-                            placeholder="Buscar PO, Cliente o Link..."
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
-                        />
+                {loading ? (
+                    <div className="mt-4 flex min-h-56 items-center justify-center rounded-xl border border-tech-border bg-white">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+                            <Loader2 size={18} className="animate-spin" /> Cargando enlaces…
+                        </div>
                     </div>
-                </div>
-
-                {/* Tracking List */}
-                <div className="bg-white rounded-xl shadow-sm border border-tech-border overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50/80 border-b border-tech-border">
-                                    <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">ORDEN</th>
-                                    <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">CLIENTE</th>
-                                    <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">ESTATUS</th>
-                                    <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">ÚLTIMO MUNICIPIO</th>
-                                    <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">LINK PÚBLICO</th>
-                                    <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">ACCIONES</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-tech-border">
-                                {trackingList.map((track) => {
-                                    const statusSpec = ORDER_STATES[track.status as keyof typeof ORDER_STATES] || ORDER_STATES.draft;
-                                    const linkStateSpec = TRACKING_LINK_STATES[track.linkState] || TRACKING_LINK_STATES.active;
-                                    const isRevocable = track.linkState === 'active' || track.linkState === 'soft_expired';
-
-                                    return (
-                                        <tr key={track.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-5 py-4">
-                                                <div className="text-sm font-bold text-primary group-hover:text-blue-600 transition-colors cursor-pointer">{track.id}</div>
-                                                <div className="text-[11px] font-medium text-slate-400 mt-0.5">{track.route}</div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0 border border-slate-200">
-                                                        {track.client.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-slate-700">{track.client}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <Badge variant={statusSpec.badge}>{statusSpec.label}</Badge>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="p-1.5 bg-blue-50 text-blue-600 rounded-md shrink-0">
-                                                        <MapPin size={14} strokeWidth={2.5} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-[13px] font-semibold text-slate-700">{track.lastLocation}</div>
-                                                        <div className="text-[10px] font-medium text-slate-400 mt-0.5 flex items-center gap-1.5">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                                            Actualizado: {track.lastUpdate}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-2 group/link cursor-pointer w-fit">
-                                                        <div className={`text-[13px] font-medium truncate max-w-[120px] font-mono group-hover/link:underline ${track.linkState === 'revoked' ? 'text-slate-400 line-through' : 'text-blue-600'}`}>
-                                                            ...{track.link.substring(track.link.length - 12)}
-                                                        </div>
-                                                        <a href={`/t/${track.link}`} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-blue-600 transition-colors">
-                                                            <ExternalLink size={14} />
-                                                        </a>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="scale-90 origin-left">
-                                                            <Badge variant={linkStateSpec.badge}>
-                                                                {linkStateSpec.label}
-                                                            </Badge>
-                                                        </div>
-                                                        {track.linkState !== 'revoked' && (
-                                                            <span className="text-[10px] font-medium text-slate-400">
-                                                                Vence: {new Date(track.expiresAt).toLocaleDateString()}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => handleCopyLink(track.link)}
-                                                        disabled={track.linkState === 'revoked'}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-200 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
-                                                        title="Copiar link"
-                                                    >
-                                                        <Copy size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setQrData({ link: getFullLink(track.link), orderId: track.id })}
-                                                        disabled={track.linkState === 'revoked'}
-                                                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-300 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
-                                                        title="Generar QR"
-                                                    >
-                                                        <QrCode size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleWhatsApp(track.link, track.id)}
-                                                        disabled={track.linkState === 'revoked'}
-                                                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-200 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
-                                                        title="Compartir por WhatsApp"
-                                                    >
-                                                        <MessageCircle size={16} />
-                                                    </button>
-                                                    {isRevocable && !isViewer && (
-                                                        <button
-                                                            onClick={() => handleRevoke(track.id)}
-                                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
-                                                            title="Revocar link"
-                                                        >
-                                                            <ShieldOff size={16} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
+                ) : !error && filteredTokens.length === 0 ? (
+                    <div className="mt-4 flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
+                        <Link2 size={30} className="text-slate-300" />
+                        <p className="mt-3 font-semibold text-slate-700">No hay enlaces de seguimiento.</p>
+                        <p className="mt-1 text-sm text-slate-400">Ajusta los filtros o crea el primer enlace para una operación.</p>
+                    </div>
+                ) : !error && (
+                    <>
+                        <div className="mt-4 hidden overflow-hidden rounded-xl border border-tech-border bg-white shadow-sm md:block">
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[980px] text-left">
+                                    <thead className="border-b border-tech-border bg-slate-50/80">
+                                        <tr>
+                                            {['Operación', 'Tipo', 'Estado', 'Creado', 'Expira', 'Último evento', 'Acciones'].map((label) => (
+                                                <th key={label} className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</th>
+                                            ))}
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-tech-border">
+                                        {filteredTokens.map((token) => {
+                                            const state = getTrackingDisplayState(token);
+                                            const stateSpec = DISPLAY_STATES[state];
+                                            return (
+                                                <tr key={token.id} className="hover:bg-slate-50/60">
+                                                    <td className="px-5 py-4">
+                                                        <p className="text-sm font-bold text-slate-800">{token.referenceCode ?? 'Sin referencia'}</p>
+                                                        <p className="mt-0.5 max-w-56 truncate text-xs text-slate-400">{token.routeSummary ?? token.operationId}</p>
+                                                    </td>
+                                                    <td className="px-5 py-4 text-sm font-semibold text-slate-600">{scopeLabel(token.scope)}</td>
+                                                    <td className="px-5 py-4"><Badge variant={stateSpec.badge}>{stateSpec.label}</Badge></td>
+                                                    <td className="px-5 py-4 text-xs font-medium text-slate-500">{formatDate(token.createdAt)}</td>
+                                                    <td className="px-5 py-4 text-xs font-medium text-slate-500">{formatDate(token.expiresAt)}</td>
+                                                    <td className="px-5 py-4">
+                                                        <p className="text-xs font-semibold text-slate-600">{token.lastMunicipality ?? 'Sin datos disponibles'}</p>
+                                                        <p className="mt-0.5 text-[11px] text-slate-400">{formatDate(token.lastEventAt)}</p>
+                                                    </td>
+                                                    <td className="px-5 py-4 text-right">{renderActions(token)}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 space-y-3 md:hidden">
+                            {filteredTokens.map((token) => {
+                                const state = getTrackingDisplayState(token);
+                                const stateSpec = DISPLAY_STATES[state];
+                                return (
+                                    <article key={token.id} className="rounded-xl border border-tech-border bg-white p-4 shadow-sm">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-bold text-slate-800">{token.referenceCode ?? 'Sin referencia'}</p>
+                                                <p className="mt-0.5 truncate text-xs text-slate-400">{token.routeSummary ?? token.operationId}</p>
+                                            </div>
+                                            <Badge variant={stateSpec.badge}>{stateSpec.label}</Badge>
+                                        </div>
+                                        <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                                            <div><dt className="text-slate-400">Tipo</dt><dd className="mt-1 font-semibold text-slate-600">{scopeLabel(token.scope)}</dd></div>
+                                            <div><dt className="text-slate-400">Expira</dt><dd className="mt-1 font-semibold text-slate-600">{formatDate(token.expiresAt)}</dd></div>
+                                            <div className="col-span-2"><dt className="text-slate-400">Último evento</dt><dd className="mt-1 font-semibold text-slate-600">{token.lastMunicipality ?? 'Sin datos disponibles'}</dd></div>
+                                        </dl>
+                                        <div className="mt-4 border-t border-slate-100 pt-3">{renderActions(token)}</div>
+                                    </article>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
             </div>
 
-            {/* Simple Toast */}
-            {toast.visible && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    <div className="bg-slate-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-700">
-                        <Check size={18} className="text-emerald-400" />
-                        <span className="text-sm font-semibold">{toast.message}</span>
+            {createOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+                    <form onSubmit={handleCreate} className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Nuevo enlace</h2>
+                                <p className="mt-1 text-sm text-slate-400">El backend valida operación, tenant, scope y vigencia.</p>
+                            </div>
+                            <button type="button" onClick={() => setCreateOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+                        </div>
+                        <div className="mt-5 space-y-4">
+                            <label className="block text-sm font-semibold text-slate-600">
+                                Operación
+                                <select value={operationId} onChange={(event) => setOperationId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20">
+                                    <option value="">Selecciona una operación</option>
+                                    {operations.filter((operation) => operation.db_id).map((operation) => (
+                                        <option key={operation.db_id} value={operation.db_id}>{operation.id} · {operation.client}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="block text-sm font-semibold text-slate-600">
+                                Tipo de enlace
+                                <select value={scope} onChange={(event) => setScope(event.target.value as TrackingScope)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20">
+                                    {TRACKING_SCOPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                </select>
+                            </label>
+                            <label className="block text-sm font-semibold text-slate-600">
+                                Vigencia en horas
+                                <input type="number" min={1} max={getScopeConfig(scope).maxTtlHours} value={ttlHours} onChange={(event) => setTtlHours(Number(event.target.value))} className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                                <span className="mt-1 block text-xs font-normal text-slate-400">Máximo: {getScopeConfig(scope).maxTtlHours} horas.</span>
+                            </label>
+                        </div>
+                        {formError && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</p>}
+                        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                            <button type="button" onClick={() => setCreateOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+                            <button type="submit" disabled={submitting || !operations.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50">
+                                {submitting && <Loader2 size={16} className="animate-spin" />} Crear enlace
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {oneTimeLink && oneTimeCapabilityUrl && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Enlace listo para compartir</h2>
+                                <p className="mt-1 text-sm text-slate-500">Guarda o comparte este enlace ahora. Por seguridad no podrá volver a mostrarse.</p>
+                            </div>
+                            <button type="button" onClick={closeOneTimeLink} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+                        </div>
+                        <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">{scopeLabel(oneTimeLink.scope)}</p>
+                            <p className="mt-2 break-all font-mono text-xs text-blue-900">{oneTimeCapabilityUrl}</p>
+                            <p className="mt-2 text-xs text-blue-600">Expira: {formatDate(oneTimeLink.expiresAt)}</p>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <button type="button" onClick={() => void copyLink(oneTimeCapabilityUrl)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><Copy size={16} /> Copiar</button>
+                            <button type="button" onClick={() => void shareLink(oneTimeCapabilityUrl)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><Share2 size={16} /> Compartir</button>
+                            <button type="button" onClick={() => shareWhatsApp(oneTimeCapabilityUrl)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 px-3 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"><MessageCircle size={16} /> WhatsApp</button>
+                        </div>
+                        <div className="mt-4 flex justify-center rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="w-full max-w-56 rounded-lg bg-white p-2 shadow-sm">
+                                <QRCodeSVG
+                                    value={oneTimeCapabilityUrl}
+                                    level="M"
+                                    marginSize={4}
+                                    size={224}
+                                    bgColor="#ffffff"
+                                    fgColor="#0f172a"
+                                    title="Código QR del enlace de seguimiento"
+                                    className="h-auto w-full"
+                                />
+                            </div>
+                        </div>
+                        <button type="button" onClick={closeOneTimeLink} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">Ya guardé el enlace</button>
                     </div>
                 </div>
             )}
 
-            {/* QR Modal Overlay */}
-            {qrData && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-6 animate-in fade-in duration-200"
-                    onClick={() => setQrData(null)}
-                >
-                    <div
-                        className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full animate-in zoom-in-95 duration-200"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-800">Código QR de Tracking</h3>
-                                <p className="text-sm font-medium text-slate-400">Orden: {qrData.orderId}</p>
-                            </div>
-                            <button onClick={() => setQrData(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="bg-slate-50 rounded-2xl p-6 mb-6 flex items-center justify-center border border-slate-100 italic text-slate-400 text-sm">
-                            {/* In a real app we'd use a QR library, using an image service here */}
-                            <img
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData.link)}`}
-                                alt="QR Code"
-                                className="w-full h-auto aspect-square rounded-lg"
-                                onLoad={(e) => (e.currentTarget.parentElement!.style.opacity = '1')}
-                            />
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                navigator.clipboard.writeText(qrData.link);
-                                showToast('Link copiado');
-                            }}
-                            className="w-full py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl transition-all font-bold text-sm flex items-center justify-center gap-2"
-                        >
-                            <Copy size={16} /> Copiar URL
-                        </button>
-                    </div>
+            {toast && (
+                <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl">
+                    {toast}
                 </div>
             )}
         </div>

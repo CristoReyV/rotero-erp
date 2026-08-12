@@ -14,7 +14,6 @@ import {
     OPERATION_STATUS_META,
     type OperationsView,
 } from '@/components/operations/operationsControl';
-import { supabase } from '@/lib/supabase';
 import {
     createOperation,
     ensureTrackingToken,
@@ -23,6 +22,8 @@ import {
     overrideOperationStatus,
     transitionOperationStatus,
 } from '@/services/operations.service';
+import { createTrackingToken, getTrackingErrorMessage } from '@/services/trackingAdmin.service';
+import { buildTrackingUrl, resolvePublicAppBaseUrl } from '@/services/trackingContracts';
 import { useAuthStore } from '@/store/authStore';
 import type { Operation } from '@/types/operations';
 
@@ -187,33 +188,33 @@ const OperationsPage = () => {
         setIsGeneratingTokens(true);
         setTransitionError(null);
         try {
-            const [driverResponse, publicResponse] = await Promise.all([
-                supabase.rpc('rpc_create_tracking_token', {
-                    p_tenant_id: activeTenant,
-                    p_operation_id: activeOp.db_id,
-                    p_scope: 'driver:write',
-                    p_force_rotate: true,
+            const [driverResult, publicResult] = await Promise.all([
+                createTrackingToken({
+                    tenantId: activeTenant,
+                    operationId: activeOp.db_id,
+                    scope: 'driver:write',
+                    ttlHours: null,
+                    forceRotate: true,
                 }),
-                supabase.rpc('rpc_create_tracking_token', {
-                    p_tenant_id: activeTenant,
-                    p_operation_id: activeOp.db_id,
-                    p_scope: 'public:read',
-                    p_force_rotate: true,
+                createTrackingToken({
+                    tenantId: activeTenant,
+                    operationId: activeOp.db_id,
+                    scope: 'public:read',
+                    ttlHours: null,
+                    forceRotate: true,
                 }),
             ]);
 
-            if (driverResponse.error) throw driverResponse.error;
-            if (publicResponse.error) throw publicResponse.error;
-            if (driverResponse.data?.error) throw new Error(driverResponse.data.error);
-            if (publicResponse.data?.error) throw new Error(publicResponse.data.error);
+            if (driverResult.kind !== 'created' || publicResult.kind !== 'created') {
+                throw new Error('invalid_create_result');
+            }
 
-            setDriverToken(driverResponse.data?.token ?? null);
-            setPublicToken(publicResponse.data?.token ?? null);
+            setDriverToken(driverResult.token);
+            setPublicToken(publicResult.token);
             setDbHasDriverToken(true);
             setDbHasPublicToken(true);
         } catch (error) {
-            console.error('Failed to generate tracking tokens:', error);
-            setTransitionError('No fue posible generar los enlaces de tracking.');
+            setTransitionError(getTrackingErrorMessage(error));
         } finally {
             setIsGeneratingTokens(false);
         }
@@ -223,8 +224,12 @@ const OperationsPage = () => {
         const literal = type === 'driver' ? driverToken : publicToken;
         if (!literal) return;
 
-        const path = type === 'driver' ? '/driver/' : '/t/';
-        const url = `${window.location.origin}${path}${literal}`;
+        const publicAppBaseUrl = resolvePublicAppBaseUrl(
+            import.meta.env.VITE_PUBLIC_APP_URL,
+            window.location.origin,
+        );
+        const scope = type === 'driver' ? 'driver:write' : 'public:read';
+        const url = buildTrackingUrl(publicAppBaseUrl, scope, literal);
         const markCopied = () => {
             setCopiedStatus(type);
             window.setTimeout(() => setCopiedStatus(null), 2000);
