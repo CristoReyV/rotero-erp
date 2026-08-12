@@ -4,7 +4,8 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 
 ## Targets
 
-- Main: `b678de1aca07a31a4e0c3f65ce1db9930babeb84`
+- Main vigente: resolver dinámicamente `origin/main` durante el preflight Git; no fijar un SHA como requisito reusable.
+- Último main verificado antes del harness (trazabilidad): `b678de1aca07a31a4e0c3f65ce1db9930babeb84`
 - Supabase staging project: `mxpmgihuheagrcowwbia`
 - Netlify site: `rotero-erp-staging`
 - Netlify site ID: `336756a2-c93f-40b5-829a-497e0ba30ac3`
