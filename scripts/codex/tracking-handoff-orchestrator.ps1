@@ -66,7 +66,8 @@ try {
     if (Compare-Object $properties $expectedProperties) {
         throw 'terminal_result_contract_failed'
     }
-    if ($result.state -ne 'EXIT' -or [int]$result.exit_code -ne $child.ExitCode) {
+    $expectedState = if ([int]$result.exit_code -eq 42) { 'CLEANUP_REQUIRED' } else { 'EXIT' }
+    if ($result.state -ne $expectedState -or [int]$result.exit_code -ne $child.ExitCode) {
         throw 'terminal_result_exit_mismatch'
     }
     if ([int]$result.prompt_counts.public -gt 1 -or [int]$result.prompt_counts.driver -gt 1) {

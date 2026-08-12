@@ -35,16 +35,22 @@ function Invoke-OrchestratorCase {
         [int]$PublicActive = 0,
         [int]$DriverActive = 0,
         [int]$WriteCount = 1,
-        [switch]$MatrixFailure
+        [int]$ExpectedWriteCount = $WriteCount,
+        [int]$ExpectedRevokeCount = 1,
+        [string]$ExpectedState = 'EXIT',
+        [switch]$MatrixFailure,
+        [switch]$RevokeFailure
     )
 
+    $revokeCounterPath = Join-Path $artifactRoot ("revoke-" + [Guid]::NewGuid().ToString('N') + '.txt')
     $env:ROTERO_TEST_PUBLIC_URL = $PublicUrl
     $env:ROTERO_TEST_DRIVER_URL = $DriverUrl
     $env:ROTERO_TEST_PUBLIC_ACTIVE = [string]$PublicActive
     $env:ROTERO_TEST_DRIVER_ACTIVE = [string]$DriverActive
     $env:ROTERO_TEST_WRITE_COUNT = [string]$WriteCount
     $env:ROTERO_TEST_MATRIX_FAIL = if ($MatrixFailure) { '1' } else { '0' }
-    $env:ROTERO_TEST_REVOKE_FAIL = '0'
+    $env:ROTERO_TEST_REVOKE_FAIL = if ($RevokeFailure) { '1' } else { '0' }
+    $env:ROTERO_TEST_REVOKE_COUNTER_PATH = $revokeCounterPath
 
     $arguments = @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $orchestrator,
@@ -57,10 +63,24 @@ function Invoke-OrchestratorCase {
     $actualExit = $LASTEXITCODE
     Assert-Equal $actualExit $ExpectedExit 'orchestrator exit code'
     $result = $output | Select-Object -Last 1 | ConvertFrom-Json
+    $revokeCount = if (Test-Path -LiteralPath $revokeCounterPath) {
+        [int](Get-Content -LiteralPath $revokeCounterPath -Raw)
+    }
+    else {
+        0
+    }
+    Remove-Item -LiteralPath $revokeCounterPath -Force -ErrorAction SilentlyContinue
+    Assert-Equal $result.state $ExpectedState 'terminal state'
+    Assert-Equal ([int]$result.write_count) $ExpectedWriteCount 'terminal write count'
+    Assert-Equal $revokeCount $ExpectedRevokeCount 'revoke attempt count'
     Assert-Equal ([int]$result.prompt_counts.public) $ExpectedPublicPrompts 'PUBLIC prompt count'
     Assert-Equal ([int]$result.prompt_counts.driver) $ExpectedDriverPrompts 'DRIVER prompt count'
     if ($result.prompt_counts.public -gt 1 -or $result.prompt_counts.driver -gt 1) {
         throw 'prompt counts exceeded 1/1'
+    }
+    $terminalOutput = $output -join "`n"
+    if ($terminalOutput.Contains('pppppppppppppppppppppppppppppppp') -or $terminalOutput.Contains('dddddddddddddddddddddddddddddddd')) {
+        throw 'capability literal appeared in terminal output'
     }
     return $result
 }
@@ -75,11 +95,13 @@ try {
     Invoke-OrchestratorCase -PublicUrl "${public}?utm_source=dummy" -DriverUrl "${driver}?x=1" | Out-Null
     Invoke-OrchestratorCase -PublicUrl "${public}#dummy" -DriverUrl "${driver}#dummy" | Out-Null
 
-    Invoke-OrchestratorCase -PublicUrl 'https://staging.invalid/t/bad' -DriverUrl $driver -ExpectedExit 21 | Out-Null
-    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl 'https://staging.invalid/driver/bad' -ExpectedExit 22 | Out-Null
-    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -PublicActive 1 -ExpectedExit 10 -ExpectedPublicPrompts 0 -ExpectedDriverPrompts 0 | Out-Null
-    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -DriverActive 1 -ExpectedExit 10 -ExpectedPublicPrompts 0 -ExpectedDriverPrompts 0 | Out-Null
-    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -MatrixFailure -ExpectedExit 31 | Out-Null
+    Invoke-OrchestratorCase -PublicUrl 'https://staging.invalid/t/bad' -DriverUrl $driver -ExpectedExit 21 -ExpectedWriteCount 0 -ExpectedRevokeCount 0 | Out-Null
+    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl 'https://staging.invalid/driver/bad' -ExpectedExit 22 -ExpectedWriteCount 0 -ExpectedRevokeCount 0 | Out-Null
+    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -PublicActive 1 -ExpectedExit 10 -ExpectedPublicPrompts 0 -ExpectedDriverPrompts 0 -ExpectedWriteCount 0 -ExpectedRevokeCount 0 | Out-Null
+    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -DriverActive 1 -ExpectedExit 10 -ExpectedPublicPrompts 0 -ExpectedDriverPrompts 0 -ExpectedWriteCount 0 -ExpectedRevokeCount 0 | Out-Null
+    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -MatrixFailure -WriteCount 1 -ExpectedWriteCount 1 -ExpectedExit 31 | Out-Null
+    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -RevokeFailure -ExpectedExit 42 -ExpectedState 'CLEANUP_REQUIRED' | Out-Null
+    Invoke-OrchestratorCase -PublicUrl $public -DriverUrl $driver -MatrixFailure -RevokeFailure -WriteCount 1 -ExpectedWriteCount 1 -ExpectedExit 42 -ExpectedState 'CLEANUP_REQUIRED' | Out-Null
 
     $heldMutex = New-Object Threading.Mutex($false, $mutexName)
     $held = $heldMutex.WaitOne(0, $false)
@@ -128,7 +150,7 @@ try {
     [pscustomobject]@{
         status = 'PASS'
         assertions = $script:assertions
-        synthetic_cases = 10
+        synthetic_cases = 12
         secret_artifacts = 0
     } | ConvertTo-Json -Compress
 }
@@ -140,6 +162,7 @@ finally {
     Remove-Item Env:ROTERO_TEST_WRITE_COUNT -ErrorAction SilentlyContinue
     Remove-Item Env:ROTERO_TEST_MATRIX_FAIL -ErrorAction SilentlyContinue
     Remove-Item Env:ROTERO_TEST_REVOKE_FAIL -ErrorAction SilentlyContinue
+    Remove-Item Env:ROTERO_TEST_REVOKE_COUNTER_PATH -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $artifactRoot) {
         Remove-Item -LiteralPath $artifactRoot -Recurse -Force
     }

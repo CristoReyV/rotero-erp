@@ -24,6 +24,7 @@ $script:mutex = $null
 $script:ownsMutex = $false
 $script:publicValue = $null
 $script:driverValue = $null
+$script:revokeAttempted = $false
 
 $transitions = @{
     PREFLIGHT     = @('PUBLIC_PROMPT', 'FAILED')
@@ -131,7 +132,7 @@ function Write-TerminalResult {
     }
 
     $payload = [ordered]@{
-        state = 'EXIT'
+        state = if ($script:exitCode -eq 42) { 'CLEANUP_REQUIRED' } else { 'EXIT' }
         prompt_counts = [ordered]@{
             public = $script:publicPromptCount
             driver = $script:driverPromptCount
@@ -143,6 +144,26 @@ function Write-TerminalResult {
     $payload | ConvertTo-Json -Depth 3 -Compress | Set-Content -LiteralPath $temporaryPath -Encoding UTF8
     Move-Item -LiteralPath $temporaryPath -Destination $ResultPath -Force
     $script:resultWritten = $true
+}
+
+function Invoke-RevokeOnce {
+    param(
+        [Parameter(Mandatory = $true)][Uri]$PublicUri,
+        [Parameter(Mandatory = $true)][Uri]$DriverUri
+    )
+
+    if ($script:revokeAttempted) {
+        throw 'revoke_already_attempted'
+    }
+    $script:revokeAttempted = $true
+
+    try {
+        $result = & $RevokeScript -PublicUri $PublicUri -DriverUri $DriverUri -OperationCode $OperationCode
+        return $null -ne $result -and [bool]$result.success
+    }
+    catch {
+        return $false
+    }
 }
 
 try {
@@ -188,22 +209,40 @@ try {
     }
 
     Move-HandoffState -Next 'MATRIX'
-    $matrix = & $MatrixScript -PublicUri $publicUri -DriverUri $driverUri -OperationCode $OperationCode
-    if ($null -eq $matrix -or -not $matrix.success) {
-        $script:exitCode = 31
-        throw 'matrix_failed'
+    $matrixFailed = $false
+    try {
+        $matrix = & $MatrixScript -PublicUri $publicUri -DriverUri $driverUri -OperationCode $OperationCode
+        if ($null -eq $matrix) {
+            $matrixFailed = $true
+        }
+        else {
+            # Preserve observed DML before evaluating the matrix verdict.
+            $script:writeCount = [int]$matrix.write_count
+            $matrixFailed = -not [bool]$matrix.success
+        }
     }
-    $script:writeCount = [int]$matrix.write_count
-    if ($script:writeCount -ne 1) {
+    catch {
+        $matrixFailed = $true
+    }
+
+    if ($matrixFailed) {
+        $script:exitCode = 31
+    }
+    elseif ($script:writeCount -ne 1) {
         $script:exitCode = 32
-        throw 'matrix_write_count_invalid'
     }
 
     Move-HandoffState -Next 'REVOKE'
-    $revoke = & $RevokeScript -PublicUri $publicUri -DriverUri $driverUri -OperationCode $OperationCode
-    if ($null -eq $revoke -or -not $revoke.success) {
-        $script:exitCode = 41
-        throw 'revoke_failed'
+    $revoked = Invoke-RevokeOnce -PublicUri $publicUri -DriverUri $driverUri
+    if (-not $revoked) {
+        $script:exitCode = 42
+        throw 'cleanup_required'
+    }
+    if ($matrixFailed) {
+        throw 'matrix_failed'
+    }
+    if ($script:writeCount -ne 1) {
+        throw 'matrix_write_count_invalid'
     }
 
     $script:exitCode = 0
