@@ -1,0 +1,4 @@
+interface:
+  display_name: "ROTERO Tracking QA"
+  short_description: "Run safe isolated ROTERO tracking QA"
+  default_prompt: "Use $rotero-tracking-qa to run the approved tracking QA matrix safely."
