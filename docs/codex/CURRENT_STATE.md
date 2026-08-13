@@ -14,13 +14,14 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 
 ## Tracking
 
-- M4.1: closed
-- M4.2: closed / PASS
-- M4.3: closed / PASS
-- M4.4: current
-- M4.4 precondition: active capability residue = 0
-- Known PRE snapshot: events = 4; route points = 2
-- Next: Positive Edge Tests
-- After M4.4: M4.5 Evidence / Tracking Closure
+- M4.1: CLOSED / PASS
+- M4.2: CLOSED / PASS
+- M4.3: CLOSED / PASS
+- M4.4: CLOSED / PASS
+- M4.5: CLOSED / PASS
+- Tracking M4: CLOSED / PASS
+- QA final: events `4 → 5`; route points `2 → 2`; active capabilities `0/0`.
+- Evidencia canónica: `docs/TRACKING_CLOSURE.md`.
+- Pendientes adyacentes de SEC.4 y fases posteriores no reabren M4.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
