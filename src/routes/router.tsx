@@ -18,7 +18,7 @@ import SecurityUsersPage from '@/pages/SecurityUsersPage';
 import SecurityAuditPage from '@/pages/SecurityAuditPage';
 import SettingsPage from '@/pages/SettingsPage';
 import LoginPage from '@/pages/LoginPage';
-import InvitePage from '@/pages/InvitePage';
+import { ROTERO_ENABLED_ROLES } from '@/constants/roles';
 
 export const router = createBrowserRouter([
     {
@@ -38,28 +38,33 @@ export const router = createBrowserRouter([
                     {
                         element: <AppLayout />,
                         children: [
-                            { path: 'dashboard', element: <DashboardPage /> },
-                            { path: 'operations', element: <OperationsPage /> },
-                            { path: 'inventory', element: <InventoryPage /> },
-                            { path: 'customs', element: <CustomsPage /> },
-                            { path: 'billing', element: <BillingPage /> },
-                            { path: 'finance', element: <FinancePage /> },
-                            { path: 'commercial', element: <CommercialPage /> },
                             {
-                                element: <RoleGuard allowedRoles={['admin', 'operator', 'viewer']} />,
+                                element: <RoleGuard allowedRoles={ROTERO_ENABLED_ROLES} />,
                                 children: [
-                                    { path: 'tracking', element: <TrackingPage /> },
+                                    { path: 'dashboard', element: <DashboardPage /> },
+                                    { path: 'operations', element: <OperationsPage /> },
+                                    { path: 'billing', element: <BillingPage /> },
+                                    { path: 'finance', element: <FinancePage /> },
+                                    { path: 'reports', element: <ReportsPage /> },
                                 ]
                             },
-                            { path: 'reports', element: <ReportsPage /> },
                             {
-                                path: 'security',
-                                element: <SecurityPage />,
+                                element: <RoleGuard allowedRoles={['admin']} />,
                                 children: [
-                                    { index: true, element: <Navigate to="users" replace /> },
-                                    { path: 'users', element: <SecurityUsersPage /> },
-                                    { path: 'audit', element: <SecurityAuditPage /> },
-                                    { path: 'settings', element: <SettingsPage /> },
+                                    { path: 'inventory', element: <InventoryPage /> },
+                                    { path: 'customs', element: <CustomsPage /> },
+                                    { path: 'commercial', element: <CommercialPage /> },
+                                    { path: 'tracking', element: <TrackingPage /> },
+                                    {
+                                        path: 'security',
+                                        element: <SecurityPage />,
+                                        children: [
+                                            { index: true, element: <Navigate to="users" replace /> },
+                                            { path: 'users', element: <SecurityUsersPage /> },
+                                            { path: 'audit', element: <SecurityAuditPage /> },
+                                            { path: 'settings', element: <SettingsPage /> },
+                                        ]
+                                    },
                                 ]
                             },
                             { path: '*', element: <Navigate to="/dashboard" replace /> },
@@ -79,7 +84,7 @@ export const router = createBrowserRouter([
     },
     {
         path: '/invite/:token',
-        element: <InvitePage />
+        element: <Navigate to="/login" replace />
     },
     {
         path: '/demo/public/:token',

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/services/auth.service';
+import { isRoteroEnabledRole } from '@/constants/roles';
+import { useAuthStore } from '@/store/authStore';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 
 const checkRateLimit = (key: string) => {
@@ -32,9 +34,15 @@ const LoginPage = () => {
     const [error, setError] = useState<string | null>(null);
 
     React.useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
             if (session) {
-                navigate('/dashboard', { replace: true });
+                const loaded = useAuthStore.getState().context ? true : await authService.loadContext();
+                if (loaded && isRoteroEnabledRole(useAuthStore.getState().getRole())) {
+                    navigate('/dashboard', { replace: true });
+                } else {
+                    setError('Tu rol no está habilitado para el despliegue actual de ROTERO.');
+                    await supabase.auth.signOut();
+                }
             }
         });
     }, [navigate]);
@@ -65,6 +73,11 @@ const LoginPage = () => {
                 const loaded = await authService.loadContext();
                 if (!loaded) {
                     setError('Error cargando la cuenta del usuario. Contacta soporte.');
+                    await supabase.auth.signOut();
+                    return;
+                }
+                if (!isRoteroEnabledRole(useAuthStore.getState().getRole())) {
+                    setError('Tu rol no está habilitado para el despliegue actual de ROTERO.');
                     await supabase.auth.signOut();
                     return;
                 }

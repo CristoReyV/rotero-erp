@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { TenantSettings, Invitation, AuditEvent, AuditFilters, AuditResponse, Member } from '@/types/settings';
+import type { RoteroEnabledRole } from '@/constants/roles';
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
@@ -64,7 +65,7 @@ export async function getMembers(tenantId: string): Promise<Member[]> {
     return data as Member[];
 }
 
-export async function changeMemberRole(tenantId: string, userId: string, newRole: 'admin' | 'operator' | 'viewer'): Promise<void> {
+export async function changeMemberRole(tenantId: string, userId: string, newRole: RoteroEnabledRole): Promise<void> {
     if (USE_MOCKS) return new Promise(r => setTimeout(r, 400));
     const { data, error } = await supabase.rpc('rpc_update_member_role', {
         p_tenant_id: tenantId, p_member_user_id: userId, p_new_role: newRole

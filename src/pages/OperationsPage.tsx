@@ -24,6 +24,7 @@ import {
 } from '@/services/operations.service';
 import { createTrackingToken, getTrackingErrorMessage } from '@/services/trackingAdmin.service';
 import { buildTrackingUrl, resolvePublicAppBaseUrl } from '@/services/trackingContracts';
+import { canAccessRoteroModule, canManageRoteroModule } from '@/constants/roles';
 import { useAuthStore } from '@/store/authStore';
 import type { Operation } from '@/types/operations';
 
@@ -31,8 +32,10 @@ const OperationsPage = () => {
     const activeTenant = useAuthStore((state) => state.activeTenant);
     const getRole = useAuthStore((state) => state.getRole);
     const role = getRole();
-    const isViewer = role === 'viewer';
     const isAdmin = role === 'admin';
+    const canManageOperations = canManageRoteroModule(role, 'operations');
+    const canViewTracking = canAccessRoteroModule(role, 'tracking');
+    const canManageTracking = canManageRoteroModule(role, 'tracking');
     const [searchParams, setSearchParams] = useSearchParams();
 
     const viewParam = searchParams.get('view');
@@ -121,7 +124,7 @@ const OperationsPage = () => {
     }, [activeOp, loading, selectedParam, updateParams]);
 
     useEffect(() => {
-        if (!activeOp?.db_id) {
+        if (!canViewTracking || !activeOp?.db_id) {
             setDbHasDriverToken(null);
             setDbHasPublicToken(null);
             setDriverToken(null);
@@ -155,11 +158,11 @@ const OperationsPage = () => {
         return () => {
             cancelled = true;
         };
-    }, [activeOp?.db_id]);
+    }, [activeOp?.db_id, canViewTracking]);
 
     const handleCreate = async (event: FormEvent) => {
         event.preventDefault();
-        if (!activeTenant || !newOpRef.trim()) return;
+        if (!canManageOperations || !activeTenant || !newOpRef.trim()) return;
 
         setIsCreating(true);
         setCreateError(null);
@@ -183,7 +186,7 @@ const OperationsPage = () => {
     };
 
     const handleGenerateTokens = async () => {
-        if (!activeTenant || !activeOp?.db_id) return;
+        if (!canManageTracking || !activeTenant || !activeOp?.db_id) return;
 
         setIsGeneratingTokens(true);
         setTransitionError(null);
@@ -243,7 +246,7 @@ const OperationsPage = () => {
     };
 
     const handleTransition = async (toStatus: string) => {
-        if (!activeOp?.db_id) return;
+        if (!canManageOperations || !activeOp?.db_id) return;
 
         setIsTransitioning(true);
         setTransitionError(null);
@@ -265,7 +268,7 @@ const OperationsPage = () => {
 
     const handleOverrideCancel = async (event: FormEvent) => {
         event.preventDefault();
-        if (!activeOp?.db_id || overrideReason.trim().length < 10) return;
+        if (!isAdmin || !activeOp?.db_id || overrideReason.trim().length < 10) return;
 
         setIsOverriding(true);
         setTransitionError(null);
@@ -299,7 +302,7 @@ const OperationsPage = () => {
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                             <span className="hidden sm:inline">Actualizar</span>
                         </button>
-                        {!isViewer && (
+                        {canManageOperations && (
                             <button
                                 type="button"
                                 onClick={() => { setCreateError(null); setShowNewModal(true); }}
@@ -365,7 +368,9 @@ const OperationsPage = () => {
                             {activeOp && (
                                 <OperationQuickPanel
                                     operation={activeOp}
-                                    isViewer={isViewer}
+                                    canManageOperations={canManageOperations}
+                                    canViewTracking={canViewTracking}
+                                    canManageTracking={canManageTracking}
                                     isAdmin={isAdmin}
                                     dbHasDriverToken={dbHasDriverToken}
                                     dbHasPublicToken={dbHasPublicToken}
@@ -379,7 +384,7 @@ const OperationsPage = () => {
                                     isEnsuringToken={isEnsuringToken}
                                     onGenerateTokens={() => void handleGenerateTokens()}
                                     onCopyToken={handleCopyToken}
-                                    onAssign={() => setShowAssignmentDrawer(true)}
+                                    onAssign={() => { if (canManageOperations) setShowAssignmentDrawer(true); }}
                                     onTransition={(nextStatus) => void handleTransition(nextStatus)}
                                     onOverrideCancel={() => { setTransitionError(null); setShowOverrideModal(true); }}
                                 />
@@ -389,7 +394,7 @@ const OperationsPage = () => {
                 </>
             )}
 
-            {showOverrideModal && activeOp && (
+            {showOverrideModal && activeOp && isAdmin && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
                     <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
                         <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-6 py-4">
@@ -416,7 +421,7 @@ const OperationsPage = () => {
                 </div>
             )}
 
-            {showNewModal && (
+            {showNewModal && canManageOperations && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
                     <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
                         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
@@ -448,7 +453,7 @@ const OperationsPage = () => {
             )}
 
             <AssignmentDrawer
-                isOpen={showAssignmentDrawer}
+                isOpen={canManageOperations && showAssignmentDrawer}
                 onClose={() => setShowAssignmentDrawer(false)}
                 operation={activeOp}
                 onAssigned={() => {

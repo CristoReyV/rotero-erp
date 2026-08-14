@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { PanelLeftClose, PanelLeftOpen, HelpCircle, LogOut, X, BookOpen, Keyboard, Mail, ExternalLink } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants/nav';
+import { canAccessRoteroModule } from '@/constants/roles';
+import { useAuthStore } from '@/store/authStore';
 import { SidebarItem } from './SidebarItem';
 
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
@@ -11,6 +13,7 @@ export const Sidebar = () => {
     const [isDesktop, setIsDesktop] = useState(() => window.matchMedia(DESKTOP_MEDIA_QUERY).matches);
     const [isOpen, setIsOpen] = useState(() => window.matchMedia(DESKTOP_MEDIA_QUERY).matches);
     const [showHelp, setShowHelp] = useState(false);
+    const role = useAuthStore((state) => state.getRole());
     const mobileOpenButtonRef = useRef<HTMLButtonElement>(null);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -97,7 +100,7 @@ export const Sidebar = () => {
 
                 {/* Nav */}
                 <nav className="flex-1 py-1 space-y-0.5 overflow-y-auto no-scrollbar">
-                    {NAV_ITEMS.map((item) => (
+                    {NAV_ITEMS.filter((item) => canAccessRoteroModule(role, item.module)).map((item) => (
                         <SidebarItem
                             key={item.path}
                             icon={item.icon}

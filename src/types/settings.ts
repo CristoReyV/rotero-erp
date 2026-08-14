@@ -1,6 +1,8 @@
+import type { ProductRole } from '@/constants/roles';
+
 export interface Member {
     user_id: string;
-    role: 'admin' | 'operator' | 'viewer';
+    role: ProductRole;
     created_at: string;
     email: string;
     name: string | null;
@@ -10,7 +12,7 @@ export interface Invitation {
     id: string;
     tenant_id: string;
     email: string;
-    role: 'admin' | 'operator' | 'viewer';
+    role: ProductRole;
     expires_at: string;
     accepted_at: string | null;
     created_at: string;
