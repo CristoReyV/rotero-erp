@@ -24,7 +24,9 @@ import { formatOperationDate, getOperationStatus, OPERATION_PROGRESS } from './o
 
 interface OperationQuickPanelProps {
     operation: Operation;
-    isViewer: boolean;
+    canManageOperations: boolean;
+    canViewTracking: boolean;
+    canManageTracking: boolean;
     isAdmin: boolean;
     dbHasDriverToken: boolean | null;
     dbHasPublicToken: boolean | null;
@@ -227,7 +229,9 @@ function RouteSection({ operation }: { operation: Operation }) {
 
 export function OperationQuickPanel({
     operation,
-    isViewer,
+    canManageOperations,
+    canViewTracking,
+    canManageTracking,
     isAdmin,
     dbHasDriverToken,
     dbHasPublicToken,
@@ -247,8 +251,8 @@ export function OperationQuickPanel({
 }: OperationQuickPanelProps) {
     const status = getOperationStatus(operation.status);
     const currentStep = OPERATION_PROGRESS.indexOf(operation.status as typeof OPERATION_PROGRESS[number]);
-    const canAssign = ['draft', 'planned', 'assigned'].includes(operation.status) && !isViewer;
-    const canCancel = ['draft', 'planned', 'assigned'].includes(operation.status) && !isViewer;
+    const canAssign = ['draft', 'planned', 'assigned'].includes(operation.status) && canManageOperations;
+    const canCancel = ['draft', 'planned', 'assigned'].includes(operation.status) && canManageOperations;
     const canOverride = ['in_transit', 'delivered'].includes(operation.status) && isAdmin;
     const showRoute = ['in_transit', 'delivered', 'closed'].includes(operation.status);
 
@@ -327,7 +331,7 @@ export function OperationQuickPanel({
                     <p className="mt-3 text-[10px] text-slate-400">Secuencia derivada del estado actual; no representa eventos ni horas de auditoría.</p>
                 </section>
 
-                <section className="border-t border-slate-100 pt-5">
+                {canViewTracking && <section className="border-t border-slate-100 pt-5">
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400"><Radio size={13} /> Tracking</h3>
@@ -339,7 +343,7 @@ export function OperationQuickPanel({
                         <TokenRow label="Vista pública" path="/t/" token={publicToken} exists={dbHasPublicToken} isChecking={isCheckingTokens} copied={copiedStatus === 'public'} onCopy={() => onCopyToken('public')} />
                         <TokenRow label="Vista driver" path="/driver/" token={driverToken} exists={dbHasDriverToken} isChecking={isCheckingTokens} copied={copiedStatus === 'driver'} onCopy={() => onCopyToken('driver')} />
                     </div>
-                    {!isViewer ? (
+                    {canManageTracking ? (
                         <button
                             type="button"
                             onClick={onGenerateTokens}
@@ -350,11 +354,11 @@ export function OperationQuickPanel({
                             {dbHasDriverToken || dbHasPublicToken ? 'Rotar y obtener nuevos enlaces' : 'Generar enlaces de tracking'}
                         </button>
                     ) : (
-                        <p className="mt-3 rounded-lg bg-slate-50 p-2.5 text-center text-[11px] text-slate-500">Rol viewer: consulta sin generación o rotación.</p>
+                        <p className="mt-3 rounded-lg bg-slate-50 p-2.5 text-center text-[11px] text-slate-500">Consulta sin generación o rotación.</p>
                     )}
-                </section>
+                </section>}
 
-                {showRoute && <RouteSection operation={operation} />}
+                {canViewTracking && showRoute && <RouteSection operation={operation} />}
 
                 {transitionError && (
                     <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
@@ -362,7 +366,7 @@ export function OperationQuickPanel({
                     </div>
                 )}
 
-                {!isViewer && (
+                {canManageOperations && (
                     <section className="border-t border-slate-100 pt-5">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Acciones disponibles</h3>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
@@ -395,7 +399,7 @@ export function OperationQuickPanel({
                     </section>
                 )}
 
-                {isViewer && (
+                {!canManageOperations && (
                     <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500"><ShieldCheck size={15} /> Vista de solo lectura.</div>
                 )}
             </div>

@@ -1,4 +1,4 @@
-export type TrackingRole = 'admin' | 'operator' | 'viewer' | null;
+export type TrackingRole = 'admin' | 'operator' | 'finance' | 'viewer' | null;
 
 export type TrackingScope = 'public:read' | 'driver:write';
 export type TrackingDisplayState = 'active' | 'revoked' | 'expired';

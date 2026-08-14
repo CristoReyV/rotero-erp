@@ -5,6 +5,7 @@ import { Badge } from '@/components/Badge';
 import { PageHeader } from '@/components/PageHeader';
 import { getCFDIDetail, listCFDIs } from '@/services/billing.service';
 import { useAuthStore } from '@/store/authStore';
+import { canAccessRoteroModule } from '@/constants/roles';
 import type { CFDIFilters, CFDIListRow, CFDIStatus, CFDIWithDetail } from '@/types/billing';
 import type { BadgeVariant } from '@/types/common';
 
@@ -69,7 +70,7 @@ const BillingPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTenant = useAuthStore((state) => state.activeTenant);
     const role = useAuthStore((state) => state.getRole());
-    const isAdmin = role === 'admin';
+    const canViewBilling = canAccessRoteroModule(role, 'billing');
 
     const requestedView = searchParams.get('view');
     const activeView: BillingView = isBillingView(requestedView) ? requestedView : 'all';
@@ -93,7 +94,7 @@ const BillingPage = () => {
 
     const loadCFDIs = useCallback(async () => {
         const requestId = ++listRequestId.current;
-        if (!isAdmin || !activeTenant) {
+        if (!canViewBilling || !activeTenant) {
             setCfdis([]);
             setLoading(false);
             setError(null);
@@ -113,10 +114,10 @@ const BillingPage = () => {
         } finally {
             if (requestId === listRequestId.current) setLoading(false);
         }
-    }, [activeTenant, filters, isAdmin]);
+    }, [activeTenant, filters, canViewBilling]);
 
     const loadDetail = useCallback(async (cfdiId: string) => {
-        if (!isAdmin) return;
+        if (!canViewBilling) return;
         const requestId = ++detailRequestId.current;
         setDetailLoading(true);
         setDetailError(null);
@@ -129,7 +130,7 @@ const BillingPage = () => {
         } finally {
             if (requestId === detailRequestId.current) setDetailLoading(false);
         }
-    }, [isAdmin]);
+    }, [canViewBilling]);
 
     useEffect(() => {
         setQueryInput(query);
@@ -177,7 +178,7 @@ const BillingPage = () => {
         setDetailError(null);
     };
 
-    if (!isAdmin) {
+    if (!canViewBilling) {
         return (
             <div className="space-y-6">
                 <PageHeader
@@ -188,8 +189,7 @@ const BillingPage = () => {
                     <ShieldAlert className="mx-auto mb-4 text-amber-600" size={32} />
                     <h2 className="text-lg font-bold text-slate-800">Acceso limitado temporalmente</h2>
                     <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
-                        Esta vista económica está disponible temporalmente solo para administración.
-                        La restricción definitiva debe resolverse en backend/RLS.
+                        Tu rol no tiene acceso a la superficie de facturación de ROTERO.
                     </p>
                 </div>
             </div>
@@ -213,7 +213,7 @@ const BillingPage = () => {
                             validación ni cancelación ante servicios fiscales externos.
                         </p>
                         <p className="mt-2 text-[11px] text-slate-500">
-                            Acceso frontend temporal para administración. La restricción definitiva debe resolverse en backend/RLS.
+                            Acceso disponible para Administración y Finanzas, conforme al contrato backend vigente.
                         </p>
                     </div>
                 </div>

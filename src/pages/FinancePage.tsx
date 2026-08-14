@@ -6,6 +6,7 @@ import { KPICard } from '@/components/KPICard';
 import { PageHeader } from '@/components/PageHeader';
 import { getFinanceOverview, listFinanceInvoices } from '@/services/finance.service';
 import { useAuthStore } from '@/store/authStore';
+import { canAccessRoteroModule } from '@/constants/roles';
 import type { FinanceInvoice, FinanceOverview, InvoiceDirection, InvoiceStatus } from '@/types/finance';
 import type { BadgeVariant } from '@/types/common';
 
@@ -77,7 +78,7 @@ const FinancePage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTenant = useAuthStore((state) => state.activeTenant);
     const role = useAuthStore((state) => state.getRole());
-    const isAdmin = role === 'admin';
+    const canViewFinance = canAccessRoteroModule(role, 'finance');
 
     const requestedView = searchParams.get('view');
     const activeView: FinanceView = isFinanceView(requestedView) ? requestedView : 'overview';
@@ -90,7 +91,7 @@ const FinancePage = () => {
 
     const loadFinance = useCallback(async () => {
         const currentRequestId = ++requestId.current;
-        if (!isAdmin || !activeTenant) {
+        if (!canViewFinance || !activeTenant) {
             setOverview(null);
             setInvoices([]);
             setLoading(false);
@@ -127,7 +128,7 @@ const FinancePage = () => {
         } finally {
             if (currentRequestId === requestId.current) setLoading(false);
         }
-    }, [activeTenant, activeView, isAdmin]);
+    }, [activeTenant, activeView, canViewFinance]);
 
     useEffect(() => {
         void loadFinance();
@@ -143,7 +144,7 @@ const FinancePage = () => {
         setSearchParams(nextParams);
     };
 
-    if (!isAdmin) {
+    if (!canViewFinance) {
         return (
             <div className="space-y-6">
                 <PageHeader title="Finanzas operativas" subtitle="Lectura operativa · Cuentas internas" />
@@ -151,8 +152,7 @@ const FinancePage = () => {
                     <ShieldAlert className="mx-auto mb-4 text-amber-600" size={32} />
                     <h2 className="text-lg font-bold text-slate-800">Acceso limitado temporalmente</h2>
                     <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
-                        Esta vista económica está disponible temporalmente solo para administración.
-                        La restricción definitiva debe resolverse en backend/RLS.
+                        Tu rol no tiene acceso a la superficie financiera de ROTERO.
                     </p>
                 </div>
             </div>
@@ -175,7 +175,7 @@ const FinancePage = () => {
                             notas, conversiones FX ni exportaciones.
                         </p>
                         <p className="mt-2 text-[11px] text-slate-500">
-                            Acceso frontend temporal para administración. La restricción definitiva debe resolverse en backend/RLS.
+                            Acceso disponible para Administración y Finanzas, conforme al contrato backend vigente.
                         </p>
                     </div>
                 </div>

@@ -74,6 +74,7 @@ const rows = normalizeTrackingList([
 
 assert.equal(canManageTracking('admin'), true);
 assert.equal(canManageTracking('operator'), true);
+assert.equal(canManageTracking('finance'), false);
 assert.equal(canManageTracking('viewer'), false);
 assert.equal(canManageTracking(null), false);
 

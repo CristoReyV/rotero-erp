@@ -1,10 +1,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import {
+    findRoteroEnabledTenantId,
+    isRoteroEnabledRole,
+    type ProductRole,
+} from '@/constants/roles';
 
 export interface Membership {
     tenant_id: string;
     tenant_name: string;
-    role: 'admin' | 'operator' | 'viewer';
+    role: ProductRole;
 }
 
 export interface AuthContext {
@@ -19,7 +24,7 @@ interface AuthState {
     setContext: (context: AuthContext | null) => void;
     setActiveTenant: (tenantId: string | null) => void;
     logout: () => void;
-    getRole: () => 'admin' | 'operator' | 'viewer' | null;
+    getRole: () => ProductRole | null;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -28,18 +33,16 @@ export const useAuthStore = create<AuthState>()(
             context: null,
             activeTenant: null,
             setContext: (context) => {
-                set({ context });
-                if (context && context.memberships.length > 0) {
-                    const currentTenant = get().activeTenant;
-                    const isValidTenant = context.memberships.find(m => m.tenant_id === currentTenant);
-                    if (!isValidTenant) {
-                        set({ activeTenant: context.memberships[0].tenant_id });
-                    }
-                } else {
-                    set({ activeTenant: null });
-                }
+                const activeTenant = context
+                    ? findRoteroEnabledTenantId(context.memberships, get().activeTenant)
+                    : null;
+                set({ context, activeTenant });
             },
-            setActiveTenant: (tenantId) => set({ activeTenant: tenantId }),
+            setActiveTenant: (tenantId) => {
+                const context = get().context;
+                const membership = context?.memberships.find((item) => item.tenant_id === tenantId);
+                set({ activeTenant: membership && isRoteroEnabledRole(membership.role) ? tenantId : null });
+            },
             logout: () => set({ context: null, activeTenant: null }),
             getRole: () => {
                 const { context, activeTenant } = get();
