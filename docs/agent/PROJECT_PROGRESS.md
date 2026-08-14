@@ -1,5 +1,15 @@
 # Progreso del proyecto
 
+## Snapshot 2026-08-13 — Tracking M4
+
+- M4.1–M4.5 están cerradas con estado `CLOSED / PASS`.
+- Los contratos RPC, la UI real, la QA integral y la matriz Edge positiva están
+  consolidados en `docs/TRACKING_CLOSURE.md`.
+- La operación QA conserva exactamente un evento positivo esperado; el residuo
+  final de capabilities es cero y no se retuvieron literales ni hashes.
+- Los pendientes de SEC.4, observabilidad y GPS externo pertenecen a tandas
+  separadas y no reabren Tracking M4.
+
 ## Snapshot 2026-07-14
 
 ### Verificado en código
