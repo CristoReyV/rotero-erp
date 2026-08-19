@@ -1096,6 +1096,9 @@ DECLARE v_operation public.operations%ROWTYPE; v_result jsonb;
 BEGIN
     SELECT * INTO v_operation FROM public.operations WHERE id = p_operation_id;
     IF v_operation.id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_operation.tenant_id, ARRAY['admin']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
     IF v_operation.status <> 'delivered' THEN RETURN jsonb_build_object('error', 'invalid_transition'); END IF;
     v_result := public.rpc_override_operation_status(p_operation_id, 'closed', p_override_reason);
     IF v_result ? 'error' THEN RETURN v_result; END IF;

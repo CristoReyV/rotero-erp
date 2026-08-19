@@ -204,6 +204,9 @@ BEGIN
     IF public.rpc_transition_operation_status(v_operation,'in_transit')->>'error' <> 'tracking_not_ready' THEN
       RAISE EXCEPTION 'F2 ADMIN FAILED: tracking guard weakened'; END IF;
     IF public.rpc_delete_operation_crossing(v_crossing) ? 'error' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: delete crossing'; END IF;
+    v_result := public.rpc_upsert_operation_crossing(v_operation,'{"crossed_at":"2026-09-01T20:30:00Z","crossing_point":"Laredo","crossing_type":"entry"}');
+    IF v_result ? 'error' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: finance denial crossing fixture %',v_result; END IF;
+    PERFORM set_config('f2.finance_crossing',v_result#>>'{item,id}',true);
     IF public.rpc_get_operation(gen_random_uuid())->>'error' <> 'not_found'
        OR public.rpc_list_operation_incidents(gen_random_uuid())->>'error' <> 'not_found' THEN
       RAISE EXCEPTION 'F2 ADMIN FAILED: invalid IDs'; END IF;
@@ -239,7 +242,7 @@ END;
 $admin_close$;
 
 DO $finance_read_only$
-DECLARE v_operation uuid := current_setting('f2.operation')::uuid; v_tenant uuid := current_setting('f2.tenant_a')::uuid; v_provider uuid := current_setting('f2.provider')::uuid; v_incident uuid := current_setting('f2.incident')::uuid;
+DECLARE v_operation uuid := current_setting('f2.operation')::uuid; v_tenant uuid := current_setting('f2.tenant_a')::uuid; v_provider uuid := current_setting('f2.provider')::uuid; v_incident uuid := current_setting('f2.incident')::uuid; v_crossing uuid := current_setting('f2.finance_crossing')::uuid;
 BEGIN
     PERFORM set_config('request.jwt.claim.sub',current_setting('f2.finance'),true);
     IF public.rpc_get_operation(v_operation) ? 'error' OR public.rpc_get_operation(v_operation)->>'pricing_currency' <> 'USD'
@@ -255,9 +258,11 @@ BEGIN
        OR public.rpc_add_operation_evidence(v_operation,NULL,'operational_note','No')->>'error' <> 'unauthorized'
        OR public.rpc_upsert_operation_document(v_operation,'loading_order','optional','missing')->>'error' <> 'unauthorized'
        OR public.rpc_upsert_operation_crossing(v_operation,'{"crossing_point":"No"}')->>'error' <> 'unauthorized'
+       OR public.rpc_delete_operation_crossing(v_crossing)->>'error' <> 'unauthorized'
        OR public.rpc_transition_operation_status(v_operation,'in_transit')->>'error' <> 'unauthorized'
        OR public.rpc_override_operation_status(v_operation,'cancelled','Motivo financiero inválido')->>'error' <> 'unauthorized'
        OR public.rpc_close_operation(v_operation)->>'error' <> 'unauthorized'
+       OR public.rpc_close_operation_override(v_operation,'Motivo financiero inválido')->>'error' <> 'unauthorized'
        OR public.rpc_cancel_operation(v_operation)->>'error' <> 'unauthorized' THEN
       RAISE EXCEPTION 'F2 FINANCE FAILED: mutation allowed'; END IF;
 END;
