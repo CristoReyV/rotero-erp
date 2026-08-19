@@ -1,6 +1,6 @@
 import type { Customer, LogisticsProvider, Quote, QuoteConversionResult, QuoteStatus } from '@/types/commercial';
 
-const QUOTE_STATUSES: readonly QuoteStatus[] = ['draft', 'review', 'approved', 'rejected', 'converted'];
+const QUOTE_STATUSES: readonly QuoteStatus[] = ['draft', 'in_review', 'approved', 'rejected', 'converted'];
 
 function asNumber(value: unknown): number {
     const parsed = typeof value === 'number' ? value : Number(value ?? 0);
@@ -19,6 +19,10 @@ function asCurrencyTotals(value: unknown): Partial<Record<'MXN' | 'USD', number>
         ...(totals.MXN === undefined ? {} : { MXN: asNumber(totals.MXN) }),
         ...(totals.USD === undefined ? {} : { USD: asNumber(totals.USD) }),
     };
+}
+
+function asCommercialCurrency(value: unknown): 'MXN' | 'USD' {
+    return value === 'USD' ? 'USD' : 'MXN';
 }
 
 export function normalizeCustomers(value: unknown): Customer[] {
@@ -52,11 +56,16 @@ export function normalizeQuotes(value: unknown): Quote[] {
             throw new Error('invalid_response');
         }
         const payload = row.quote_payload as Record<string, unknown>;
+        const originPlace = payload.origin_place ?? payload.origin;
+        const destinationPlace = payload.destination_place ?? payload.destination;
         return {
             ...row,
             value: asNumber(row.value),
             quote_payload: {
                 ...payload,
+                origin_place: originPlace,
+                destination_place: destinationPlace,
+                currency: asCommercialCurrency(payload.pricing_currency ?? payload.currency ?? row.currency),
                 provider_cost_amount: payload.provider_cost_amount === undefined ? undefined : asNumber(payload.provider_cost_amount),
                 customer_price_amount: payload.customer_price_amount === undefined ? undefined : asNumber(payload.customer_price_amount),
             },
@@ -70,9 +79,14 @@ export function normalizeIdResult(value: unknown): { id: string } {
 }
 
 export function normalizeConversionResult(value: unknown): QuoteConversionResult {
-    const result = value as Partial<QuoteConversionResult> | null;
-    if (!result || typeof result.operation_id !== 'string' || typeof result.operation_reference !== 'string' || typeof result.already_converted !== 'boolean') {
+    const result = value as (Partial<QuoteConversionResult> & { operation_reference_code?: unknown }) | null;
+    const operationReference = result?.operation_reference_code ?? result?.operation_reference;
+    if (!result || typeof result.operation_id !== 'string' || typeof operationReference !== 'string') {
         throw new Error('invalid_response');
     }
-    return result as QuoteConversionResult;
+    return {
+        operation_id: result.operation_id,
+        operation_reference: operationReference,
+        already_converted: result.already_converted === true,
+    };
 }

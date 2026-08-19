@@ -3,7 +3,7 @@ import type {
     Deal, DealFilters, DealCreatePayload, DealUpdatePatch,
     DealStage, PipelineColumn, DealDetail, DealActivity, DealActivityPayload,
     Customer, Customer360, CustomerPayload, LogisticsProvider, LogisticsProviderPayload,
-    Quote, QuoteConversionResult, QuoteFilters, QuoteStatus, QuoteUpsertPayload
+    Quote, QuoteConversionResult, QuoteFilters, QuoteUpsertPayload
 } from '@/types/commercial';
 import {
     normalizeConversionResult,
@@ -221,15 +221,25 @@ const COMMERCIAL_ERRORS: Record<string, string> = {
     invalid_payload: 'Revisa los datos capturados.',
     invalid_customer: 'El cliente seleccionado no pertenece a tu empresa.',
     invalid_provider: 'El proveedor seleccionado no pertenece a tu empresa.',
+    invalid_service_catalog_item: 'El servicio seleccionado no pertenece al catálogo activo de tu empresa.',
     invalid_amount: 'Costo y precio deben ser valores positivos.',
+    invalid_operational_window: 'La ventana operativa debe terminar después de su inicio.',
     duplicate_name: 'Ya existe un registro activo con ese nombre.',
     reference_conflict: 'No fue posible generar una referencia única. Intenta de nuevo.',
     quote_not_editable: 'Solo las cotizaciones en borrador pueden editarse.',
     quote_incomplete: 'Completa cliente, proveedor, ruta, costo y precio antes de continuar.',
+    missing_commercial_data: 'Completa el concepto, cliente, precio y moneda de la cotización.',
+    quote_payload_not_ready_for_review: 'Completa servicio, origen y destino antes de enviar.',
+    quote_payload_not_ready_for_approval: 'Completa la ventana operativa y la carga antes de aceptar.',
+    quote_payload_not_ready_for_conversion: 'La cotización no cumple el contrato operativo para convertirse.',
+    invalid_quote_status: 'La cotización no puede avanzar desde su estado actual.',
     invalid_status: 'El estado solicitado no existe.',
     invalid_transition: 'La cotización no puede avanzar a ese estado.',
     quote_not_approved: 'La cotización debe estar aceptada antes de crear la operación.',
     already_converted: 'Esta cotización ya fue convertida a operación.',
+    converted_operation_not_found: 'La cotización apunta a una operación que ya no está disponible.',
+    quote_conversion_conflict: 'La cotización se convirtió al mismo tiempo en otra sesión. Actualiza e intenta de nuevo.',
+    internal_error: 'No fue posible completar la operación por un error interno.',
     not_a_quote: 'La oportunidad todavía no tiene una cotización.',
     invalid_response: 'El servidor devolvió una respuesta comercial incompleta.',
 };
@@ -324,15 +334,30 @@ export async function duplicateQuote(dealId: string): Promise<{ id: string }> {
     return normalizeIdResult(assertRpcResult<unknown>(data, error));
 }
 
-export async function transitionQuoteStatus(
-    dealId: string,
-    status: Exclude<QuoteStatus, 'converted'>,
-    note?: string,
-): Promise<void> {
-    const { data, error } = await supabase.rpc('rpc_transition_quote_status', {
+export async function submitQuoteForReview(dealId: string): Promise<void> {
+    const { data, error } = await supabase.rpc('rpc_submit_quote_for_review', { p_deal_id: dealId });
+    assertRpcResult<{ success: boolean }>(data, error);
+}
+
+export async function approveQuote(dealId: string, note?: string): Promise<void> {
+    const { data, error } = await supabase.rpc('rpc_approve_quote', {
         p_deal_id: dealId,
-        p_to_status: status,
-        p_note: note,
+        p_approval_note: note,
+    });
+    assertRpcResult<{ success: boolean }>(data, error);
+}
+
+export async function rejectQuote(dealId: string, note?: string): Promise<void> {
+    const { data, error } = await supabase.rpc('rpc_reject_quote', {
+        p_deal_id: dealId,
+        p_rejection_note: note,
+    });
+    assertRpcResult<{ success: boolean }>(data, error);
+}
+
+export async function returnQuoteToDraft(dealId: string): Promise<void> {
+    const { data, error } = await supabase.rpc('rpc_return_quote_to_draft', {
+        p_deal_id: dealId,
     });
     assertRpcResult<{ success: boolean }>(data, error);
 }

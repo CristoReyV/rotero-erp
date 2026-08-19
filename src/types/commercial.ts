@@ -109,13 +109,21 @@ export interface DealChecklistItem {
 }
 
 export type CommercialCurrency = 'MXN' | 'USD';
-export type QuoteStatus = 'draft' | 'review' | 'approved' | 'rejected' | 'converted';
+export type QuoteStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'converted';
 export type OperationScope = 'national' | 'international';
 
 export interface CommercialPlace {
     municipality: string;
     state: string;
     countryCode: 'MX' | 'US';
+}
+
+export interface CargoSummary {
+    description: string;
+    pieces?: number;
+    unit?: string;
+    weightKg?: number;
+    measurements?: string;
 }
 
 export interface Customer {
@@ -192,10 +200,16 @@ export interface QuotePayload {
     origin_place?: CommercialPlace;
     destination_place?: CommercialPlace;
     operation_scope: OperationScope;
+    execution_type?: 'third_party';
     service_type?: string;
+    service_catalog_item_id?: string;
+    service_catalog_snapshot?: Record<string, unknown>;
     provider_cost_amount?: number;
     customer_price_amount?: number;
     currency: CommercialCurrency;
+    operational_window_start?: string;
+    operational_window_end?: string;
+    cargo_summary?: CargoSummary;
     requested_date?: string;
     valid_until?: string;
     notes?: string;

@@ -32,6 +32,6 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 
 ## Producto
 
-- F1 Commercial 360: en progreso mediante Draft PR; no se declara desplegado ni validado en staging desde este archivo.
+- F1 Commercial 360: Draft PR #21 corregido y validado localmente contra contratos staging-like; permanece sin merge ni deploy y no se declara validado en runtime staging.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
