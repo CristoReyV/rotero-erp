@@ -1,250 +1,33 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar as CalendarIcon, Truck, UserCircle, Loader2, AlertCircle } from 'lucide-react';
-import type { Operation } from '@/types/operations';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { AlertCircle, Calendar, Loader2, Truck, UserRound, X } from 'lucide-react';
+import { listProviders } from '@/services/commercial.service';
 import { assignOperation } from '@/services/operations.service';
 import { useAuthStore } from '@/store/authStore';
+import type { LogisticsProvider } from '@/types/commercial';
+import type { Operation, OperationPriority } from '@/types/operations';
 
-interface AssignmentDrawerProps {
-    isOpen: boolean;
-    onClose: () => void;
-    operation: Operation | null;
-    onAssigned: () => void;
+export function AssignmentDrawer({ isOpen, onClose, operation, onAssigned }: { isOpen: boolean; onClose: () => void; operation: Operation | null; onAssigned: () => void }) {
+    const activeTenant = useAuthStore((state) => state.activeTenant);
+    const [providers, setProviders] = useState<LogisticsProvider[]>([]);
+    const [providerId, setProviderId] = useState(''); const [driverName, setDriverName] = useState(''); const [driverPhone, setDriverPhone] = useState('');
+    const [vehicleRef, setVehicleRef] = useState(''); const [vehiclePlates, setVehiclePlates] = useState('');
+    const [plannedDeparture, setPlannedDeparture] = useState(''); const [priority, setPriority] = useState<OperationPriority>('normal'); const [reason, setReason] = useState('');
+    const [loadingProviders, setLoadingProviders] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null);
+    const selectedProvider = useMemo(() => providers.find((item) => item.id === providerId), [providerId, providers]);
+
+    useEffect(() => { if (!isOpen || !activeTenant) return; setLoadingProviders(true); listProviders(activeTenant, { active: true }).then(setProviders).catch(() => setError('No fue posible cargar la red de proveedores.')).finally(() => setLoadingProviders(false)); }, [activeTenant, isOpen]);
+    useEffect(() => { if (!operation || !isOpen) return; const externalDriver = operation.external_driver ?? {}; const externalVehicle = operation.external_vehicle ?? {}; setProviderId(operation.provider_id || ''); setDriverName(typeof externalDriver.name === 'string' ? externalDriver.name : ''); setDriverPhone(typeof externalDriver.phone === 'string' ? externalDriver.phone : ''); setVehicleRef(typeof externalVehicle.reference === 'string' ? externalVehicle.reference : typeof externalVehicle.unit_code === 'string' ? externalVehicle.unit_code : ''); setVehiclePlates(typeof externalVehicle.plates === 'string' ? externalVehicle.plates : ''); setPlannedDeparture(operation.planned_departure ? new Date(new Date(operation.planned_departure).getTime() - new Date(operation.planned_departure).getTimezoneOffset() * 60000).toISOString().slice(0,16) : ''); setPriority((operation.priority as OperationPriority) || 'normal'); setReason(''); setError(null); }, [isOpen, operation]);
+    const submit = async (event: FormEvent) => { event.preventDefault(); if (!activeTenant || !operation?.db_id || !selectedProvider) return; if (operation.assigned_at && reason.trim().length < 5) return setError('Describe el motivo del cambio de asignación.'); setSaving(true); setError(null); try { await assignOperation(activeTenant, operation.db_id, { execution_type: 'third_party', provider_id: selectedProvider.id, provider_name: selectedProvider.display_name, external_driver: { ...(driverName.trim() ? { name: driverName.trim() } : {}), ...(driverPhone.trim() ? { phone: driverPhone.trim() } : {}) }, external_vehicle: { ...(vehicleRef.trim() ? { reference: vehicleRef.trim() } : {}), ...(vehiclePlates.trim() ? { plates: vehiclePlates.trim() } : {}) }, planned_departure: new Date(plannedDeparture).toISOString(), priority, reason: reason.trim() || undefined }); onAssigned(); } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible guardar la asignación.'); } finally { setSaving(false); } };
+
+    return <AnimatePresence>{isOpen && operation && <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm"><motion.button type="button" aria-label="Cerrar asignación" className="absolute inset-0" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} /><motion.aside initial={{ x: 520 }} animate={{ x: 0 }} exit={{ x: 520 }} className="absolute inset-y-0 right-0 flex w-full max-w-lg flex-col bg-white shadow-2xl"><header className="flex items-center justify-between border-b border-slate-200 px-6 py-4"><div><h2 className="text-lg font-black text-slate-800">Asignación contratada</h2><p className="text-xs text-slate-400">{operation.id} · third-party primero</p></div><button onClick={onClose} className="rounded-lg bg-slate-100 p-2 text-slate-500"><X size={17} /></button></header><form onSubmit={submit} className="flex-1 space-y-5 overflow-y-auto p-6">
+        <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">El proveedor no recibe acceso ERP. Chofer y unidad externos se guardan como snapshots opcionales.</div>
+        {error && <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700"><AlertCircle size={15} />{error}</div>}
+        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500"><span className="flex items-center gap-2"><Truck size={14} />Proveedor contratado</span><select required disabled={loadingProviders} value={providerId} onChange={(e) => setProviderId(e.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal"><option value="">{loadingProviders ? 'Cargando…' : 'Seleccionar proveedor'}</option>{providers.map((item) => <option key={item.id} value={item.id}>{item.display_name}</option>)}</select></label>
+        <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold uppercase tracking-wider text-slate-500"><span className="flex items-center gap-2"><UserRound size={14} />Chofer del proveedor</span><input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Opcional" className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal normal-case" /></label><label className="text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono<input value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="Opcional" className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal normal-case" /></label><label className="text-xs font-bold uppercase tracking-wider text-slate-500">Unidad / referencia<input value={vehicleRef} onChange={(e) => setVehicleRef(e.target.value)} placeholder="Opcional" className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal normal-case" /></label><label className="text-xs font-bold uppercase tracking-wider text-slate-500">Placas<input value={vehiclePlates} onChange={(e) => setVehiclePlates(e.target.value)} placeholder="Opcional" className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal normal-case" /></label></div>
+        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500"><span className="flex items-center gap-2"><Calendar size={14} />Salida planeada</span><input required type="datetime-local" value={plannedDeparture} onChange={(e) => setPlannedDeparture(e.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal" /></label>
+        <div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Prioridad</p><div className="mt-2 grid grid-cols-3 gap-2">{(['low','normal','high'] as OperationPriority[]).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={`rounded-lg border py-2 text-xs font-bold ${priority === value ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500'}`}>{value === 'low' ? 'Baja' : value === 'high' ? 'Alta' : 'Normal'}</button>)}</div></div>
+        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Motivo del cambio<input required={Boolean(operation.assigned_at)} minLength={operation.assigned_at ? 5 : undefined} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={operation.assigned_at ? 'Obligatorio para reasignar' : 'Opcional en asignación inicial'} className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal normal-case" /></label>
+        <div className="flex gap-3 border-t border-slate-100 pt-4"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-bold text-slate-600">Cancelar</button><button disabled={saving || !providerId || !plannedDeparture} className="flex-[2] inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving && <Loader2 size={16} className="animate-spin" />}Guardar asignación</button></div>
+    </form></motion.aside></div>}</AnimatePresence>;
 }
-
-export const AssignmentDrawer: React.FC<AssignmentDrawerProps> = ({
-    isOpen,
-    onClose,
-    operation,
-    onAssigned
-}) => {
-    const activeTenant = useAuthStore((s) => s.activeTenant);
-
-    // Form state
-    const [driverId, setDriverId] = useState('');
-    const [vehicleId, setVehicleId] = useState('');
-    const [plannedDeparture, setPlannedDeparture] = useState('');
-    const [priority, setPriority] = useState('normal');
-
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-
-        if (!activeTenant || !operation?.db_id) {
-            setError('Falta ID de operación o tenant');
-            return;
-        }
-
-        if (!driverId || !vehicleId || !plannedDeparture) {
-            setError('Por favor completa todos los campos obligatorios');
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            // Find names from select options or use fallback
-            const driverName = document.querySelector(`select[name="driver_id"] option[value="${driverId}"]`)?.textContent?.split(' (')[0] || 'Conductor Asignado';
-            const vehicleRef = document.querySelector(`select[name="vehicle_id"] option[value="${vehicleId}"]`)?.textContent?.split(' (')[0] || 'Unidad Asignada';
-
-            await assignOperation(activeTenant, operation.db_id, {
-                driver_id: driverId,
-                vehicle_id: vehicleId,
-                driver_name: driverName,
-                vehicle_ref: vehicleRef,
-                planned_departure: new Date(plannedDeparture).toISOString(),
-                priority
-            });
-            onAssigned();
-        } catch (err: any) {
-            setError(err.message || 'Error al asignar operación');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    // Reset when operation changes
-    React.useEffect(() => {
-        if (operation) {
-            setDriverId(operation.driver_id || '');
-            setVehicleId(operation.vehicle_id || '');
-
-            // Format datetime logic mapping
-            if (operation.planned_departure) {
-                // If the DB has ISO string, chop off the Z and seconds for datetime-local
-                try {
-                    const d = new Date(operation.planned_departure);
-                    const formatted = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                    setPlannedDeparture(formatted);
-                } catch {
-                    setPlannedDeparture('');
-                }
-            } else {
-                setPlannedDeparture('');
-            }
-
-            setPriority(operation.priority || 'normal');
-            setError('');
-        }
-    }, [operation, isOpen]);
-
-    return (
-        <AnimatePresence>
-            {isOpen && operation && (
-                <div className="fixed inset-y-0 right-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4 w-full">
-                    {/* Backdrop */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0"
-                        onClick={onClose}
-                    />
-
-                    <motion.div
-                        initial={{ opacity: 0, x: 100 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 100 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="bg-white h-full shadow-2xl overflow-y-auto w-full max-w-sm absolute right-0 flex flex-col"
-                    >
-                        {/* Header */}
-                        <div className="sticky top-0 bg-white/90 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between z-10">
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800">Asignar Operación</h2>
-                                <p className="text-xs text-slate-500 font-mono mt-0.5">{operation.id}</p>
-                            </div>
-                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-lg transition-colors">
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        {/* Content */}
-                        <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 flex flex-col">
-                            {error && (
-                                <div className="p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold flex items-center gap-2">
-                                    <AlertCircle size={14} className="shrink-0" />
-                                    <span>{error}</span>
-                                </div>
-                            )}
-
-                            {/* Informative text depending on status */}
-                            {operation.status === 'assigned' && (
-                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl mb-2">
-                                    <p className="text-xs font-semibold text-amber-800">
-                                        Esta operación ya está asignada. Editar cambiará al responsable en campo.
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="space-y-4 flex-1">
-                                {/* Driver Selection */}
-                                <div>
-                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                        <UserCircle size={14} /> Conductor
-                                    </label>
-                                    <select
-                                        name="driver_id"
-                                        required
-                                        value={driverId}
-                                        onChange={(e) => setDriverId(e.target.value)}
-                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-medium"
-                                    >
-                                        <option value="" disabled>Seleccionar Conductor...</option>
-                                        <option value="b1f50123-1111-4444-a1a1-999999990001">Miguel Hernández (Disponible)</option>
-                                        <option value="b1f50123-1111-4444-a1a1-999999990002">Juan Carlos Pérez (En Tránsito)</option>
-                                        <option value="b1f50123-1111-4444-a1a1-999999990003">Roberto Gómez (Descanso)</option>
-                                    </select>
-                                </div>
-
-                                {/* Vehicle Selection */}
-                                <div>
-                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                        <Truck size={14} /> Unidad / Tracto
-                                    </label>
-                                    <select
-                                        name="vehicle_id"
-                                        required
-                                        value={vehicleId}
-                                        onChange={(e) => setVehicleId(e.target.value)}
-                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-medium"
-                                    >
-                                        <option value="" disabled>Seleccionar Unidad...</option>
-                                        <option value="c2a60123-2222-5555-b2b2-888888880001">Volvo VNL (Eco-01) - 53ft</option>
-                                        <option value="c2a60123-2222-5555-b2b2-888888880002">Kenworth T680 (Eco-02) - Caja Seca</option>
-                                        <option value="c2a60123-2222-5555-b2b2-888888880003">Freightliner Cascadia (Eco-03) - Plana</option>
-                                    </select>
-                                </div>
-
-                                {/* Departure Date */}
-                                <div>
-                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                        <CalendarIcon size={14} /> Salida Planeada
-                                    </label>
-                                    <input
-                                        required
-                                        type="datetime-local"
-                                        value={plannedDeparture}
-                                        onChange={(e) => setPlannedDeparture(e.target.value)}
-                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium"
-                                    />
-                                </div>
-
-                                {/* Priority */}
-                                <div>
-                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                        Prioridad
-                                    </label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setPriority('low')}
-                                            className={`py-2 rounded-lg text-xs font-bold border transition-colors ${priority === 'low' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                                        >
-                                            Baja
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPriority('normal')}
-                                            className={`py-2 rounded-lg text-xs font-bold border transition-colors ${priority === 'normal' ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                                        >
-                                            Normal
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPriority('high')}
-                                            className={`py-2 rounded-lg text-xs font-bold border transition-colors ${priority === 'high' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                                        >
-                                            Alta
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Footer Actions */}
-                            <div className="pt-4 border-t border-slate-100 mt-6 flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold rounded-xl transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="flex-[2] py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-semibold rounded-xl shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                                    Confirmar Asignación
-                                </button>
-                            </div>
-                        </form>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
-    );
-};

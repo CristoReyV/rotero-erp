@@ -1,30 +1,30 @@
 import { supabase } from '@/lib/supabase';
-import type { Operation } from '@/types/operations';
+import { mapDbOperationToUI, type DbOperation } from '@/services/operationsContracts';
 import type { Place } from '@/types/tracking';
-import type { BadgeVariant } from '@/types/common';
-import { createTrackingToken, getTrackingErrorMessage } from '@/services/trackingAdmin.service';
+import type {
+    CrossingType,
+    DocumentRequirementLevel,
+    EvidenceKind,
+    IncidentCategory,
+    Operation,
+    Operation360Data,
+    OperationAssignPayload,
+    OperationAssignmentHistoryItem,
+    OperationBillingSummary,
+    OperationCrossing,
+    OperationDocument,
+    OperationDocumentStatus,
+    OperationDocumentSummary,
+    OperationDocumentType,
+    OperationEvidenceItem,
+    OperationIncident,
+    OperationPlanningPayload,
+    OperationReadiness,
+    OperationTrackingEvent,
+    IncidentSummary,
+} from '@/types/operations';
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
-
-export interface DbOperation {
-    id: string;
-    reference_code: string;
-    route_summary: string | null;
-    client_display_name: string | null;
-    destination_city: string | null;
-    eta_display: string | null;
-    status: string;
-    created_at: string;
-    eta: string | null;
-    origin_place: Place | null;
-    destination_place: Place | null;
-    driver_id?: string | null;
-    vehicle_id?: string | null;
-    driver_name?: string | null;
-    vehicle_ref?: string | null;
-    planned_departure?: string | null;
-    priority?: string | null;
-}
 
 export type OperationInsertPayload = {
     reference_code: string;
@@ -38,38 +38,39 @@ export type OperationInsertPayload = {
     eta?: string;
 };
 
-// Map Db status to badge variant
-function mapStatusToVariant(status: string): BadgeVariant {
-    switch (status) {
-        case 'draft': return 'default';
-        case 'planned': return 'warning';
-        case 'assigned': return 'info';
-        case 'in_transit': return 'info';
-        case 'delivered': return 'success';
-        case 'cancelled': return 'danger';
-        case 'closed': return 'default';
-        default: return 'default';
-    }
+const OPERATION_ERROR_MESSAGES: Record<string, string> = {
+    unauthorized: 'No tienes permisos para realizar esta acción.',
+    not_found: 'La operación o el registro ya no está disponible.',
+    invalid_payload: 'Revisa los datos capturados.',
+    invalid_operational_window: 'La ventana operativa debe terminar después de su inicio.',
+    invalid_eta: 'La ETA no puede ser anterior al inicio de la ventana operativa.',
+    missing_provider: 'Selecciona el proveedor contratado.',
+    invalid_provider: 'El proveedor no pertenece al tenant activo.',
+    provider_inactive: 'El proveedor está inactivo.',
+    missing_planned_departure: 'Captura la salida planeada.',
+    missing_reassignment_reason: 'Describe el motivo del cambio de asignación.',
+    invalid_external_url: 'La URL debe iniciar con http:// o https://.',
+    invalid_incident: 'La incidencia seleccionada no pertenece a esta operación.',
+    missing_content: 'Agrega una referencia, archivo o enlace.',
+    national_operation: 'Los cruces solo aplican a operaciones internacionales.',
+    tracking_not_ready: 'Faltan capacidades explícitas de Tracking para iniciar tránsito.',
+    assignment_not_ready: 'La asignación contratada todavía no está completa.',
+    blocking_incidents_open: 'Hay incidencias bloqueantes abiertas.',
+    billing_not_issued: 'Billing debe estar emitido antes del cierre normal.',
+    missing_delivered_event: 'Falta el evento de entrega de Tracking.',
+    invalid_transition: 'La transición no corresponde al estado actual.',
+};
+
+function getRpcErrorMessage(code: string): string {
+    return OPERATION_ERROR_MESSAGES[code] ?? `No fue posible completar la acción (${code}).`;
 }
 
-// Convert DbOperation to UI Operation
-function mapDbOperationToUI(dbOp: DbOperation): Operation {
-    return {
-        id: dbOp.reference_code, // Use reference_code as visual ID
-        db_id: dbOp.id, // Keep the real UUID for RPC calls
-        client: dbOp.client_display_name || 'N/A',
-        type: dbOp.route_summary || 'N/A',
-        status: dbOp.status,
-        route: dbOp.destination_city || 'N/A',
-        owner: 'Admin', // In the future, this should come from created_by or owner field
-        variant: mapStatusToVariant(dbOp.status),
-        driver_id: dbOp.driver_id || undefined,
-        vehicle_id: dbOp.vehicle_id || undefined,
-        driver_name: dbOp.driver_name || undefined,
-        vehicle_ref: dbOp.vehicle_ref || undefined,
-        planned_departure: dbOp.planned_departure || undefined,
-        priority: dbOp.priority || undefined
-    };
+function assertRpcResult<T>(data: T | { error?: string } | null, error: { message?: string } | null): T {
+    if (error) throw new Error(error.message || 'Error de comunicación con Operations.');
+    if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+        throw new Error(getRpcErrorMessage(data.error));
+    }
+    return data as T;
 }
 
 export async function listOperations(tenantId: string): Promise<Operation[]> {
@@ -77,20 +78,22 @@ export async function listOperations(tenantId: string): Promise<Operation[]> {
         const { getMockOperations } = await import('@/mocks/operations.mock');
         return getMockOperations();
     }
-
     const { data, error } = await supabase.rpc('rpc_list_operations', { p_tenant_id: tenantId });
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
+    return assertRpcResult<DbOperation[]>(data, error).map(mapDbOperationToUI);
+}
 
-    return (data || []).map((dbOp: any) => mapDbOperationToUI(dbOp));
+export async function getOperation(operationId: string): Promise<Operation | null> {
+    if (USE_MOCKS) {
+        const { getMockOperations } = await import('@/mocks/operations.mock');
+        return (await getMockOperations()).find((item) => item.db_id === operationId || item.id === operationId) ?? null;
+    }
+    const { data, error } = await supabase.rpc('rpc_get_operation', { p_operation_id: operationId });
+    if (!error && data?.error === 'not_found') return null;
+    return mapDbOperationToUI(assertRpcResult<DbOperation>(data, error));
 }
 
 export async function createOperation(tenantId: string, payload: OperationInsertPayload): Promise<{ id: string }> {
-    if (USE_MOCKS) {
-        // Just simulate a fake ID
-        return { id: 'mock-uuid-123' };
-    }
-
+    if (USE_MOCKS) return { id: 'mock-operation' };
     const { data, error } = await supabase.rpc('rpc_create_operation', {
         p_tenant_id: tenantId,
         p_reference_code: payload.reference_code,
@@ -101,192 +104,167 @@ export async function createOperation(tenantId: string, payload: OperationInsert
         p_status: payload.status,
         p_origin_place: payload.origin_place,
         p_destination_place: payload.destination_place,
-        p_eta: payload.eta
+        p_eta: payload.eta,
     });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-
-    return { id: data.id };
+    return assertRpcResult<{ id: string }>(data, error);
 }
 
-export async function getOperation(operationId: string): Promise<Operation | null> {
-    if (USE_MOCKS) {
-        const { getMockOperations } = await import('@/mocks/operations.mock');
-        const list = await getMockOperations();
-        return list.find(o => o.db_id === operationId || o.id === operationId) || null;
-    }
-
-    const { data, error } = await supabase.rpc('rpc_get_operation', { p_operation_id: operationId });
-    if (error) throw error;
-    if (data?.error) {
-        if (data.error === 'not_found') return null;
-        throw new Error(data.error);
-    }
-
-    return mapDbOperationToUI(data);
-}
-
-export type OperationAssignPayload = {
-    driver_id: string;
-    vehicle_id: string;
-    driver_name?: string;
-    vehicle_ref?: string;
-    planned_departure: string;
-    priority?: string;
-};
-
-export async function assignOperation(tenantId: string, operationId: string, payload: OperationAssignPayload): Promise<{ success: boolean; error?: string }> {
-    if (USE_MOCKS) {
-        return { success: true };
-    }
-
-    try {
-        // Attempt V2 call (persists names and assigned_at)
-        const { data: dataV2, error: errorV2 } = await supabase.rpc('rpc_assign_operation_v2', {
-            p_tenant_id: tenantId,
-            p_operation_id: operationId,
-            p_driver_id: payload.driver_id,
-            p_driver_name: payload.driver_name || '',
-            p_vehicle_id: payload.vehicle_id,
-            p_vehicle_ref: payload.vehicle_ref || '',
-            p_planned_departure: payload.planned_departure,
-            p_priority: payload.priority || 'normal'
-        });
-
-        if (!errorV2 && dataV2?.success) return { success: true };
-
-        // If not found (404/PGRST202) -> fallback to V1
-        // Or if it's a specific "function not found" error
-        if (errorV2 && (errorV2.code === 'PGRST202' || errorV2.message?.includes('not found') || errorV2.message?.includes('does not exist'))) {
-            const { data: dataV1, error: errorV1 } = await supabase.rpc('rpc_assign_operation', {
-                p_tenant_id: tenantId,
-                p_operation_id: operationId,
-                p_driver_id: payload.driver_id,
-                p_vehicle_id: payload.vehicle_id,
-                p_planned_departure: payload.planned_departure,
-                p_priority: payload.priority || 'normal'
-            });
-
-            if (errorV1) throw errorV1;
-            if (dataV1?.error) throw new Error(dataV1.error);
-            return { success: true };
-        }
-
-        if (errorV2) throw errorV2;
-        if (dataV2?.error) throw new Error(dataV2.error);
-
-    } catch (err: any) {
-        console.error('Assignation failed:', err);
-        throw err;
-    }
-
-    return { success: true };
-}
-
-export async function updateOperationDetails(operationId: string, patch: any): Promise<{ success: boolean; error?: string }> {
-    if (USE_MOCKS) return { success: true };
-    const { data, error } = await supabase.rpc('rpc_update_operation_details', {
+export async function completeOperationPlanning(operationId: string, payload: OperationPlanningPayload): Promise<void> {
+    if (USE_MOCKS) return;
+    const { data, error } = await supabase.rpc('rpc_complete_operation_planning_v2', {
         p_operation_id: operationId,
-        p_patch: patch
+        p_service_type: payload.service_type,
+        p_origin_place: payload.origin_place,
+        p_destination_place: payload.destination_place,
+        p_operational_window_start: payload.operational_window_start,
+        p_operational_window_end: payload.operational_window_end,
+        p_notes: payload.notes,
+        p_cargo_summary: payload.cargo_summary ?? {},
+        p_route_summary: payload.route_summary,
+        p_destination_city: payload.destination_city,
+        p_eta: payload.eta || null,
+        p_eta_display: payload.eta_display,
+        p_operation_scope: payload.operation_scope,
+        p_execution_type: payload.execution_type,
+        p_provider_cost_amount: payload.provider_cost_amount,
+        p_customer_price_amount: payload.customer_price_amount,
+        p_pricing_currency: payload.pricing_currency,
+        p_service_catalog_item_id: payload.service_catalog_item_id,
+        p_service_catalog_snapshot: payload.service_catalog_snapshot ?? {},
+        p_boxes_placed_days: payload.boxes_placed_days,
+        p_documentation_received_at: payload.documentation_received_at,
+        p_documentation_received_note: payload.documentation_received_note,
     });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-
-    return { success: true };
+    assertRpcResult(data, error);
 }
 
-export async function transitionOperationStatus(operationId: string, toStatus: string): Promise<{ success: boolean; error?: string }> {
-    if (USE_MOCKS) return { success: true };
-    const { data, error } = await supabase.rpc('rpc_transition_operation_status', {
+export async function assignOperation(tenantId: string, operationId: string, payload: OperationAssignPayload): Promise<void> {
+    if (USE_MOCKS) return;
+    const { data, error } = await supabase.rpc('rpc_assign_operation_v3', {
+        p_tenant_id: tenantId,
         p_operation_id: operationId,
-        p_to_status: toStatus
+        p_execution_type: payload.execution_type,
+        p_provider_id: payload.provider_id,
+        p_provider_name: payload.provider_name,
+        p_external_driver: payload.external_driver ?? {},
+        p_external_vehicle: payload.external_vehicle ?? {},
+        p_driver_id: payload.driver_id,
+        p_driver_name: payload.driver_name,
+        p_vehicle_id: payload.vehicle_id,
+        p_vehicle_ref: payload.vehicle_ref,
+        p_planned_departure: payload.planned_departure,
+        p_priority: payload.priority,
+        p_reason: payload.reason,
+        p_force_override: payload.force_override ?? false,
     });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error); // Specifically bubble errors for UI (missing_driver, etc)
-
-    return { success: true };
+    assertRpcResult(data, error);
 }
 
-export async function overrideOperationStatus(operationId: string, toStatus: string, reason: string): Promise<{ success: boolean; error?: string }> {
-    if (USE_MOCKS) return { success: true };
-    const { data, error } = await supabase.rpc('rpc_override_operation_status', {
-        p_operation_id: operationId,
-        p_to_status: toStatus,
-        p_reason: reason
-    });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-
-    return { success: true };
+async function readRpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+    const { data, error } = await supabase.rpc(name, args);
+    return assertRpcResult<T>(data, error);
 }
 
 export async function getOperationRequirements(operationId: string): Promise<{
     has_driver_assigned: boolean;
+    has_provider_assignment: boolean;
     has_driver_token: boolean;
     has_public_token: boolean;
     has_delivered_event: boolean;
 }> {
-    if (USE_MOCKS) {
-        return {
-            has_driver_assigned: true,
-            has_driver_token: true,
-            has_public_token: true,
-            has_delivered_event: true
-        };
-    }
-    const { data, error } = await supabase.rpc('rpc_get_operation_requirements', {
-        p_operation_id: operationId
-    });
-
-    if (error) throw error;
-    return data;
+    if (USE_MOCKS) return { has_driver_assigned: false, has_provider_assignment: true, has_driver_token: false, has_public_token: false, has_delivered_event: false };
+    return readRpc('rpc_get_operation_requirements', { p_operation_id: operationId });
 }
 
-/**
- * Frontend safety net: ensure a driver:write tracking token exists for this operation.
- * The DB RPC is now idempotent — if active token exists, it returns it without rotation.
- */
-export async function ensureTrackingToken(tenantId: string, operationId: string): Promise<{ existed: boolean; created: boolean; error?: string }> {
-    if (USE_MOCKS) return { existed: true, created: false };
-
-    // Fast path: check if token already exists
-    const reqs = await getOperationRequirements(operationId);
-    if (reqs.has_driver_token) {
-        return { existed: true, created: false };
+export async function getOperation360Data(operationId: string): Promise<Operation360Data> {
+    const operation = await getOperation(operationId);
+    if (!operation) throw new Error('La operación ya no está disponible.');
+    if (USE_MOCKS) {
+        return {
+            operation,
+            assignmentHistory: [], incidents: [], evidence: [], documents: [], crossings: [], trackingEvents: [],
+            incidentSummary: { open_incident_count: 0, blocking_incident_count: 0, has_open_incidents: false, has_blocking_incidents: false, can_close_operation: true, evidence_count: 0 },
+            documentSummary: { required_count: 0, present_required_count: 0, missing_required_count: 0, has_missing_required: false, is_documentation_complete: true, pod_present: false, pod_required: false },
+            readiness: { is_minimum_planned_complete: false, is_assignment_complete: false, is_tracking_ready: false, can_transition_to_assigned: false, can_transition_to_in_transit: false, has_driver_token: false, has_public_token: false, blocking_reasons: [] },
+            billing: { has_billing_record: false, is_billing_ready: false, billing_blockers: [], is_billed: false, can_admin_close: false, pod_present: false, documentation_complete: true },
+        };
     }
+    const args = { p_operation_id: operationId };
+    const [assignmentHistory, incidents, incidentSummary, evidence, documents, documentSummary, crossings, trackingEvents, readiness, billing] = await Promise.all([
+        readRpc<OperationAssignmentHistoryItem[]>('rpc_list_operation_assignment_history', args),
+        readRpc<OperationIncident[]>('rpc_list_operation_incidents', args),
+        readRpc<IncidentSummary>('rpc_get_operation_incident_summary', args),
+        readRpc<OperationEvidenceItem[]>('rpc_list_operation_evidence', { ...args, p_incident_id: null }),
+        readRpc<OperationDocument[]>('rpc_list_operation_documents', args),
+        readRpc<OperationDocumentSummary>('rpc_get_operation_document_summary', args),
+        operation.operation_scope === 'international' ? readRpc<OperationCrossing[]>('rpc_list_operation_crossings', args) : Promise.resolve([]),
+        readRpc<OperationTrackingEvent[]>('rpc_list_operation_tracking_events', args),
+        readRpc<OperationReadiness>('rpc_get_operation_dispatch_readiness', args),
+        readRpc<OperationBillingSummary>('rpc_get_operation_billing_summary', args),
+    ]);
+    return { operation, assignmentHistory, incidents, incidentSummary, evidence, documents, documentSummary, crossings, trackingEvents, readiness, billing };
+}
 
-    // Create driver:write token (idempotent — RPC returns existing if active)
-    let driverResult;
-    try {
-        driverResult = await createTrackingToken({
-            tenantId,
-            operationId,
-            scope: 'driver:write',
-            ttlHours: 48,
-            forceRotate: false,
-        });
-    } catch (error) {
-        return { existed: false, created: false, error: getTrackingErrorMessage(error) };
-    }
+export async function createOperationIncident(operationId: string, payload: { category: IncidentCategory; title: string; description?: string; is_blocking: boolean }): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_create_operation_incident', {
+        p_operation_id: operationId, p_category: payload.category, p_title: payload.title,
+        p_description: payload.description, p_is_blocking: payload.is_blocking, p_tracking_event_id: null,
+    });
+}
 
-    const alreadyExisted = driverResult.kind === 'existing';
+export async function resolveOperationIncident(incidentId: string, note: string): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_resolve_operation_incident', { p_incident_id: incidentId, p_resolution_note: note });
+}
 
-    // Also create public:read token (idempotent, non-critical)
-    try {
-        await createTrackingToken({
-            tenantId,
-            operationId,
-            scope: 'public:read',
-            ttlHours: null,
-            forceRotate: false,
-        });
-    } catch {
-        // Non-critical
-    }
+export async function dismissOperationIncident(incidentId: string, note: string): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_dismiss_operation_incident', { p_incident_id: incidentId, p_dismiss_note: note });
+}
 
-    return { existed: alreadyExisted, created: !alreadyExisted };
+export async function addOperationEvidence(operationId: string, payload: { incident_id?: string | null; kind: EvidenceKind; note?: string; file_ref?: string; external_url?: string }): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_add_operation_evidence', {
+        p_operation_id: operationId, p_incident_id: payload.incident_id ?? null,
+        p_kind: payload.kind, p_note: payload.note, p_file_ref: payload.file_ref, p_external_url: payload.external_url,
+    });
+}
+
+export async function upsertOperationDocument(operationId: string, payload: {
+    document_type: OperationDocumentType;
+    requirement_level: DocumentRequirementLevel;
+    status: OperationDocumentStatus;
+    document_reference?: string;
+    file_ref?: string;
+    external_url?: string;
+    note?: string;
+}): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_upsert_operation_document', {
+        p_operation_id: operationId, p_document_type: payload.document_type,
+        p_requirement_level: payload.requirement_level, p_status: payload.status,
+        p_document_reference: payload.document_reference, p_file_ref: payload.file_ref,
+        p_external_url: payload.external_url, p_note: payload.note,
+    });
+}
+
+export async function upsertOperationCrossing(operationId: string, payload: { id?: string; crossed_at: string; crossing_point: string; crossing_type: CrossingType; note?: string }): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_upsert_operation_crossing', { p_operation_id: operationId, p_payload: payload });
+}
+
+export async function deleteOperationCrossing(crossingId: string): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_delete_operation_crossing', { p_crossing_id: crossingId });
+}
+
+export async function transitionOperationStatus(operationId: string, toStatus: string): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_transition_operation_status', { p_operation_id: operationId, p_to_status: toStatus });
+}
+
+export async function overrideOperationStatus(operationId: string, toStatus: string, reason: string): Promise<void> {
+    if (USE_MOCKS) return;
+    await readRpc('rpc_override_operation_status', { p_operation_id: operationId, p_to_status: toStatus, p_reason: reason });
 }
