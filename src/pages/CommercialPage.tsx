@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, LayoutGrid, List, Map, Loader2, X } from 'lucide-react';
+import { Plus, Search, Filter, LayoutGrid, List, Map, Loader2, X, TrendingUp, Building2, FileText, Truck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { moveDeal, createDeal, listPipelineDeals } from '@/services/commercial.service';
 import type { PipelineColumn, LegacyDealItem, DealCreatePayload, DealStage } from '@/types/commercial';
 import { motion } from 'motion/react';
 import { DealDetailDrawer } from '@/components/commercial/DealDetailDrawer';
+import { CustomerDirectory } from '@/components/commercial/CustomerDirectory';
+import { ProviderDirectory } from '@/components/commercial/ProviderDirectory';
+import { QuoteWorkspace } from '@/components/commercial/QuoteWorkspace';
+import { PageHeader } from '@/components/PageHeader';
 
 const stageColors: Record<string, { dot: string; bg: string; border: string }> = {
     'Prospecto': { dot: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200/40' },
@@ -23,7 +27,7 @@ const mapTitleToStage = (title: string): DealStage => {
     }
 }
 
-const CommercialPage = () => {
+const PipelineWorkspace = () => {
     const activeTenant = useAuthStore((s) => s.activeTenant);
     const getRole = useAuthStore((s) => s.getRole);
     const isViewer = getRole() === 'viewer';
@@ -34,6 +38,7 @@ const CommercialPage = () => {
     const [viewMode, setViewMode] = useState('board');
     const [showFilters, setShowFilters] = useState(false);
     const [filterPriority, setFilterPriority] = useState<string>('');
+    const [pipelineError, setPipelineError] = useState<string | null>(null);
 
     const [draggedItem, setDraggedItem] = useState<{ id: string, sourceCol: string } | null>(null);
     const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -52,14 +57,15 @@ const CommercialPage = () => {
     const fetchData = async () => {
         if (!activeTenant) return;
         setLoading(true);
+        setPipelineError(null);
         try {
             const data = await listPipelineDeals(activeTenant, {
                 searchText: searchTerm || undefined,
                 priority: filterPriority ? (filterPriority as any) : undefined
             });
             setColumns(data);
-        } catch (err) {
-            console.error('Failed to load CRM pipeline', err);
+        } catch {
+            setPipelineError('No fue posible cargar las oportunidades comerciales.');
         } finally {
             setLoading(false);
         }
@@ -94,8 +100,8 @@ const CommercialPage = () => {
             setNewCompany('');
             setNewValue('');
             await fetchData();
-        } catch (err) {
-            console.error('Failed to create deal:', err);
+        } catch {
+            setPipelineError('No fue posible crear la oportunidad.');
         } finally {
             setIsSubmitting(false);
         }
@@ -154,8 +160,8 @@ const CommercialPage = () => {
         try {
             // DB Update
             await moveDeal(dealId, newStage);
-        } catch (err) {
-            console.error('Move deal failed', err);
+        } catch {
+            setPipelineError('No fue posible cambiar la etapa de la oportunidad.');
             await fetchData(); // rollback
         } finally {
             setLoadingId(null);
@@ -165,6 +171,7 @@ const CommercialPage = () => {
 
     return (
         <div className="space-y-6 relative">
+            {pipelineError && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{pipelineError}</div>}
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
@@ -399,6 +406,33 @@ const CommercialPage = () => {
                 onClose={() => setShowDrawer(false)}
                 onChanged={() => fetchData()}
             />
+        </div>
+    );
+};
+
+type CommercialTab = 'pipeline' | 'clients' | 'quotes' | 'providers';
+
+const TABS: Array<{ id: CommercialTab; label: string; icon: typeof TrendingUp }> = [
+    { id: 'pipeline', label: 'Pipeline', icon: TrendingUp },
+    { id: 'clients', label: 'Clientes', icon: Building2 },
+    { id: 'quotes', label: 'Cotizaciones', icon: FileText },
+    { id: 'providers', label: 'Proveedores', icon: Truck },
+];
+
+const CommercialPage = () => {
+    const activeTenant = useAuthStore((state) => state.activeTenant);
+    const [activeTab, setActiveTab] = useState<CommercialTab>('pipeline');
+
+    return (
+        <div className="space-y-5">
+            <PageHeader title="Commercial 360" subtitle="Cliente, oportunidad, proveedor, cotización y entrega a Operaciones" />
+            <nav aria-label="Secciones de Comercial" className="flex gap-1 overflow-x-auto rounded-2xl border bg-white p-1.5">
+                {TABS.map((tab) => {
+                    const Icon = tab.icon;
+                    return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex min-w-fit items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${activeTab === tab.id ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}><Icon size={15} />{tab.label}</button>;
+                })}
+            </nav>
+            {!activeTenant ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No hay una empresa activa para consultar Comercial.</div> : activeTab === 'pipeline' ? <PipelineWorkspace /> : activeTab === 'clients' ? <CustomerDirectory tenantId={activeTenant} /> : activeTab === 'quotes' ? <QuoteWorkspace tenantId={activeTenant} /> : <ProviderDirectory tenantId={activeTenant} />}
         </div>
     );
 };

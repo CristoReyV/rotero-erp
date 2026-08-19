@@ -211,3 +211,31 @@
 input, button, a, [class*="transition-"] {
   transition-duration: 0.15s;
 }
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .commercial-print-sheet,
+  .commercial-print-sheet * {
+    visibility: visible !important;
+  }
+
+  .commercial-print-sheet {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    padding: 32px;
+    color: #0f172a;
+    background: #fff;
+    font-size: 12pt;
+  }
+
+  .commercial-print-sheet h1 { margin: 8px 0; font-size: 24pt; }
+  .commercial-print-sheet h2 { margin: 0 0 16px; font-size: 16pt; }
+  .commercial-print-sheet table { width: 100%; margin: 24px 0; border-collapse: collapse; }
+  .commercial-print-sheet td { padding: 10px; border: 1px solid #cbd5e1; }
+  .commercial-print-sheet td:last-child { text-align: right; font-weight: 700; }
+  .commercial-print-sheet footer { margin-top: 36px; color: #64748b; font-size: 9pt; }
+}
