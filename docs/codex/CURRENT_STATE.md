@@ -32,7 +32,9 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 
 ## Producto
 
-- F1 Commercial 360: merged en `main`. Su rollout a staging permanece bloqueado: no hay backups y PITR está deshabilitado, por lo que no existe un backup restorable verificado para autorizar escrituras remotas.
-- F2 Operation 360: Draft PR #22 abierto desde `codex/f2-operation-360`; reset fresco y contratos locales PASS. Sin escritura/deploy a staging y sin afirmación de validación runtime remota.
+- F1 Commercial 360: merged en `main` y desplegado en staging.
+- F2 Operation 360: merged en `main` y desplegado en staging.
+- R1: completado con backup lógico restaurable verificado para el estado POST_F1_PRE_F2.
+- QA visual/manual combinada de F1 y F2: pendiente.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
