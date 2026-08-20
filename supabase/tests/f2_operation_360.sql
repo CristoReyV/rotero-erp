@@ -7,6 +7,7 @@ DECLARE v_signature text; v_oid oid; v_table text;
 BEGIN
     FOREACH v_signature IN ARRAY ARRAY[
         'public.rpc_complete_operation_planning_v2(uuid,text,jsonb,jsonb,timestamptz,timestamptz,text,jsonb,text,text,timestamptz,text,text,text,numeric,numeric,text,uuid,jsonb,integer,timestamptz,text)',
+        'public.rpc_update_operation_operational_control(uuid,jsonb)',
         'public.rpc_assign_operation_v3(uuid,uuid,text,uuid,text,jsonb,jsonb,uuid,text,uuid,text,timestamptz,text,text,boolean)',
         'public.rpc_list_operation_assignment_history(uuid)',
         'public.rpc_get_operation_dispatch_readiness(uuid)',
@@ -68,7 +69,8 @@ DECLARE
     v_admin uuid := gen_random_uuid(); v_operator uuid := gen_random_uuid();
     v_finance uuid := gen_random_uuid(); v_viewer uuid := gen_random_uuid(); v_nonmember uuid := gen_random_uuid();
     v_customer uuid; v_provider uuid; v_provider_2 uuid; v_service uuid;
-    v_national uuid; v_foreign_operation uuid; v_foreign_incident uuid;
+    v_driver uuid; v_driver_inactive uuid; v_vehicle uuid; v_vehicle_inactive uuid;
+    v_national uuid; v_busy_operation uuid; v_foreign_operation uuid; v_foreign_incident uuid;
 BEGIN
     INSERT INTO auth.users (instance_id,id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) VALUES
       ('00000000-0000-0000-0000-000000000000',v_admin,'authenticated','authenticated','f2-admin@example.invalid',now(),'{}','{}',now(),now()),
@@ -85,10 +87,16 @@ BEGIN
     INSERT INTO public.customers(tenant_id,display_name) VALUES (v_tenant_a,'Cliente F2') RETURNING id INTO v_customer;
     INSERT INTO public.logistics_providers(tenant_id,display_name) VALUES (v_tenant_a,'Proveedor Uno') RETURNING id INTO v_provider;
     INSERT INTO public.logistics_providers(tenant_id,display_name) VALUES (v_tenant_a,'Proveedor Dos') RETURNING id INTO v_provider_2;
+    INSERT INTO public.drivers(tenant_id,display_name,status) VALUES (v_tenant_a,'Chofer disponible','available') RETURNING id INTO v_driver;
+    INSERT INTO public.drivers(tenant_id,display_name,status) VALUES (v_tenant_a,'Chofer inactivo','inactive') RETURNING id INTO v_driver_inactive;
+    INSERT INTO public.vehicles(tenant_id,unit_code,status) VALUES (v_tenant_a,'F2-UNIT-1','available') RETURNING id INTO v_vehicle;
+    INSERT INTO public.vehicles(tenant_id,unit_code,status) VALUES (v_tenant_a,'F2-UNIT-X','inactive') RETURNING id INTO v_vehicle_inactive;
     INSERT INTO public.service_catalog_items(tenant_id,service_type,service_class,presentation,packaging,modality)
       VALUES(v_tenant_a,'Carga terrestre','FTL','Seca','Caja','Puerta a puerta') RETURNING id INTO v_service;
     INSERT INTO public.operations(tenant_id,reference_code,client_display_name,operation_scope,status)
       VALUES(v_tenant_a,'F2-NATIONAL','Cliente F2','national','planned') RETURNING id INTO v_national;
+    INSERT INTO public.operations(tenant_id,reference_code,client_display_name,operation_scope,status,execution_type,driver_id,vehicle_id)
+      VALUES(v_tenant_a,'F2-BUSY','Cliente F2','national','assigned','own_fleet',v_driver,v_vehicle) RETURNING id INTO v_busy_operation;
     INSERT INTO public.operations(tenant_id,reference_code,client_display_name,operation_scope,status)
       VALUES(v_tenant_b,'F2-FOREIGN','Otro','international','planned') RETURNING id INTO v_foreign_operation;
     INSERT INTO public.operation_incidents(tenant_id,operation_id,category,title,is_blocking,reported_by)
@@ -99,6 +107,8 @@ BEGIN
     PERFORM set_config('f2.nonmember',v_nonmember::text,true); PERFORM set_config('f2.customer',v_customer::text,true);
     PERFORM set_config('f2.provider',v_provider::text,true); PERFORM set_config('f2.provider2',v_provider_2::text,true);
     PERFORM set_config('f2.service',v_service::text,true); PERFORM set_config('f2.national',v_national::text,true);
+    PERFORM set_config('f2.driver',v_driver::text,true); PERFORM set_config('f2.driver_inactive',v_driver_inactive::text,true);
+    PERFORM set_config('f2.vehicle',v_vehicle::text,true); PERFORM set_config('f2.vehicle_inactive',v_vehicle_inactive::text,true);
     PERFORM set_config('f2.foreign_operation',v_foreign_operation::text,true);
     PERFORM set_config('f2.foreign_incident',v_foreign_incident::text,true);
 END;
@@ -148,10 +158,42 @@ $admin_f1_compatibility$;
 DO $admin_vertical$
 DECLARE
     v_operation uuid := current_setting('f2.operation')::uuid; v_tenant uuid := current_setting('f2.tenant_a')::uuid;
+    v_national uuid := current_setting('f2.national')::uuid;
     v_provider uuid := current_setting('f2.provider')::uuid; v_provider2 uuid := current_setting('f2.provider2')::uuid;
-    v_service uuid := current_setting('f2.service')::uuid; v_result jsonb; v_incident uuid; v_dismiss uuid; v_crossing uuid;
+    v_service uuid := current_setting('f2.service')::uuid; v_result jsonb; v_detail jsonb; v_incident uuid; v_dismiss uuid; v_crossing uuid;
+    v_driver uuid := current_setting('f2.driver')::uuid; v_driver_inactive uuid := current_setting('f2.driver_inactive')::uuid;
+    v_vehicle uuid := current_setting('f2.vehicle')::uuid; v_vehicle_inactive uuid := current_setting('f2.vehicle_inactive')::uuid;
 BEGIN
     PERFORM set_config('request.jwt.claim.sub',current_setting('f2.admin'),true);
+    v_result := public.rpc_complete_operation_planning_v2(v_national,'Carga terrestre',
+      '{"municipality":"Monterrey","state":"Nuevo León"}',
+      '{"municipality":"Saltillo","state":"Coahuila","countryCode":"MX"}',
+      '2026-09-01T15:00:00Z','2026-09-01T21:00:00Z',NULL,'{"description":"Carga"}');
+    IF v_result->>'error' <> 'incomplete_places' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: incomplete place accepted %',v_result; END IF;
+    v_result := public.rpc_complete_operation_planning_v2(v_national,'Carga terrestre',
+      '{"municipality":"Monterrey","state":"Nuevo León","countryCode":"MX"}',
+      '{"municipality":"Austin","state":"Texas","countryCode":"US"}',
+      '2026-09-01T15:00:00Z','2026-09-01T21:00:00Z',NULL,'{"description":"Carga"}');
+    IF v_result->>'error' <> 'invalid_national_country' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: foreign national route accepted %',v_result; END IF;
+    v_result := public.rpc_complete_operation_planning_v2(v_national,'Carga terrestre',
+      '{"municipality":"Monterrey","state":"Nuevo León","countryCode":"MX"}',
+      '{"municipality":"Saltillo","state":"Coahuila","countryCode":"MX"}',
+      '2026-09-01T15:00:00Z','2026-09-01T21:00:00Z',NULL,'{}');
+    IF v_result->>'error' <> 'missing_cargo_summary' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: empty cargo accepted %',v_result; END IF;
+    v_result := public.rpc_complete_operation_planning_v2(v_national,'Carga terrestre',
+      '{"municipality":"Monterrey","state":"Nuevo León","countryCode":"MX"}',
+      '{"municipality":"Saltillo","state":"Coahuila","countryCode":"MX"}',
+      '2026-09-01T15:00:00Z','2026-09-01T21:00:00Z',NULL,'{"description":"Carga"}');
+    v_detail := public.rpc_get_operation(v_national);
+    IF v_result ? 'error' OR v_detail->>'route_summary' <> 'Monterrey, Nuevo León -> Saltillo, Coahuila'
+       OR v_detail->>'destination_city' <> 'Saltillo' THEN
+      RAISE EXCEPTION 'F2 ADMIN FAILED: planning fallbacks %, %',v_result,v_detail; END IF;
+    v_result := public.rpc_assign_operation_v3(v_tenant,v_national,'own_fleet',NULL,NULL,'{}','{}',v_driver_inactive,NULL,v_vehicle_inactive,NULL,'2026-09-01T14:00:00Z');
+    IF v_result->>'error' <> 'driver_unavailable' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: unavailable fleet accepted %',v_result; END IF;
+    v_result := public.rpc_assign_operation_v3(v_tenant,v_national,'own_fleet',NULL,NULL,'{}','{}',v_driver,NULL,v_vehicle,NULL,'2026-09-01T14:00:00Z');
+    IF v_result->>'error' <> 'driver_occupied' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: occupied fleet accepted %',v_result; END IF;
+    v_result := public.rpc_assign_operation_v3(v_tenant,v_national,'own_fleet',NULL,NULL,'{}','{}',v_driver,NULL,v_vehicle,NULL,'2026-09-01T14:00:00Z','normal','Override controlado',true);
+    IF v_result ? 'error' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: admin fleet override %',v_result; END IF;
     v_result := public.rpc_complete_operation_planning_v2(v_operation,'Carga terrestre',
       '{"municipality":"Monterrey","state":"Nuevo León","countryCode":"MX"}',
       '{"municipality":"Laredo","state":"Texas","countryCode":"US"}',
@@ -170,6 +212,11 @@ BEGIN
     IF v_result->>'error' <> 'missing_reassignment_reason' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: reason not required %',v_result; END IF;
     v_result := public.rpc_assign_operation_v3(v_tenant,v_operation,'third_party',v_provider2,NULL,'{"name":"Chofer externo"}','{"plates":"EXT-2"}',NULL,NULL,NULL,NULL,'2026-09-01T14:30:00Z','high','Cambio confirmado',false);
     IF v_result ? 'error' OR jsonb_array_length(public.rpc_list_operation_assignment_history(v_operation)) <> 2 THEN RAISE EXCEPTION 'F2 ADMIN FAILED: reassignment/history %',v_result; END IF;
+    v_result := public.rpc_assign_operation_v3(v_tenant,v_operation,'third_party',v_provider2,NULL,'{"name":"Chofer externo"}','{"plates":"EXT-2"}',NULL,NULL,NULL,NULL,'2026-09-01T14:30:00Z','high',NULL,false);
+    IF v_result ? 'error' OR jsonb_array_length(public.rpc_list_operation_assignment_history(v_operation)) <> 2 THEN RAISE EXCEPTION 'F2 ADMIN FAILED: no-op history duplicated %',v_result; END IF;
+    IF public.rpc_update_operation_operational_control(v_operation,'{"boxes_placed_days":-1}')->>'error' <> 'invalid_boxes_placed_days'
+       OR public.rpc_update_operation_operational_control(v_operation,'{"documentation_received_note":"Control actualizado"}') ? 'error' THEN
+      RAISE EXCEPTION 'F2 ADMIN FAILED: operational control reconciliation'; END IF;
 
     v_result := public.rpc_create_operation_incident(v_operation,'delay','Demora aduanal','Fila',true,NULL);
     IF v_result ? 'error' THEN RAISE EXCEPTION 'F2 ADMIN FAILED: create incident %',v_result; END IF; v_incident := (v_result->>'id')::uuid;
@@ -199,7 +246,8 @@ BEGIN
     v_result := public.rpc_get_operation_dispatch_readiness(v_operation);
     IF COALESCE((v_result->>'is_minimum_planned_complete')::boolean,false) IS NOT TRUE
        OR COALESCE((v_result->>'is_assignment_complete')::boolean,false) IS NOT TRUE
-       OR COALESCE((v_result->>'is_tracking_ready')::boolean,true) IS NOT FALSE THEN
+       OR COALESCE((v_result->>'is_tracking_ready')::boolean,true) IS NOT FALSE
+       OR NOT (v_result ? 'has_incident' AND v_result ? 'last_signal_at' AND v_result ? 'current_tracking_status') THEN
       RAISE EXCEPTION 'F2 ADMIN FAILED: readiness %',v_result; END IF;
     IF public.rpc_transition_operation_status(v_operation,'in_transit')->>'error' <> 'tracking_not_ready' THEN
       RAISE EXCEPTION 'F2 ADMIN FAILED: tracking guard weakened'; END IF;
@@ -278,6 +326,8 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub',current_setting('f2.operator'),true);
     IF public.rpc_add_operation_evidence(v_operation,NULL,'operational_note','Operador permitido') ? 'error' THEN
       RAISE EXCEPTION 'F2 PRODUCT FAILED: operator semantics removed'; END IF;
+    IF public.rpc_assign_operation_v3(v_tenant,v_operation,'third_party',NULL,NULL,'{}','{}',NULL,NULL,NULL,NULL,now(),'normal','Razón',true)->>'error' <> 'unauthorized' THEN
+      RAISE EXCEPTION 'F2 PRODUCT FAILED: operator force override allowed'; END IF;
     PERFORM set_config('request.jwt.claim.sub',current_setting('f2.admin'),true);
     IF public.rpc_get_operation(v_foreign)->>'error' <> 'unauthorized' THEN RAISE EXCEPTION 'F2 ISOLATION FAILED: cross tenant'; END IF;
     PERFORM set_config('request.jwt.claim.sub',current_setting('f2.nonmember'),true);

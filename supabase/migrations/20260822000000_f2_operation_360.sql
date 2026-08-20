@@ -200,6 +200,7 @@ SET search_path TO pg_catalog, public
 AS $function$
 DECLARE
     v_operation public.operations%ROWTYPE;
+    v_route_summary text;
     v_scope text := COALESCE(NULLIF(btrim(p_operation_scope), ''), 'national');
     v_execution text := COALESCE(NULLIF(btrim(p_execution_type), ''), 'third_party');
     v_currency text := COALESCE(NULLIF(upper(btrim(p_pricing_currency)), ''), 'MXN');
@@ -219,8 +220,22 @@ BEGIN
        OR p_destination_place IS NULL OR jsonb_typeof(p_destination_place) <> 'object' THEN
         RETURN jsonb_build_object('error', 'missing_places');
     END IF;
-    IF p_operational_window_start IS NULL OR p_operational_window_end IS NULL
-       OR p_operational_window_end <= p_operational_window_start THEN
+    IF NULLIF(btrim(COALESCE(p_origin_place->>'countryCode', '')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(p_origin_place->>'state', '')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(p_origin_place->>'municipality', '')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(p_destination_place->>'countryCode', '')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(p_destination_place->>'state', '')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(p_destination_place->>'municipality', '')), '') IS NULL THEN
+        RETURN jsonb_build_object('error', 'incomplete_places');
+    END IF;
+    IF v_scope = 'national'
+       AND (p_origin_place->>'countryCode' <> 'MX' OR p_destination_place->>'countryCode' <> 'MX') THEN
+        RETURN jsonb_build_object('error', 'invalid_national_country');
+    END IF;
+    IF p_operational_window_start IS NULL OR p_operational_window_end IS NULL THEN
+        RETURN jsonb_build_object('error', 'missing_operational_window');
+    END IF;
+    IF p_operational_window_end <= p_operational_window_start THEN
         RETURN jsonb_build_object('error', 'invalid_operational_window');
     END IF;
     IF p_eta IS NOT NULL AND p_eta < p_operational_window_start THEN
@@ -235,7 +250,10 @@ BEGIN
     IF p_boxes_placed_days IS NOT NULL AND p_boxes_placed_days < 0 THEN
         RETURN jsonb_build_object('error', 'invalid_boxes_placed_days');
     END IF;
-    IF p_cargo_summary IS NOT NULL AND jsonb_typeof(p_cargo_summary) <> 'object' THEN
+    IF p_cargo_summary IS NULL OR p_cargo_summary = '{}'::jsonb THEN
+        RETURN jsonb_build_object('error', 'missing_cargo_summary');
+    END IF;
+    IF jsonb_typeof(p_cargo_summary) <> 'object' THEN
         RETURN jsonb_build_object('error', 'invalid_cargo_summary');
     END IF;
     IF p_service_catalog_snapshot IS NOT NULL AND jsonb_typeof(p_service_catalog_snapshot) <> 'object' THEN
@@ -246,6 +264,18 @@ BEGIN
         WHERE s.id = p_service_catalog_item_id AND s.tenant_id = v_operation.tenant_id
     ) THEN RETURN jsonb_build_object('error', 'invalid_service_catalog_item'); END IF;
 
+    v_route_summary := COALESCE(
+        NULLIF(btrim(COALESCE(p_route_summary, '')), ''),
+        NULLIF(concat_ws(' -> ',
+            NULLIF(btrim(COALESCE(p_origin_place->>'label', '')), ''),
+            NULLIF(btrim(COALESCE(p_destination_place->>'label', '')), '')
+        ), ''),
+        concat_ws(' -> ',
+            concat_ws(', ', p_origin_place->>'municipality', p_origin_place->>'state'),
+            concat_ws(', ', p_destination_place->>'municipality', p_destination_place->>'state')
+        )
+    );
+
     UPDATE public.operations SET
         service_type = btrim(p_service_type),
         origin_place = p_origin_place,
@@ -253,9 +283,9 @@ BEGIN
         operational_window_start = p_operational_window_start,
         operational_window_end = p_operational_window_end,
         notes = NULLIF(btrim(COALESCE(p_notes, '')), ''),
-        cargo_summary = COALESCE(p_cargo_summary, '{}'::jsonb),
-        route_summary = NULLIF(btrim(COALESCE(p_route_summary, '')), ''),
-        destination_city = NULLIF(btrim(COALESCE(p_destination_city, '')), ''),
+        cargo_summary = p_cargo_summary,
+        route_summary = NULLIF(btrim(v_route_summary), ''),
+        destination_city = COALESCE(NULLIF(btrim(COALESCE(p_destination_city, '')), ''), p_destination_place->>'municipality'),
         eta = p_eta,
         eta_display = NULLIF(btrim(COALESCE(p_eta_display, '')), ''),
         operation_scope = v_scope,
@@ -273,10 +303,83 @@ BEGIN
     WHERE id = p_operation_id;
 
     PERFORM public.rpc_write_audit(v_operation.tenant_id, 'complete_operation_planning', 'operation', p_operation_id,
-        jsonb_build_object('scope', v_scope, 'execution_type', v_execution, 'currency', v_currency));
+        jsonb_build_object('operation_scope', v_scope, 'execution_type', v_execution,
+            'route_summary', v_route_summary, 'currency', v_currency));
     RETURN jsonb_build_object('success', true);
 EXCEPTION
     WHEN invalid_text_representation OR numeric_value_out_of_range OR check_violation THEN
+        RETURN jsonb_build_object('error', 'invalid_payload');
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.rpc_update_operation_operational_control(
+    p_operation_id uuid,
+    p_payload jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE
+    v_operation public.operations%ROWTYPE;
+    v_catalog_id uuid;
+BEGIN
+    IF p_payload IS NULL OR jsonb_typeof(p_payload) <> 'object' THEN
+        RETURN jsonb_build_object('error', 'invalid_payload');
+    END IF;
+    BEGIN
+        v_catalog_id := NULLIF(p_payload->>'service_catalog_item_id', '')::uuid;
+    EXCEPTION WHEN invalid_text_representation THEN
+        RETURN jsonb_build_object('error', 'invalid_payload');
+    END;
+
+    SELECT * INTO v_operation FROM public.operations WHERE id = p_operation_id FOR UPDATE;
+    IF v_operation.id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;
+    IF NOT public.tanda1_user_has_role(v_operation.tenant_id, ARRAY['admin', 'operator']) THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    IF v_catalog_id IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM public.service_catalog_items s
+        WHERE s.id = v_catalog_id AND s.tenant_id = v_operation.tenant_id
+    ) THEN RETURN jsonb_build_object('error', 'invalid_service_catalog_item'); END IF;
+    IF p_payload ? 'service_catalog_snapshot'
+       AND jsonb_typeof(COALESCE(p_payload->'service_catalog_snapshot', '{}'::jsonb)) <> 'object' THEN
+        RETURN jsonb_build_object('error', 'invalid_service_snapshot');
+    END IF;
+    IF p_payload ? 'cargo_summary'
+       AND jsonb_typeof(COALESCE(p_payload->'cargo_summary', '{}'::jsonb)) <> 'object' THEN
+        RETURN jsonb_build_object('error', 'invalid_cargo_summary');
+    END IF;
+    IF p_payload ? 'boxes_placed_days'
+       AND NULLIF(p_payload->>'boxes_placed_days', '') IS NOT NULL
+       AND (p_payload->>'boxes_placed_days')::integer < 0 THEN
+        RETURN jsonb_build_object('error', 'invalid_boxes_placed_days');
+    END IF;
+
+    UPDATE public.operations SET
+        service_catalog_item_id = CASE WHEN p_payload ? 'service_catalog_item_id' THEN v_catalog_id ELSE service_catalog_item_id END,
+        service_catalog_snapshot = CASE WHEN p_payload ? 'service_catalog_snapshot' THEN COALESCE(p_payload->'service_catalog_snapshot', '{}'::jsonb) ELSE service_catalog_snapshot END,
+        service_type = CASE WHEN p_payload ? 'service_type' THEN NULLIF(btrim(COALESCE(p_payload->>'service_type', '')), '') ELSE service_type END,
+        cargo_summary = CASE WHEN p_payload ? 'cargo_summary' THEN COALESCE(p_payload->'cargo_summary', '{}'::jsonb) ELSE cargo_summary END,
+        boxes_placed_days = CASE
+            WHEN p_payload ? 'boxes_placed_days' AND NULLIF(p_payload->>'boxes_placed_days', '') IS NULL THEN NULL
+            WHEN p_payload ? 'boxes_placed_days' THEN (p_payload->>'boxes_placed_days')::integer
+            ELSE boxes_placed_days END,
+        documentation_received_at = CASE
+            WHEN p_payload ? 'documentation_received_at' AND NULLIF(p_payload->>'documentation_received_at', '') IS NULL THEN NULL
+            WHEN p_payload ? 'documentation_received_at' THEN (p_payload->>'documentation_received_at')::timestamptz
+            ELSE documentation_received_at END,
+        documentation_received_note = CASE WHEN p_payload ? 'documentation_received_note'
+            THEN NULLIF(btrim(COALESCE(p_payload->>'documentation_received_note', '')), '') ELSE documentation_received_note END,
+        updated_at = now()
+    WHERE id = p_operation_id;
+
+    PERFORM public.rpc_write_audit(v_operation.tenant_id, 'update_operation_operational_control',
+        'operation', p_operation_id, jsonb_build_object('keys', ARRAY(SELECT jsonb_object_keys(p_payload))));
+    RETURN jsonb_build_object('success', true);
+EXCEPTION
+    WHEN invalid_text_representation OR numeric_value_out_of_range OR datetime_field_overflow OR check_violation THEN
         RETURN jsonb_build_object('error', 'invalid_payload');
 END;
 $function$;
@@ -491,13 +594,25 @@ DECLARE
     v_provider public.logistics_providers%ROWTYPE;
     v_driver public.drivers%ROWTYPE;
     v_vehicle public.vehicles%ROWTYPE;
+    v_role text;
     v_execution text := COALESCE(NULLIF(btrim(p_execution_type), ''), 'third_party');
     v_priority text := COALESCE(NULLIF(btrim(p_priority), ''), 'normal');
     v_provider_name text;
+    v_initial_assignment boolean;
     v_reassignment boolean;
+    v_driver_occupied boolean := false;
+    v_vehicle_occupied boolean := false;
 BEGIN
-    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'operator']) THEN
+    SELECT m.role INTO v_role FROM public.memberships m
+    WHERE m.user_id = auth.uid() AND m.tenant_id = p_tenant_id;
+    IF v_role IS NULL OR v_role NOT IN ('admin', 'operator') THEN
         RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    IF p_force_override AND v_role <> 'admin' THEN
+        RETURN jsonb_build_object('error', 'unauthorized');
+    END IF;
+    IF p_force_override AND NULLIF(btrim(COALESCE(p_reason, '')), '') IS NULL THEN
+        RETURN jsonb_build_object('error', 'missing_override_reason');
     END IF;
     SELECT * INTO v_operation FROM public.operations
     WHERE id = p_operation_id AND tenant_id = p_tenant_id FOR UPDATE;
@@ -527,9 +642,31 @@ BEGIN
         SELECT * INTO v_vehicle FROM public.vehicles WHERE id = p_vehicle_id AND tenant_id = p_tenant_id;
         IF v_driver.id IS NULL THEN RETURN jsonb_build_object('error', 'invalid_driver'); END IF;
         IF v_vehicle.id IS NULL THEN RETURN jsonb_build_object('error', 'invalid_vehicle'); END IF;
+        IF NOT p_force_override AND (
+            v_driver.status <> 'available'
+            OR NOT COALESCE((to_jsonb(v_driver)->>'is_active')::boolean, true)
+        ) THEN RETURN jsonb_build_object('error', 'driver_unavailable'); END IF;
+        IF NOT p_force_override AND (
+            v_vehicle.status <> 'available'
+            OR NOT COALESCE((to_jsonb(v_vehicle)->>'is_active')::boolean, true)
+        ) THEN RETURN jsonb_build_object('error', 'vehicle_unavailable'); END IF;
+
+        SELECT EXISTS (
+            SELECT 1 FROM public.operations o
+            WHERE o.tenant_id = p_tenant_id AND o.driver_id = p_driver_id
+              AND o.id <> p_operation_id AND o.status IN ('assigned', 'in_transit')
+        ) INTO v_driver_occupied;
+        SELECT EXISTS (
+            SELECT 1 FROM public.operations o
+            WHERE o.tenant_id = p_tenant_id AND o.vehicle_id = p_vehicle_id
+              AND o.id <> p_operation_id AND o.status IN ('assigned', 'in_transit')
+        ) INTO v_vehicle_occupied;
+        IF NOT p_force_override AND v_driver_occupied THEN RETURN jsonb_build_object('error', 'driver_occupied'); END IF;
+        IF NOT p_force_override AND v_vehicle_occupied THEN RETURN jsonb_build_object('error', 'vehicle_occupied'); END IF;
     END IF;
 
-    v_reassignment := v_operation.assigned_at IS NOT NULL AND (
+    v_initial_assignment := v_operation.planned_departure IS NULL;
+    v_reassignment := NOT v_initial_assignment AND (
         v_operation.execution_type IS DISTINCT FROM v_execution
         OR v_operation.provider_id IS DISTINCT FROM p_provider_id
         OR v_operation.driver_id IS DISTINCT FROM p_driver_id
@@ -540,11 +677,6 @@ BEGIN
     IF v_reassignment AND NULLIF(btrim(COALESCE(p_reason, '')), '') IS NULL THEN
         RETURN jsonb_build_object('error', 'missing_reassignment_reason');
     END IF;
-    IF p_force_override AND (
-        NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin'])
-        OR NULLIF(btrim(COALESCE(p_reason, '')), '') IS NULL
-    ) THEN RETURN jsonb_build_object('error', 'missing_override_reason'); END IF;
-
     UPDATE public.operations SET
         execution_type = v_execution,
         provider_id = CASE WHEN v_execution = 'third_party' THEN p_provider_id ELSE NULL END,
@@ -554,15 +686,18 @@ BEGIN
         driver_id = CASE WHEN v_execution = 'own_fleet' THEN p_driver_id ELSE NULL END,
         driver_name = CASE WHEN v_execution = 'own_fleet' THEN COALESCE(NULLIF(btrim(p_driver_name), ''), v_driver.display_name) ELSE NULL END,
         vehicle_id = CASE WHEN v_execution = 'own_fleet' THEN p_vehicle_id ELSE NULL END,
-        vehicle_ref = CASE WHEN v_execution = 'own_fleet' THEN COALESCE(NULLIF(btrim(p_vehicle_ref), ''), v_vehicle.unit_code) ELSE NULL END,
+        vehicle_ref = CASE WHEN v_execution = 'own_fleet' THEN COALESCE(
+            NULLIF(btrim(p_vehicle_ref), ''), NULLIF(btrim(to_jsonb(v_vehicle)->>'display_name'), ''), v_vehicle.unit_code
+        ) ELSE NULL END,
         planned_departure = p_planned_departure,
         priority = v_priority,
-        assigned_at = COALESCE(assigned_at, now()),
+        assigned_at = CASE WHEN v_operation.status = 'planned' THEN now() ELSE v_operation.assigned_at END,
         status = CASE WHEN status = 'planned' THEN 'assigned' ELSE status END,
         updated_at = now()
     WHERE id = p_operation_id;
 
-    INSERT INTO public.operation_assignment_history (
+    IF v_initial_assignment OR v_reassignment THEN
+      INSERT INTO public.operation_assignment_history (
         tenant_id, operation_id, change_type,
         old_execution_type, old_provider_id, old_provider_name_snapshot,
         old_external_driver_snapshot, old_external_vehicle_snapshot,
@@ -573,7 +708,7 @@ BEGIN
         reason, changed_by
     ) VALUES (
         p_tenant_id, p_operation_id,
-        CASE WHEN v_reassignment THEN 'reassignment' ELSE 'initial_assignment' END,
+        CASE WHEN v_initial_assignment THEN 'initial_assignment' ELSE 'reassignment' END,
         v_operation.execution_type, v_operation.provider_id, v_operation.provider_name,
         v_operation.external_driver, v_operation.external_vehicle,
         v_operation.driver_id, v_operation.driver_name, v_operation.vehicle_id, v_operation.vehicle_ref,
@@ -585,14 +720,24 @@ BEGIN
         CASE WHEN v_execution = 'own_fleet' THEN p_driver_id ELSE NULL END,
         CASE WHEN v_execution = 'own_fleet' THEN COALESCE(NULLIF(btrim(p_driver_name), ''), v_driver.display_name) ELSE NULL END,
         CASE WHEN v_execution = 'own_fleet' THEN p_vehicle_id ELSE NULL END,
-        CASE WHEN v_execution = 'own_fleet' THEN COALESCE(NULLIF(btrim(p_vehicle_ref), ''), v_vehicle.unit_code) ELSE NULL END,
+        CASE WHEN v_execution = 'own_fleet' THEN COALESCE(
+            NULLIF(btrim(p_vehicle_ref), ''), NULLIF(btrim(to_jsonb(v_vehicle)->>'display_name'), ''), v_vehicle.unit_code
+        ) ELSE NULL END,
         NULLIF(btrim(COALESCE(p_reason, '')), ''), auth.uid()
-    );
+      );
+    END IF;
 
     PERFORM public.rpc_write_audit(p_tenant_id,
         CASE WHEN v_reassignment THEN 'reassign_operation' ELSE 'assign_operation' END,
         'operation', p_operation_id,
-        jsonb_build_object('execution_type', v_execution, 'provider_id', p_provider_id, 'reason', NULLIF(btrim(COALESCE(p_reason, '')), '')));
+        jsonb_build_object(
+            'execution_type', v_execution,
+            'provider_id', CASE WHEN v_execution = 'third_party' THEN p_provider_id ELSE NULL END,
+            'driver_id', CASE WHEN v_execution = 'own_fleet' THEN p_driver_id ELSE NULL END,
+            'vehicle_id', CASE WHEN v_execution = 'own_fleet' THEN p_vehicle_id ELSE NULL END,
+            'force_override', p_force_override,
+            'reason', NULLIF(btrim(COALESCE(p_reason, '')), '')
+        ));
     RETURN jsonb_build_object('success', true);
 END;
 $function$;
@@ -652,6 +797,12 @@ DECLARE
     v_requirements jsonb;
     v_planning boolean;
     v_assignment boolean;
+    v_tracking_ready boolean;
+    v_driver_ok boolean := true;
+    v_vehicle_ok boolean := true;
+    v_has_incident boolean := false;
+    v_last_signal_at timestamptz;
+    v_tracking_status text;
     v_reasons text[] := ARRAY[]::text[];
 BEGIN
     SELECT * INTO v_operation FROM public.operations WHERE id = p_operation_id;
@@ -663,27 +814,72 @@ BEGIN
     v_planning := NULLIF(btrim(COALESCE(v_operation.service_type, '')), '') IS NOT NULL
         AND v_operation.origin_place IS NOT NULL AND v_operation.destination_place IS NOT NULL
         AND v_operation.operational_window_start IS NOT NULL AND v_operation.operational_window_end IS NOT NULL
-        AND v_operation.operational_window_end > v_operation.operational_window_start;
+        AND v_operation.operational_window_end > v_operation.operational_window_start
+        AND NULLIF(btrim(COALESCE(v_operation.route_summary, '')), '') IS NOT NULL
+        AND NULLIF(btrim(COALESCE(v_operation.destination_city, '')), '') IS NOT NULL;
     v_assignment := v_operation.planned_departure IS NOT NULL AND (
         (v_operation.execution_type = 'third_party' AND v_operation.provider_id IS NOT NULL)
         OR (v_operation.execution_type = 'own_fleet' AND v_operation.driver_id IS NOT NULL AND v_operation.vehicle_id IS NOT NULL)
     );
+    IF v_operation.execution_type = 'own_fleet' AND v_operation.driver_id IS NOT NULL THEN
+        SELECT EXISTS (
+            SELECT 1 FROM public.drivers d
+            WHERE d.id = v_operation.driver_id AND d.tenant_id = v_operation.tenant_id
+              AND d.status = 'available'
+              AND COALESCE((to_jsonb(d)->>'is_active')::boolean, true)
+        ) AND NOT EXISTS (
+            SELECT 1 FROM public.operations o
+            WHERE o.tenant_id = v_operation.tenant_id AND o.driver_id = v_operation.driver_id
+              AND o.id <> p_operation_id AND o.status IN ('assigned', 'in_transit')
+        ) INTO v_driver_ok;
+    END IF;
+    IF v_operation.execution_type = 'own_fleet' AND v_operation.vehicle_id IS NOT NULL THEN
+        SELECT EXISTS (
+            SELECT 1 FROM public.vehicles v
+            WHERE v.id = v_operation.vehicle_id AND v.tenant_id = v_operation.tenant_id
+              AND v.status = 'available'
+              AND COALESCE((to_jsonb(v)->>'is_active')::boolean, true)
+        ) AND NOT EXISTS (
+            SELECT 1 FROM public.operations o
+            WHERE o.tenant_id = v_operation.tenant_id AND o.vehicle_id = v_operation.vehicle_id
+              AND o.id <> p_operation_id AND o.status IN ('assigned', 'in_transit')
+        ) INTO v_vehicle_ok;
+    END IF;
+    SELECT EXISTS (
+        SELECT 1 FROM public.tracking_events e
+        WHERE e.operation_id = p_operation_id AND e.event_type = 'incident'
+    ) INTO v_has_incident;
+    SELECT e.server_timestamp, e.event_type INTO v_last_signal_at, v_tracking_status
+    FROM public.tracking_events e
+    WHERE e.operation_id = p_operation_id AND e.event_type NOT IN ('incident', 'location_reset')
+    ORDER BY e.server_timestamp DESC LIMIT 1;
+
+    v_tracking_ready := v_assignment
+        AND COALESCE((v_requirements->>'has_driver_token')::boolean, false)
+        AND COALESCE((v_requirements->>'has_public_token')::boolean, false);
     IF NOT v_planning THEN v_reasons := array_append(v_reasons, 'missing_planning_data'); END IF;
     IF NOT v_assignment THEN v_reasons := array_append(v_reasons, 'missing_assignment'); END IF;
-    IF NOT COALESCE((v_requirements->>'has_driver_token')::boolean, false) THEN v_reasons := array_append(v_reasons, 'missing_driver_capability'); END IF;
-    IF NOT COALESCE((v_requirements->>'has_public_token')::boolean, false) THEN v_reasons := array_append(v_reasons, 'missing_public_capability'); END IF;
+    IF v_operation.execution_type = 'own_fleet' AND v_operation.driver_id IS NOT NULL AND NOT v_driver_ok THEN
+        v_reasons := array_append(v_reasons, 'driver_unavailable');
+    END IF;
+    IF v_operation.execution_type = 'own_fleet' AND v_operation.vehicle_id IS NOT NULL AND NOT v_vehicle_ok THEN
+        v_reasons := array_append(v_reasons, 'vehicle_unavailable');
+    END IF;
+    IF v_operation.status = 'assigned' AND NOT v_tracking_ready THEN
+        v_reasons := array_append(v_reasons, 'tracking_not_ready');
+    END IF;
     RETURN jsonb_build_object(
         'is_minimum_planned_complete', v_planning,
         'is_assignment_complete', v_assignment,
-        'is_tracking_ready', v_assignment
-            AND COALESCE((v_requirements->>'has_driver_token')::boolean, false)
-            AND COALESCE((v_requirements->>'has_public_token')::boolean, false),
-        'can_transition_to_assigned', v_planning AND v_assignment,
-        'can_transition_to_in_transit', v_planning AND v_assignment
-            AND COALESCE((v_requirements->>'has_driver_token')::boolean, false)
-            AND COALESCE((v_requirements->>'has_public_token')::boolean, false),
+        'is_tracking_ready', v_tracking_ready,
+        'can_transition_to_assigned', v_planning AND v_assignment AND v_driver_ok AND v_vehicle_ok,
+        'can_transition_to_in_transit', v_planning AND v_assignment AND v_driver_ok AND v_vehicle_ok AND v_tracking_ready,
         'has_driver_token', COALESCE((v_requirements->>'has_driver_token')::boolean, false),
         'has_public_token', COALESCE((v_requirements->>'has_public_token')::boolean, false),
+        'has_incident', v_has_incident,
+        'last_signal_at', CASE WHEN v_last_signal_at IS NOT NULL
+            THEN to_char(v_last_signal_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') ELSE NULL END,
+        'current_tracking_status', v_tracking_status,
         'blocking_reasons', to_jsonb(v_reasons)
     );
 END;
@@ -1142,6 +1338,7 @@ REVOKE EXECUTE ON FUNCTION public.rpc_get_operation(uuid) FROM PUBLIC, anon, ser
 REVOKE EXECUTE ON FUNCTION public.rpc_create_operation(uuid,text,text,text,text,text,text,jsonb,jsonb,timestamptz) FROM PUBLIC, anon, service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_update_operation_details(uuid,jsonb) FROM PUBLIC, anon, service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_complete_operation_planning_v2(uuid,text,jsonb,jsonb,timestamptz,timestamptz,text,jsonb,text,text,timestamptz,text,text,text,numeric,numeric,text,uuid,jsonb,integer,timestamptz,text) FROM PUBLIC, anon, service_role;
+REVOKE EXECUTE ON FUNCTION public.rpc_update_operation_operational_control(uuid,jsonb) FROM PUBLIC, anon, service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_assign_operation_v3(uuid,uuid,text,uuid,text,jsonb,jsonb,uuid,text,uuid,text,timestamptz,text,text,boolean) FROM PUBLIC, anon, service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_list_operation_assignment_history(uuid) FROM PUBLIC, anon, service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_get_operation_requirements(uuid) FROM PUBLIC, anon, service_role;
@@ -1173,6 +1370,7 @@ GRANT EXECUTE ON FUNCTION public.rpc_get_operation(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_create_operation(uuid,text,text,text,text,text,text,jsonb,jsonb,timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_update_operation_details(uuid,jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_complete_operation_planning_v2(uuid,text,jsonb,jsonb,timestamptz,timestamptz,text,jsonb,text,text,timestamptz,text,text,text,numeric,numeric,text,uuid,jsonb,integer,timestamptz,text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_update_operation_operational_control(uuid,jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_assign_operation_v3(uuid,uuid,text,uuid,text,jsonb,jsonb,uuid,text,uuid,text,timestamptz,text,text,boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_list_operation_assignment_history(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_get_operation_requirements(uuid) TO authenticated;
