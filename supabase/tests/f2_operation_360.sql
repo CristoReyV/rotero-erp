@@ -63,6 +63,87 @@ BEGIN
 END;
 $catalog$;
 
+DO $trigger_reconciliation$
+DECLARE
+    v_table regclass;
+    v_expected_name text;
+    v_count integer;
+BEGIN
+    IF to_regprocedure('public.touch_updated_at()') IS NOT NULL THEN
+        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: legacy local-only helper is still required';
+    END IF;
+    IF to_regprocedure('public.tanda1_touch_updated_at()') IS NULL THEN
+        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: canonical helper missing';
+    END IF;
+
+    FOR v_table, v_expected_name IN
+        SELECT * FROM (VALUES
+            ('public.operation_incidents'::regclass, 'trg_operation_incidents_touch_updated_at'::text),
+            ('public.operation_documents'::regclass, 'trg_operation_documents_touch_updated_at'::text),
+            ('public.operation_crossings'::regclass, 'trg_operation_crossings_touch_updated_at'::text)
+        ) AS expected(table_oid, trigger_name)
+    LOOP
+        SELECT count(*) INTO v_count
+        FROM pg_trigger t
+        JOIN pg_proc p ON p.oid = t.tgfoid
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE t.tgrelid = v_table
+          AND NOT t.tgisinternal
+          AND (t.tgtype & 1) = 1
+          AND (t.tgtype & 2) = 2
+          AND (t.tgtype & 16) = 16
+          AND n.nspname = 'public'
+          AND p.proname = 'tanda1_touch_updated_at'
+          AND p.pronargs = 0;
+
+        IF v_count <> 1 THEN
+            RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: expected one canonical touch trigger on %, found %', v_table, v_count;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgrelid = v_table AND tgname = v_expected_name AND NOT tgisinternal
+        ) THEN
+            RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: canonical trigger name missing on %', v_table;
+        END IF;
+    END LOOP;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger t
+        WHERE t.tgrelid = 'public.operation_crossings'::regclass
+          AND t.tgname = 'trg_operation_crossings_touch_updated_at'
+          AND obj_description(t.oid, 'pg_trigger') = 'F2_STAGING_LIKE_PREEXISTING'
+    ) THEN
+        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: pre-existing crossing trigger was not preserved';
+    END IF;
+
+    -- A second semantic reconciliation pass must see all three equivalents and remain a no-op.
+    IF EXISTS (
+        SELECT 1
+        FROM (VALUES
+            ('public.operation_incidents'::regclass),
+            ('public.operation_documents'::regclass),
+            ('public.operation_crossings'::regclass)
+        ) AS target(table_oid)
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM pg_trigger t
+            JOIN pg_proc p ON p.oid = t.tgfoid
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE t.tgrelid = target.table_oid
+              AND NOT t.tgisinternal
+              AND (t.tgtype & 1) = 1
+              AND (t.tgtype & 2) = 2
+              AND (t.tgtype & 16) = 16
+              AND n.nspname = 'public'
+              AND p.proname = 'tanda1_touch_updated_at'
+              AND p.pronargs = 0
+        )
+    ) THEN
+        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: reconciliation would create a duplicate on rerun';
+    END IF;
+END;
+$trigger_reconciliation$;
+
 DO $fixtures$
 DECLARE
     v_tenant_a uuid; v_tenant_b uuid;
