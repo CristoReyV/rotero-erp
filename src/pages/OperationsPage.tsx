@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { AssignmentDrawer } from '@/components/operations/AssignmentDrawer';
-import { OperationQuickPanel } from '@/components/operations/OperationQuickPanel';
+import { Operation360Panel } from '@/components/operations/Operation360Panel';
 import { OperationsFilters } from '@/components/operations/OperationsFilters';
 import { OperationsKpiStrip } from '@/components/operations/OperationsKpiStrip';
 import { OperationsTable } from '@/components/operations/OperationsTable';
@@ -16,15 +16,13 @@ import {
 } from '@/components/operations/operationsControl';
 import {
     createOperation,
-    ensureTrackingToken,
-    getOperationRequirements,
     listOperations,
     overrideOperationStatus,
     transitionOperationStatus,
 } from '@/services/operations.service';
 import { createTrackingToken, getTrackingErrorMessage } from '@/services/trackingAdmin.service';
 import { buildTrackingUrl, resolvePublicAppBaseUrl } from '@/services/trackingContracts';
-import { canAccessRoteroModule, canManageRoteroModule } from '@/constants/roles';
+import { canManageRoteroModule } from '@/constants/roles';
 import { useAuthStore } from '@/store/authStore';
 import type { Operation } from '@/types/operations';
 
@@ -34,7 +32,6 @@ const OperationsPage = () => {
     const role = getRole();
     const isAdmin = role === 'admin';
     const canManageOperations = canManageRoteroModule(role, 'operations');
-    const canViewTracking = canAccessRoteroModule(role, 'tracking');
     const canManageTracking = canManageRoteroModule(role, 'tracking');
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -52,20 +49,15 @@ const OperationsPage = () => {
     const [createError, setCreateError] = useState<string | null>(null);
     const [showNewModal, setShowNewModal] = useState(false);
     const [showAssignmentDrawer, setShowAssignmentDrawer] = useState(false);
+    const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
 
-    const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
     const [driverToken, setDriverToken] = useState<string | null>(null);
     const [publicToken, setPublicToken] = useState<string | null>(null);
     const [copiedStatus, setCopiedStatus] = useState<'driver' | 'public' | null>(null);
-    const [dbHasDriverToken, setDbHasDriverToken] = useState<boolean | null>(null);
-    const [dbHasPublicToken, setDbHasPublicToken] = useState<boolean | null>(null);
-    const [isCheckingTokens, setIsCheckingTokens] = useState(false);
 
     const [newOpRef, setNewOpRef] = useState('');
     const [newOpClient, setNewOpClient] = useState('');
-    const [isTransitioning, setIsTransitioning] = useState(false);
     const [transitionError, setTransitionError] = useState<string | null>(null);
-    const [isEnsuringToken, setIsEnsuringToken] = useState(false);
     const [showOverrideModal, setShowOverrideModal] = useState(false);
     const [overrideReason, setOverrideReason] = useState('');
     const [isOverriding, setIsOverriding] = useState(false);
@@ -74,9 +66,7 @@ const OperationsPage = () => {
         () => filterOperations(operations, view, status, query),
         [operations, query, status, view],
     );
-    const activeOp = filteredOperations.find((operation) => operation.id === selectedParam)
-        ?? filteredOperations[0]
-        ?? null;
+    const activeOp = operations.find((operation) => operation.id === selectedParam) ?? null;
 
     const updateParams = useCallback((updates: Record<string, string | null>) => {
         setSearchParams((current) => {
@@ -113,53 +103,6 @@ const OperationsPage = () => {
         void fetchOps();
     }, [fetchOps]);
 
-    useEffect(() => {
-        if (loading) return;
-
-        if (activeOp && activeOp.id !== selectedParam) {
-            updateParams({ operation: activeOp.id });
-        } else if (!activeOp && selectedParam) {
-            updateParams({ operation: null });
-        }
-    }, [activeOp, loading, selectedParam, updateParams]);
-
-    useEffect(() => {
-        if (!canViewTracking || !activeOp?.db_id) {
-            setDbHasDriverToken(null);
-            setDbHasPublicToken(null);
-            setDriverToken(null);
-            setPublicToken(null);
-            setIsCheckingTokens(false);
-            return;
-        }
-
-        let cancelled = false;
-        setIsCheckingTokens(true);
-        setDriverToken(null);
-        setPublicToken(null);
-        setCopiedStatus(null);
-        getOperationRequirements(activeOp.db_id)
-            .then((requirements) => {
-                if (!cancelled) {
-                    setDbHasDriverToken(requirements.has_driver_token);
-                    setDbHasPublicToken(requirements.has_public_token);
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setDbHasDriverToken(null);
-                    setDbHasPublicToken(null);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) setIsCheckingTokens(false);
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [activeOp?.db_id, canViewTracking]);
-
     const handleCreate = async (event: FormEvent) => {
         event.preventDefault();
         if (!canManageOperations || !activeTenant || !newOpRef.trim()) return;
@@ -188,7 +131,6 @@ const OperationsPage = () => {
     const handleGenerateTokens = async () => {
         if (!canManageTracking || !activeTenant || !activeOp?.db_id) return;
 
-        setIsGeneratingTokens(true);
         setTransitionError(null);
         try {
             const [driverResult, publicResult] = await Promise.all([
@@ -214,12 +156,10 @@ const OperationsPage = () => {
 
             setDriverToken(driverResult.token);
             setPublicToken(publicResult.token);
-            setDbHasDriverToken(true);
-            setDbHasPublicToken(true);
+            setWorkspaceRefreshKey((value) => value + 1);
         } catch (error) {
             setTransitionError(getTrackingErrorMessage(error));
-        } finally {
-            setIsGeneratingTokens(false);
+            throw error;
         }
     };
 
@@ -248,21 +188,14 @@ const OperationsPage = () => {
     const handleTransition = async (toStatus: string) => {
         if (!canManageOperations || !activeOp?.db_id) return;
 
-        setIsTransitioning(true);
         setTransitionError(null);
         try {
-            if (toStatus === 'in_transit' && activeTenant) {
-                setIsEnsuringToken(true);
-                const tokenResult = await ensureTrackingToken(activeTenant, activeOp.db_id);
-                if (tokenResult.error) throw new Error(`No fue posible preparar el tracking: ${tokenResult.error}`);
-            }
             await transitionOperationStatus(activeOp.db_id, toStatus);
             await fetchOps();
+            setWorkspaceRefreshKey((value) => value + 1);
         } catch (error) {
             setTransitionError(error instanceof Error ? error.message : 'No fue posible cambiar el estado.');
-        } finally {
-            setIsTransitioning(false);
-            setIsEnsuringToken(false);
+            throw error;
         }
     };
 
@@ -277,6 +210,7 @@ const OperationsPage = () => {
             setShowOverrideModal(false);
             setOverrideReason('');
             await fetchOps();
+            setWorkspaceRefreshKey((value) => value + 1);
         } catch (error) {
             setTransitionError(error instanceof Error ? error.message : 'No fue posible cancelar administrativamente.');
         } finally {
@@ -359,39 +293,43 @@ const OperationsPage = () => {
                             {operations.length > 0 && <button type="button" onClick={clearFilters} className="mt-4 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-200">Limpiar filtros</button>}
                         </section>
                     ) : (
-                        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(340px,0.9fr)]">
-                            <OperationsTable
-                                operations={filteredOperations}
-                                selectedId={activeOp?.id ?? null}
-                                onSelect={(operation) => updateParams({ operation: operation.id })}
-                            />
-                            {activeOp && (
-                                <OperationQuickPanel
-                                    operation={activeOp}
-                                    canManageOperations={canManageOperations}
-                                    canViewTracking={canViewTracking}
-                                    canManageTracking={canManageTracking}
-                                    isAdmin={isAdmin}
-                                    dbHasDriverToken={dbHasDriverToken}
-                                    dbHasPublicToken={dbHasPublicToken}
-                                    isCheckingTokens={isCheckingTokens}
-                                    isGeneratingTokens={isGeneratingTokens}
-                                    driverToken={driverToken}
-                                    publicToken={publicToken}
-                                    copiedStatus={copiedStatus}
-                                    transitionError={transitionError}
-                                    isTransitioning={isTransitioning}
-                                    isEnsuringToken={isEnsuringToken}
-                                    onGenerateTokens={() => void handleGenerateTokens()}
-                                    onCopyToken={handleCopyToken}
-                                    onAssign={() => { if (canManageOperations) setShowAssignmentDrawer(true); }}
-                                    onTransition={(nextStatus) => void handleTransition(nextStatus)}
-                                    onOverrideCancel={() => { setTransitionError(null); setShowOverrideModal(true); }}
-                                />
-                            )}
-                        </div>
+                        <OperationsTable
+                            operations={filteredOperations}
+                            selectedId={activeOp?.id ?? null}
+                            onSelect={(operation) => updateParams({ operation: operation.id })}
+                        />
                     )}
                 </>
+            )}
+
+            {activeOp && (
+                <Operation360Panel
+                    operation={activeOp}
+                    canManage={canManageOperations}
+                    canManageTracking={canManageTracking}
+                    isAdmin={isAdmin}
+                    refreshKey={workspaceRefreshKey}
+                    onClose={() => {
+                        updateParams({ operation: null });
+                        setDriverToken(null);
+                        setPublicToken(null);
+                    }}
+                    onAssign={() => setShowAssignmentDrawer(true)}
+                    onGenerateTokens={handleGenerateTokens}
+                    onTransition={handleTransition}
+                    onOverrideCancel={() => { setTransitionError(null); setShowOverrideModal(true); }}
+                    onOperationsRefresh={fetchOps}
+                />
+            )}
+
+            {(driverToken || publicToken) && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                        <div className="flex items-center justify-between gap-3"><div><h2 className="font-black text-slate-800">Capabilities generadas</h2><p className="mt-1 text-xs text-slate-400">Los literales solo se muestran en esta creación explícita.</p></div><button onClick={() => { setDriverToken(null); setPublicToken(null); }} className="rounded-lg bg-slate-100 p-2 text-slate-500"><X size={16} /></button></div>
+                        <div className="mt-5 space-y-3">{driverToken && <div className="rounded-xl border border-slate-200 p-3"><p className="text-xs font-bold text-slate-700">Chofer del proveedor</p><code className="mt-1 block truncate text-[11px] text-slate-400">/driver/{driverToken.slice(0, 10)}…</code><button onClick={() => handleCopyToken('driver')} className="mt-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white">{copiedStatus === 'driver' ? 'Copiado' : 'Copiar enlace'}</button></div>}{publicToken && <div className="rounded-xl border border-slate-200 p-3"><p className="text-xs font-bold text-slate-700">Tracking público</p><code className="mt-1 block truncate text-[11px] text-slate-400">/t/{publicToken.slice(0, 10)}…</code><button onClick={() => handleCopyToken('public')} className="mt-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white">{copiedStatus === 'public' ? 'Copiado' : 'Copiar enlace'}</button></div>}</div>
+                        <button onClick={() => { setDriverToken(null); setPublicToken(null); }} className="mt-5 w-full rounded-xl bg-slate-100 py-2.5 text-sm font-bold text-slate-600">Cerrar</button>
+                    </div>
+                </div>
             )}
 
             {showOverrideModal && activeOp && isAdmin && (
@@ -458,6 +396,7 @@ const OperationsPage = () => {
                 operation={activeOp}
                 onAssigned={() => {
                     setShowAssignmentDrawer(false);
+                    setWorkspaceRefreshKey((value) => value + 1);
                     void fetchOps();
                 }}
             />
