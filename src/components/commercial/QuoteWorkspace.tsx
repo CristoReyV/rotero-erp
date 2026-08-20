@@ -7,6 +7,8 @@ import {
 } from '@/services/commercial.service';
 import type { CommercialCurrency, Customer, Deal, LogisticsProvider, OperationScope, Quote, QuoteStatus, QuoteUpsertPayload } from '@/types/commercial';
 import { calculateMargin, formatCommercialCurrency } from '@/utils/commercialCalculations';
+import { EntityDocumentsPanel } from '@/components/documents/EntityDocumentsPanel';
+import { relateQuoteDocumentsToOperation } from '@/services/documents.service';
 
 const STATUS_META: Record<QuoteStatus, { label: string; className: string }> = {
     draft: { label: 'Borrador', className: 'bg-slate-100 text-slate-600' },
@@ -156,8 +158,10 @@ export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
         setBusy(true); setError(null);
         try {
             const result = await convertQuoteToOperation(selected.id);
+            const transferred = await relateQuoteDocumentsToOperation(selected.id, result.operation_id);
             await load(); setSelectedId(selected.id);
-            setNotice(result.already_converted ? `La operación ${result.operation_reference} ya existía.` : `Operación ${result.operation_reference} creada correctamente.`);
+            const transferNotice = transferred > 0 ? ` ${transferred} archivo(s) operativo(s) fueron relacionados.` : '';
+            setNotice(result.already_converted ? `La operación ${result.operation_reference} ya existía.${transferNotice}` : `Operación ${result.operation_reference} creada correctamente.${transferNotice}`);
         } catch (conversionError) { setError(getCommercialErrorMessage(conversionError)); }
         finally { setBusy(false); }
     };
@@ -175,6 +179,7 @@ export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
                 <section className="overflow-hidden rounded-2xl border bg-white">{loading ? <div className="flex h-56 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div> : quotes.length === 0 ? <div className="flex h-56 flex-col items-center justify-center gap-2 text-slate-400"><Inbox /><p className="text-sm">No hay cotizaciones con estos filtros.</p><button onClick={openCreate} className="text-xs font-bold text-primary">Crear primera cotización</button></div> : <div className="divide-y">{quotes.map((quote) => { const margin = calculateMargin(quote.quote_payload.provider_cost_amount ?? 0, quote.quote_payload.customer_price_amount ?? 0); return <button key={quote.id} onClick={() => setSelectedId(quote.id)} className={`grid w-full gap-3 p-4 text-left hover:bg-slate-50 md:grid-cols-[minmax(0,1.3fr)_minmax(0,.9fr)_auto] md:items-center ${selected?.id === quote.id ? 'bg-primary-50' : ''}`}><div className="min-w-0"><div className="flex items-center gap-2"><FileText size={15} className="text-primary" /><p className="font-mono text-xs font-bold text-primary">{quote.quote_reference}</p></div><p className="mt-1 truncate font-bold text-slate-800">{quote.title}</p><p className="truncate text-xs text-slate-400">{quote.customer_name} · {quote.provider_name || 'Proveedor por confirmar'}</p></div><div className="text-xs"><p className="text-slate-400">Venta</p><p className="font-bold text-slate-700">{formatCommercialCurrency(quote.quote_payload.customer_price_amount ?? 0, quote.quote_payload.currency)}</p><p className={margin.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}>Margen {margin.percentage === null ? '—' : `${margin.percentage.toFixed(1)}%`}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${STATUS_META[quote.quote_status].className}`}>{STATUS_META[quote.quote_status].label}</span></button>; })}</div>}</section>
                 <aside className="rounded-2xl border bg-white p-5">{!selected ? <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-slate-400"><FileText /><p className="text-sm">Selecciona una cotización para revisar economía y seguimiento.</p></div> : <QuoteDetail quote={selected} busy={busy} onEdit={() => openEdit(selected)} onDuplicate={() => void duplicate()} onPrint={() => window.print()} onTransition={(next, message) => void changeStatus(next, message)} onConvert={() => void convert()} onOpenOperation={() => selected.converted_operation_reference && navigate(`/operations?view=all&operation=${encodeURIComponent(selected.converted_operation_reference)}`)} />}</aside>
             </div>
+            {selected && <EntityDocumentsPanel tenantId={tenantId} sourceModule="commercial" entityType="quote" entityId={selected.id} title="Archivos de cotización" allowOperationalTransfer />}
             {selected && <PrintableQuote quote={selected} />}
             {modalOpen && <QuoteModal form={form} setForm={setForm} customers={customers} providers={providers} opportunities={opportunities} editing={Boolean(editingId)} busy={busy} margin={formMargin} onClose={() => setModalOpen(false)} onSubmit={submit} />}
         </div>

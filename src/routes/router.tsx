@@ -9,6 +9,7 @@ import CustomsPage from '@/pages/CustomsPage';
 import BillingPage from '@/pages/BillingPage';
 import FinancePage from '@/pages/FinancePage';
 import CommercialPage from '@/pages/CommercialPage';
+import DocumentsPage from '@/pages/DocumentsPage';
 import TrackingPage from '@/pages/TrackingPage';
 import TrackingPublicPage from '@/pages/TrackingPublicPage';
 import DriverTrackingPage from '@/pages/DriverTrackingPage';
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
                                     { path: 'billing', element: <BillingPage /> },
                                     { path: 'finance', element: <FinancePage /> },
                                     { path: 'reports', element: <ReportsPage /> },
+                                    { path: 'documents', element: <DocumentsPage /> },
                                 ]
                             },
                             {
