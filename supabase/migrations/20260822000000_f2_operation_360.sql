@@ -1313,20 +1313,89 @@ AS $function$ SELECT public.rpc_transition_operation_status(p_operation_id, 'can
 
 DO $triggers$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'f2_operation_incidents_touch_updated_at') THEN
-        CREATE TRIGGER f2_operation_incidents_touch_updated_at
+    IF to_regprocedure('public.tanda1_touch_updated_at()') IS NULL THEN
+        RAISE EXCEPTION 'F2 PRECHECK FAILED: missing public.tanda1_touch_updated_at()';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger t
+        JOIN pg_proc p ON p.oid = t.tgfoid
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE t.tgrelid = 'public.operation_incidents'::regclass
+          AND NOT t.tgisinternal
+          AND (t.tgtype & 1) = 1
+          AND (t.tgtype & 2) = 2
+          AND (t.tgtype & 16) = 16
+          AND n.nspname = 'public'
+          AND p.proname = 'tanda1_touch_updated_at'
+          AND p.pronargs = 0
+    ) THEN
+        IF EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgrelid = 'public.operation_incidents'::regclass
+              AND tgname = 'trg_operation_incidents_touch_updated_at'
+              AND NOT tgisinternal
+        ) THEN
+            RAISE EXCEPTION 'F2 PRECHECK FAILED: canonical operation_incidents trigger name has incompatible semantics';
+        END IF;
+        CREATE TRIGGER trg_operation_incidents_touch_updated_at
         BEFORE UPDATE ON public.operation_incidents
-        FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+        FOR EACH ROW EXECUTE FUNCTION public.tanda1_touch_updated_at();
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'f2_operation_documents_touch_updated_at') THEN
-        CREATE TRIGGER f2_operation_documents_touch_updated_at
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger t
+        JOIN pg_proc p ON p.oid = t.tgfoid
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE t.tgrelid = 'public.operation_documents'::regclass
+          AND NOT t.tgisinternal
+          AND (t.tgtype & 1) = 1
+          AND (t.tgtype & 2) = 2
+          AND (t.tgtype & 16) = 16
+          AND n.nspname = 'public'
+          AND p.proname = 'tanda1_touch_updated_at'
+          AND p.pronargs = 0
+    ) THEN
+        IF EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgrelid = 'public.operation_documents'::regclass
+              AND tgname = 'trg_operation_documents_touch_updated_at'
+              AND NOT tgisinternal
+        ) THEN
+            RAISE EXCEPTION 'F2 PRECHECK FAILED: canonical operation_documents trigger name has incompatible semantics';
+        END IF;
+        CREATE TRIGGER trg_operation_documents_touch_updated_at
         BEFORE UPDATE ON public.operation_documents
-        FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+        FOR EACH ROW EXECUTE FUNCTION public.tanda1_touch_updated_at();
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'f2_operation_crossings_touch_updated_at') THEN
-        CREATE TRIGGER f2_operation_crossings_touch_updated_at
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger t
+        JOIN pg_proc p ON p.oid = t.tgfoid
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE t.tgrelid = 'public.operation_crossings'::regclass
+          AND NOT t.tgisinternal
+          AND (t.tgtype & 1) = 1
+          AND (t.tgtype & 2) = 2
+          AND (t.tgtype & 16) = 16
+          AND n.nspname = 'public'
+          AND p.proname = 'tanda1_touch_updated_at'
+          AND p.pronargs = 0
+    ) THEN
+        IF EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgrelid = 'public.operation_crossings'::regclass
+              AND tgname = 'trg_operation_crossings_touch_updated_at'
+              AND NOT tgisinternal
+        ) THEN
+            RAISE EXCEPTION 'F2 PRECHECK FAILED: canonical operation_crossings trigger name has incompatible semantics';
+        END IF;
+        CREATE TRIGGER trg_operation_crossings_touch_updated_at
         BEFORE UPDATE ON public.operation_crossings
-        FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+        FOR EACH ROW EXECUTE FUNCTION public.tanda1_touch_updated_at();
     END IF;
 END;
 $triggers$;
