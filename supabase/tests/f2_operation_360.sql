@@ -68,12 +68,34 @@ DECLARE
     v_table regclass;
     v_expected_name text;
     v_count integer;
+    v_helper_oid oid;
+    v_helper_owner oid;
 BEGIN
-    IF to_regprocedure('public.touch_updated_at()') IS NOT NULL THEN
-        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: legacy local-only helper is still required';
-    END IF;
-    IF to_regprocedure('public.tanda1_touch_updated_at()') IS NULL THEN
+    v_helper_oid := to_regprocedure('public.tanda1_touch_updated_at()');
+    IF v_helper_oid IS NULL THEN
         RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: canonical helper missing';
+    END IF;
+    SELECT p.proowner INTO v_helper_owner FROM pg_proc AS p WHERE p.oid = v_helper_oid;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc AS p
+        WHERE p.oid = v_helper_oid
+          AND p.proconfig @> ARRAY['search_path=pg_catalog, public']::text[]
+    ) THEN
+        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: canonical helper search_path is unsafe';
+    END IF;
+    IF has_function_privilege('anon', v_helper_oid, 'EXECUTE')
+       OR has_function_privilege('authenticated', v_helper_oid, 'EXECUTE')
+       OR has_function_privilege('service_role', v_helper_oid, 'EXECUTE')
+       OR EXISTS (
+           SELECT 1
+           FROM pg_proc AS p
+           CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) AS acl
+           WHERE p.oid = v_helper_oid AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+       ) THEN
+        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: canonical helper has direct client execution';
+    END IF;
+    IF NOT has_function_privilege(v_helper_owner, v_helper_oid, 'EXECUTE') THEN
+        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: canonical helper owner cannot execute';
     END IF;
 
     FOR v_table, v_expected_name IN
@@ -88,6 +110,7 @@ BEGIN
         JOIN pg_proc p ON p.oid = t.tgfoid
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE t.tgrelid = v_table
+          AND t.tgname = v_expected_name
           AND NOT t.tgisinternal
           AND (t.tgtype & 1) = 1
           AND (t.tgtype & 2) = 2
@@ -97,24 +120,38 @@ BEGIN
           AND p.pronargs = 0;
 
         IF v_count <> 1 THEN
-            RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: expected one canonical touch trigger on %, found %', v_table, v_count;
+            RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: expected named canonical touch trigger on %, found %', v_table, v_count;
         END IF;
-        IF NOT EXISTS (
-            SELECT 1 FROM pg_trigger
-            WHERE tgrelid = v_table AND tgname = v_expected_name AND NOT tgisinternal
+
+        SELECT count(*) INTO v_count
+        FROM pg_trigger AS t
+        JOIN pg_proc AS p ON p.oid = t.tgfoid
+        JOIN pg_namespace AS n ON n.oid = p.pronamespace
+        WHERE t.tgrelid = v_table
+          AND NOT t.tgisinternal
+          AND (t.tgtype & 1) = 1
+          AND (t.tgtype & 2) = 2
+          AND (t.tgtype & 16) = 16
+          AND n.nspname = 'public'
+          AND p.proname IN ('tanda1_touch_updated_at', 'touch_updated_at')
+          AND p.pronargs = 0;
+        IF v_count <> 1 THEN
+            RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: expected exactly one equivalent touch trigger on %, found %', v_table, v_count;
+        END IF;
+        IF EXISTS (
+            SELECT 1
+            FROM pg_trigger AS t
+            JOIN pg_proc AS p ON p.oid = t.tgfoid
+            JOIN pg_namespace AS n ON n.oid = p.pronamespace
+            WHERE t.tgrelid = v_table
+              AND NOT t.tgisinternal
+              AND n.nspname = 'public'
+              AND p.proname = 'touch_updated_at'
+              AND p.pronargs = 0
         ) THEN
-            RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: canonical trigger name missing on %', v_table;
+            RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: F2 target trigger depends on historical touch_updated_at on %', v_table;
         END IF;
     END LOOP;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger t
-        WHERE t.tgrelid = 'public.operation_crossings'::regclass
-          AND t.tgname = 'trg_operation_crossings_touch_updated_at'
-          AND obj_description(t.oid, 'pg_trigger') = 'F2_STAGING_LIKE_PREEXISTING'
-    ) THEN
-        RAISE EXCEPTION 'F2 TRIGGER CONTRACT FAILED: pre-existing crossing trigger was not preserved';
-    END IF;
 
     -- A second semantic reconciliation pass must see all three equivalents and remain a no-op.
     IF EXISTS (

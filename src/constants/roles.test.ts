@@ -6,6 +6,7 @@ import {
     canAccessRoteroModule,
     canManageRoteroModule,
     canProductRoleAccessModule,
+    canProductRoleManageDocumentContext,
     canProductRoleManageModule,
     findRoteroEnabledTenantId,
     isProductRole,
@@ -22,6 +23,7 @@ const ALL_MODULES: Module[] = [
     'billing',
     'finance',
     'commercial',
+    'documents',
     'tracking',
     'reports',
     'security',
@@ -41,10 +43,10 @@ for (const module of ALL_MODULES) {
     assert.equal(canManageRoteroModule('admin', module), true);
 }
 
-for (const module of ['dashboard', 'operations', 'billing', 'finance', 'reports'] as Module[]) {
+for (const module of ['dashboard', 'operations', 'billing', 'finance', 'documents', 'reports'] as Module[]) {
     assert.equal(canAccessRoteroModule('finance', module), true);
 }
-for (const module of ['billing', 'finance'] as Module[]) {
+for (const module of ['billing', 'finance', 'documents'] as Module[]) {
     assert.equal(canManageRoteroModule('finance', module), true);
 }
 for (const module of ['operations', 'inventory', 'customs', 'commercial', 'tracking', 'security'] as Module[]) {
@@ -58,6 +60,10 @@ assert.equal(canProductRoleAccessModule('operator', 'operations'), true);
 assert.equal(canProductRoleManageModule('operator', 'operations'), true);
 assert.equal(canProductRoleAccessModule('viewer', 'operations'), true);
 assert.equal(canProductRoleManageModule('viewer', 'operations'), false);
+assert.equal(canProductRoleManageDocumentContext('finance', 'operations'), true);
+assert.equal(canProductRoleManageDocumentContext('finance', 'commercial'), false);
+assert.equal(canProductRoleManageDocumentContext('operator', 'commercial'), true);
+assert.equal(canProductRoleManageDocumentContext('viewer', 'operations'), false);
 
 for (const role of ['operator', 'viewer'] as const) {
     assert.equal(isRoteroEnabledRole(role), false);
