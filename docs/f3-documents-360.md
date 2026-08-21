@@ -26,3 +26,23 @@
 - Rules-based missing-document and POD notifications (F5).
 - Office uploads until the canonical bucket MIME allow-list permits them.
 - Public/external document capabilities; these require a separately designed token contract.
+
+## Special rollout rule for the compatibility bridge
+
+Staging already has F2 applied, while `20260821235959_f2_touch_updated_at_compat.sql` is intentionally ordered immediately before F2 so a fresh canonical reset can create `public.tanda1_touch_updated_at()` before F2 reconciles its triggers. The bridge is conditional and is a no-op when that helper already exists.
+
+For the future F3 database release, first run the linked migration list and then the dry-run below:
+
+```powershell
+supabase migration list --linked
+supabase db push --linked --dry-run --include-all --skip-vault
+```
+
+The exact expected pending set is:
+
+1. `20260821235959_f2_touch_updated_at_compat.sql`
+2. `20260823000000_f3_documents_360.sql`
+
+Abort if any other migration appears. `--include-all` is required only because this intentional compatibility bridge is older than F2, which is already recorded on staging. Do not use migration repair. Merging F3 does not authorize or execute this database release.
+
+Local database advisors retain pre-existing performance warnings for the baseline `memberships_select_own` policy and overlapping read/manage policies on F1 or historical catalog tables. The F3 document and Storage objects add no advisor finding; those inherited warnings are outside this release scope.
