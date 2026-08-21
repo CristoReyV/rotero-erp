@@ -1,0 +1,31 @@
+import { useEffect, useState, type FormEvent, type InputHTMLAttributes } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { AlertCircle, Loader2, X } from 'lucide-react';
+import { recordPayment } from '@/services/finance.service';
+import type { FinanceInvoice, PaymentMethod } from '@/types/finance';
+import { money } from './financeUi';
+
+export function PaymentDrawer({ tenantId, invoice, onClose, onSaved }: { tenantId: string; invoice: FinanceInvoice | null; onClose: () => void; onSaved: () => void }) {
+    const [amount, setAmount] = useState(''); const [paidAt, setPaidAt] = useState(''); const [method, setMethod] = useState<PaymentMethod>('transfer');
+    const [bankReference, setBankReference] = useState(''); const [note, setNote] = useState(''); const [prepare, setPrepare] = useState(true);
+    const [rate, setRate] = useState(''); const [rateDate, setRateDate] = useState(''); const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null);
+    useEffect(() => { if (!invoice) return; setAmount(String(invoice.balance_amount ?? invoice.amount)); setPaidAt(new Date().toISOString().slice(0,16)); setMethod('transfer'); setBankReference(''); setNote(''); setPrepare(invoice.direction === 'ar'); setRate(invoice.exchange_rate ? String(invoice.exchange_rate) : ''); setRateDate(invoice.exchange_rate_date ?? ''); setError(null); }, [invoice]);
+    const submit = async (event: FormEvent) => { event.preventDefault(); if (!invoice) return; setSaving(true); setError(null); try { await recordPayment(tenantId, { invoice_id: invoice.id, amount: Number(amount), paid_at: new Date(paidAt).toISOString(), method, bank_reference: bankReference || undefined, note: note || undefined, currency: invoice.currency, exchange_rate: rate ? Number(rate) : undefined, exchange_rate_date: rateDate || undefined, prepare_complement: prepare }); onSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible registrar el pago.'); } finally { setSaving(false); } };
+    return <AnimatePresence>{invoice && <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm"><motion.button aria-label="Cerrar pago" className="absolute inset-0" onClick={onClose} /><motion.aside initial={{ x: 520 }} animate={{ x: 0 }} exit={{ x: 520 }} className="absolute inset-y-0 right-0 flex w-full max-w-lg flex-col bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b p-5"><div><h2 className="font-black text-slate-800">Registrar {invoice.direction === 'ar' ? 'cobro' : 'pago a proveedor'}</h2><p className="text-xs text-slate-400">Saldo bloqueado transaccionalmente · {money(invoice.balance_amount ?? invoice.amount, invoice.currency)}</p></div><button onClick={onClose} className="rounded-lg bg-slate-100 p-2"><X size={17} /></button></header>
+        <form onSubmit={submit} className="flex-1 space-y-4 overflow-y-auto p-6">{error && <div className="flex gap-2 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700"><AlertCircle size={15} />{error}</div>}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">No se permiten sobrepagos: si otro pago liquida la cuenta primero, el backend recalcula el saldo y rechaza este intento.</div>
+            <div className="grid gap-4 sm:grid-cols-2"><Field label={`Importe · ${invoice.currency}`} type="number" step="0.01" min="0.01" max={String(invoice.balance_amount ?? invoice.amount)} value={amount} onChange={setAmount} required /><Field label="Fecha del pago" type="datetime-local" value={paidAt} onChange={setPaidAt} required /></div>
+            <label className="block text-xs font-bold text-slate-500">Método<select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="mt-1 w-full rounded-xl border bg-slate-50 px-3 py-2.5 text-sm font-normal"><option value="transfer">Transferencia</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+            <Field label="Referencia bancaria" value={bankReference} onChange={setBankReference} />
+            {invoice.currency === 'USD' && <div className="grid gap-4 sm:grid-cols-2"><Field label="Tipo de cambio" type="number" step="0.000001" min="0.000001" value={rate} onChange={setRate} required /><Field label="Fecha del tipo de cambio" type="date" value={rateDate} onChange={setRateDate} required /></div>}
+            <label className="block text-xs font-bold text-slate-500">Nota<textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 min-h-20 w-full rounded-xl border bg-slate-50 px-3 py-2.5 text-sm font-normal" /></label>
+            {invoice.direction === 'ar' && <label className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-800"><input type="checkbox" checked={prepare} onChange={(e) => setPrepare(e.target.checked)} className="mt-0.5" /><span><strong>Preparar complemento de pago.</strong><br />Finance crea el registro canónico; la ejecución fiscal continúa exclusivamente en Billing.</span></label>}
+            <div className="flex gap-3 border-t pt-4"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-bold text-slate-600">Cancelar</button><button disabled={saving || Number(amount) <= 0} className="flex-[2] rounded-xl bg-primary py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="mx-auto animate-spin" size={17} /> : 'Registrar de forma segura'}</button></div>
+        </form>
+    </motion.aside></div>}</AnimatePresence>;
+}
+
+function Field({ label, value, onChange, type='text', ...props }: { label: string; value: string; onChange: (value: string) => void; type?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+    return <label className="block text-xs font-bold text-slate-500">{label}<input {...props} type={type} value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-xl border bg-slate-50 px-3 py-2.5 text-sm font-normal" /></label>;
+}
