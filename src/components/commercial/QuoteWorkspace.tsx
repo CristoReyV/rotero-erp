@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowRight, CheckCircle2, Copy, Edit3, FileText, Inbox, Loader2, Plus, Printer, Search, Send, Truck, X, XCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     approveQuote, convertQuoteToOperation, duplicateQuote, getCommercialErrorMessage, listCommercialDeals,
     listCustomers, listProviders, listQuotes, rejectQuote, returnQuoteToDraft, submitQuoteForReview, upsertQuote,
@@ -38,6 +38,7 @@ const EMPTY_QUOTE: QuoteFormState = {
 
 export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
     const navigate = useNavigate();
+    const [params,setParams]=useSearchParams(); const requestedQuoteId=params.get('quoteId');
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [providers, setProviders] = useState<LogisticsProvider[]>([]);
@@ -67,12 +68,13 @@ export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
             ]);
             setQuotes(quoteData); setCustomers(customerData); setProviders(providerData);
             setOpportunities(dealData.filter((deal) => !deal.quote_reference));
-            setSelectedId((current) => quoteData.some((quote) => quote.id === current) ? current : quoteData[0]?.id ?? null);
+            setSelectedId((current) => quoteData.some((quote) => quote.id === requestedQuoteId) ? requestedQuoteId : quoteData.some((quote) => quote.id === current) ? current : quoteData[0]?.id ?? null);
         } catch (loadError) { setError(getCommercialErrorMessage(loadError)); }
         finally { setLoading(false); }
-    }, [search, status, tenantId]);
+    }, [search, status, tenantId, requestedQuoteId]);
 
     useEffect(() => { void load(); }, [load]);
+    useEffect(() => { if (params.get('action') === 'new-quote') { openCreate(); const next=new URLSearchParams(params);next.delete('action');setParams(next,{replace:true}); } }, [params, setParams]);
 
     const openCreate = () => { setEditingId(null); setForm(EMPTY_QUOTE); setModalOpen(true); setError(null); };
     const openEdit = (quote: Quote) => {
@@ -176,7 +178,7 @@ export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
             {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
             {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(380px,.95fr)]">
-                <section className="overflow-hidden rounded-2xl border bg-white">{loading ? <div className="flex h-56 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div> : quotes.length === 0 ? <div className="flex h-56 flex-col items-center justify-center gap-2 text-slate-400"><Inbox /><p className="text-sm">No hay cotizaciones con estos filtros.</p><button onClick={openCreate} className="text-xs font-bold text-primary">Crear primera cotización</button></div> : <div className="divide-y">{quotes.map((quote) => { const margin = calculateMargin(quote.quote_payload.provider_cost_amount ?? 0, quote.quote_payload.customer_price_amount ?? 0); return <button key={quote.id} onClick={() => setSelectedId(quote.id)} className={`grid w-full gap-3 p-4 text-left hover:bg-slate-50 md:grid-cols-[minmax(0,1.3fr)_minmax(0,.9fr)_auto] md:items-center ${selected?.id === quote.id ? 'bg-primary-50' : ''}`}><div className="min-w-0"><div className="flex items-center gap-2"><FileText size={15} className="text-primary" /><p className="font-mono text-xs font-bold text-primary">{quote.quote_reference}</p></div><p className="mt-1 truncate font-bold text-slate-800">{quote.title}</p><p className="truncate text-xs text-slate-400">{quote.customer_name} · {quote.provider_name || 'Proveedor por confirmar'}</p></div><div className="text-xs"><p className="text-slate-400">Venta</p><p className="font-bold text-slate-700">{formatCommercialCurrency(quote.quote_payload.customer_price_amount ?? 0, quote.quote_payload.currency)}</p><p className={margin.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}>Margen {margin.percentage === null ? '—' : `${margin.percentage.toFixed(1)}%`}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${STATUS_META[quote.quote_status].className}`}>{STATUS_META[quote.quote_status].label}</span></button>; })}</div>}</section>
+                <section className="overflow-hidden rounded-2xl border bg-white">{loading ? <div className="flex h-56 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div> : quotes.length === 0 ? <div className="flex h-56 flex-col items-center justify-center gap-2 text-slate-400"><Inbox /><p className="text-sm">No hay cotizaciones con estos filtros.</p><button onClick={openCreate} className="text-xs font-bold text-primary">Crear primera cotización</button></div> : <div className="divide-y">{quotes.map((quote) => { const margin = calculateMargin(quote.quote_payload.provider_cost_amount ?? 0, quote.quote_payload.customer_price_amount ?? 0); return <button key={quote.id} onClick={() => { setSelectedId(quote.id); const next=new URLSearchParams(params);next.set('quoteId',quote.id);setParams(next,{replace:true}); }} className={`grid w-full gap-3 p-4 text-left hover:bg-slate-50 md:grid-cols-[minmax(0,1.3fr)_minmax(0,.9fr)_auto] md:items-center ${selected?.id === quote.id ? 'bg-primary-50' : ''}`}><div className="min-w-0"><div className="flex items-center gap-2"><FileText size={15} className="text-primary" /><p className="font-mono text-xs font-bold text-primary">{quote.quote_reference}</p></div><p className="mt-1 truncate font-bold text-slate-800">{quote.title}</p><p className="truncate text-xs text-slate-400">{quote.customer_name} · {quote.provider_name || 'Proveedor por confirmar'}</p></div><div className="text-xs"><p className="text-slate-400">Venta</p><p className="font-bold text-slate-700">{formatCommercialCurrency(quote.quote_payload.customer_price_amount ?? 0, quote.quote_payload.currency)}</p><p className={margin.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}>Margen {margin.percentage === null ? '—' : `${margin.percentage.toFixed(1)}%`}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${STATUS_META[quote.quote_status].className}`}>{STATUS_META[quote.quote_status].label}</span></button>; })}</div>}</section>
                 <aside className="rounded-2xl border bg-white p-5">{!selected ? <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-slate-400"><FileText /><p className="text-sm">Selecciona una cotización para revisar economía y seguimiento.</p></div> : <QuoteDetail quote={selected} busy={busy} onEdit={() => openEdit(selected)} onDuplicate={() => void duplicate()} onPrint={() => window.print()} onTransition={(next, message) => void changeStatus(next, message)} onConvert={() => void convert()} onOpenOperation={() => selected.converted_operation_reference && navigate(`/operations?view=all&operation=${encodeURIComponent(selected.converted_operation_reference)}`)} />}</aside>
             </div>
             {selected && <EntityDocumentsPanel tenantId={tenantId} sourceModule="commercial" entityType="quote" entityId={selected.id} title="Archivos de cotización" allowOperationalTransfer />}

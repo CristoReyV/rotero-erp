@@ -3,6 +3,7 @@ import { AlertTriangle, Inbox, Loader2, Plus, RefreshCw, X } from 'lucide-react'
 import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
+import { SavedViewsMenu } from '@/components/productivity/SavedViewsMenu';
 import { AssignmentDrawer } from '@/components/operations/AssignmentDrawer';
 import { Operation360Panel } from '@/components/operations/Operation360Panel';
 import { OperationsFilters } from '@/components/operations/OperationsFilters';
@@ -41,6 +42,8 @@ const OperationsPage = () => {
     const status = statusParam in OPERATION_STATUS_META ? statusParam : '';
     const query = searchParams.get('q') ?? '';
     const selectedParam = searchParams.get('operation');
+    const selectedIdParam = searchParams.get('operationId');
+    const selectedTab = searchParams.get('tab');
 
     const [operations, setOperations] = useState<Operation[]>([]);
     const [loading, setLoading] = useState(true);
@@ -66,7 +69,7 @@ const OperationsPage = () => {
         () => filterOperations(operations, view, status, query),
         [operations, query, status, view],
     );
-    const activeOp = operations.find((operation) => operation.id === selectedParam) ?? null;
+    const activeOp = operations.find((operation) => operation.db_id === selectedIdParam || operation.id === selectedParam) ?? null;
 
     const updateParams = useCallback((updates: Record<string, string | null>) => {
         setSearchParams((current) => {
@@ -218,7 +221,7 @@ const OperationsPage = () => {
         }
     };
 
-    const clearFilters = () => updateParams({ view: 'active', status: null, q: null, operation: null });
+    const clearFilters = () => updateParams({ view: 'active', status: null, q: null, operation: null, operationId: null, tab: null, document: null });
 
     return (
         <div className="relative space-y-5">
@@ -227,6 +230,7 @@ const OperationsPage = () => {
                 subtitle="Bandeja diaria de operaciones y ejecución logística contratada"
                 actions={(
                     <>
+                        <SavedViewsMenu tenantId={activeTenant} module="operations" filters={{ view,status,q:query }} onApply={(filters)=>updateParams({view:typeof filters.view==='string'?filters.view:'active',status:typeof filters.status==='string'?filters.status:null,q:typeof filters.q==='string'?filters.q:null,operation:null,operationId:null,tab:null})}/>
                         <button
                             type="button"
                             onClick={() => void fetchOps()}
@@ -275,9 +279,9 @@ const OperationsPage = () => {
                         status={status}
                         query={query}
                         resultCount={filteredOperations.length}
-                        onViewChange={(nextView) => updateParams({ view: nextView, operation: null })}
-                        onStatusChange={(nextStatus) => updateParams({ status: nextStatus || null, operation: null })}
-                        onQueryChange={(nextQuery) => updateParams({ q: nextQuery || null, operation: null })}
+                        onViewChange={(nextView) => updateParams({ view: nextView, operation: null, operationId: null, tab: null })}
+                        onStatusChange={(nextStatus) => updateParams({ status: nextStatus || null, operation: null, operationId: null, tab: null })}
+                        onQueryChange={(nextQuery) => updateParams({ q: nextQuery || null, operation: null, operationId: null, tab: null })}
                         onClear={clearFilters}
                     />
 
@@ -296,7 +300,7 @@ const OperationsPage = () => {
                         <OperationsTable
                             operations={filteredOperations}
                             selectedId={activeOp?.id ?? null}
-                            onSelect={(operation) => updateParams({ operation: operation.id })}
+                            onSelect={(operation) => updateParams({ operation: operation.id, operationId: operation.db_id, tab: 'overview' })}
                         />
                     )}
                 </>
@@ -309,8 +313,10 @@ const OperationsPage = () => {
                     canManageTracking={canManageTracking}
                     isAdmin={isAdmin}
                     refreshKey={workspaceRefreshKey}
+                    initialTab={selectedTab}
+                    onTabChange={(tab) => updateParams({ tab })}
                     onClose={() => {
-                        updateParams({ operation: null });
+                        updateParams({ operation: null, operationId: null, tab: null, document: null });
                         setDriverToken(null);
                         setPublicToken(null);
                     }}
