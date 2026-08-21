@@ -9,6 +9,8 @@ import { CustomerDirectory } from '@/components/commercial/CustomerDirectory';
 import { ProviderDirectory } from '@/components/commercial/ProviderDirectory';
 import { QuoteWorkspace } from '@/components/commercial/QuoteWorkspace';
 import { PageHeader } from '@/components/PageHeader';
+import { SavedViewsMenu } from '@/components/productivity/SavedViewsMenu';
+import { useSearchParams } from 'react-router-dom';
 
 const stageColors: Record<string, { dot: string; bg: string; border: string }> = {
     'Prospecto': { dot: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200/40' },
@@ -27,7 +29,7 @@ const mapTitleToStage = (title: string): DealStage => {
     }
 }
 
-const PipelineWorkspace = () => {
+const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId: string | null; onDealChange: (dealId: string | null) => void }) => {
     const activeTenant = useAuthStore((s) => s.activeTenant);
     const getRole = useAuthStore((s) => s.getRole);
     const isViewer = getRole() === 'viewer';
@@ -53,6 +55,7 @@ const PipelineWorkspace = () => {
     // Detail Drawer
     const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
     const [showDrawer, setShowDrawer] = useState(false);
+    useEffect(() => { if (requestedDealId) { setSelectedDealId(requestedDealId); setShowDrawer(true); } }, [requestedDealId]);
 
     const fetchData = async () => {
         if (!activeTenant) return;
@@ -267,6 +270,7 @@ const PipelineWorkspace = () => {
                                                 if (deal.db_id) {
                                                     setSelectedDealId(deal.db_id);
                                                     setShowDrawer(true);
+                                                    onDealChange(deal.db_id);
                                                 }
                                             }}
                                             className={`bg-surface-card rounded-xl p-4 border hover:shadow-md hover:shadow-primary/5 hover:border-primary/20 transition-all duration-200 cursor-pointer active:cursor-grabbing group relative
@@ -403,7 +407,7 @@ const PipelineWorkspace = () => {
             <DealDetailDrawer
                 dealId={selectedDealId}
                 isOpen={showDrawer}
-                onClose={() => setShowDrawer(false)}
+                onClose={() => { setShowDrawer(false); onDealChange(null); }}
                 onChanged={() => fetchData()}
             />
         </div>
@@ -421,18 +425,20 @@ const TABS: Array<{ id: CommercialTab; label: string; icon: typeof TrendingUp }>
 
 const CommercialPage = () => {
     const activeTenant = useAuthStore((state) => state.activeTenant);
-    const [activeTab, setActiveTab] = useState<CommercialTab>('pipeline');
+    const [params,setParams]=useSearchParams(); const requested=params.get('view');
+    const activeTab:CommercialTab=TABS.some(tab=>tab.id===requested)?requested as CommercialTab:'pipeline';
+    const updateParams=(updates:Record<string,string|null>)=>{const next=new URLSearchParams(params);Object.entries(updates).forEach(([key,value])=>value?next.set(key,value):next.delete(key));setParams(next,{replace:true});};
 
     return (
         <div className="space-y-5">
-            <PageHeader title="Commercial 360" subtitle="Cliente, oportunidad, proveedor, cotización y entrega a Operaciones" />
+            <PageHeader title="Commercial 360" subtitle="Cliente, oportunidad, proveedor, cotización y entrega a Operaciones" actions={<SavedViewsMenu tenantId={activeTenant} module="commercial" filters={{view:activeTab}} onApply={(filters)=>updateParams({view:typeof filters.view==='string'?filters.view:'pipeline',dealId:null,quoteId:null})}/>} />
             <nav aria-label="Secciones de Comercial" className="flex gap-1 overflow-x-auto rounded-2xl border bg-white p-1.5">
                 {TABS.map((tab) => {
                     const Icon = tab.icon;
-                    return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex min-w-fit items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${activeTab === tab.id ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}><Icon size={15} />{tab.label}</button>;
+                    return <button key={tab.id} type="button" onClick={() => updateParams({view:tab.id,dealId:null,quoteId:null})} className={`flex min-w-fit items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${activeTab === tab.id ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}><Icon size={15} />{tab.label}</button>;
                 })}
             </nav>
-            {!activeTenant ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No hay una empresa activa para consultar Comercial.</div> : activeTab === 'pipeline' ? <PipelineWorkspace /> : activeTab === 'clients' ? <CustomerDirectory tenantId={activeTenant} /> : activeTab === 'quotes' ? <QuoteWorkspace tenantId={activeTenant} /> : <ProviderDirectory tenantId={activeTenant} />}
+            {!activeTenant ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No hay una empresa activa para consultar Comercial.</div> : activeTab === 'pipeline' ? <PipelineWorkspace requestedDealId={params.get('dealId')} onDealChange={(dealId)=>updateParams({dealId})}/> : activeTab === 'clients' ? <CustomerDirectory tenantId={activeTenant} requestedCustomerId={params.get('customerId')} createRequested={params.get('action')==='new-customer'} onCustomerChange={(customerId)=>updateParams({customerId})} onCreateHandled={()=>updateParams({action:null})} /> : activeTab === 'quotes' ? <QuoteWorkspace tenantId={activeTenant} /> : <ProviderDirectory tenantId={activeTenant} requestedProviderId={params.get('providerId')} createRequested={params.get('action')==='new-provider'} onProviderChange={(providerId)=>updateParams({providerId})} onCreateHandled={()=>updateParams({action:null})} />}
         </div>
     );
 };

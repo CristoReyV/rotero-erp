@@ -18,7 +18,7 @@ const EMPTY_FORM: CustomerPayload = {
     preferred_currency: 'MXN',
 };
 
-export function CustomerDirectory({ tenantId }: { tenantId: string }) {
+export function CustomerDirectory({ tenantId, requestedCustomerId, createRequested = false, onCustomerChange, onCreateHandled }: { tenantId: string; requestedCustomerId?: string | null; createRequested?: boolean; onCustomerChange?: (customerId: string | null) => void; onCreateHandled?: () => void }) {
     const [items, setItems] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -48,11 +48,23 @@ export function CustomerDirectory({ tenantId }: { tenantId: string }) {
 
     useEffect(() => { void load(); }, [load]);
 
+    useEffect(() => {
+        if (!requestedCustomerId || selected?.customer.id === requestedCustomerId) return;
+        let active = true;
+        setDetailLoading(true);
+        getCustomer360(requestedCustomerId)
+            .then((detail) => { if (active) setSelected(detail); })
+            .catch((detailError) => { if (active) setError(getCommercialErrorMessage(detailError)); })
+            .finally(() => { if (active) setDetailLoading(false); });
+        return () => { active = false; };
+    }, [requestedCustomerId, selected?.customer.id]);
+
     const openDetail = async (customer: Customer) => {
         setDetailLoading(true);
         setError(null);
         try {
             setSelected(await getCustomer360(customer.id));
+            onCustomerChange?.(customer.id);
         } catch (detailError) {
             setError(getCommercialErrorMessage(detailError));
         } finally {
@@ -76,6 +88,12 @@ export function CustomerDirectory({ tenantId }: { tenantId: string }) {
         } : EMPTY_FORM);
         setModalOpen(true);
     };
+
+    useEffect(() => {
+        if (!createRequested) return;
+        openForm();
+        onCreateHandled?.();
+    }, [createRequested, onCreateHandled]);
 
     const submit = async (event: FormEvent) => {
         event.preventDefault();

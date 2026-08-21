@@ -1,228 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Truck, Wallet, Package, AlertCircle, Clock, ShieldCheck, MoreHorizontal, ArrowRight, TrendingUp, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { ArrowRight, BriefcaseBusiness, CalendarDays, FileCheck2, Loader2, RefreshCw, Wallet } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AttentionCenter } from '@/components/executive/AttentionCenter';
+import { ExecutiveKpiGrid } from '@/components/executive/ExecutiveKpiGrid';
+import { RecentActivity } from '@/components/executive/RecentActivity';
+import { getExecutiveDashboard } from '@/services/executive.service';
 import { useAuthStore } from '@/store/authStore';
-import { getDashboardOverview, getDashboardRecentActivity, getDashboardAlerts } from '@/services/dashboard.service';
-import { getDates } from '@/utils/date';
-import { KPICard } from '@/components/KPICard';
-import { Badge } from '@/components/Badge';
-import type { DashboardOverview, DashboardOperation, FiscalAlert } from '@/types/dashboard';
+import type { ExecutiveDashboard, ExecutiveDatePreset } from '@/types/executive';
 
-const alertStyles = {
-    danger: { bg: 'bg-red-50/80', border: 'border-red-200/50', icon: AlertCircle, iconColor: 'text-red-500', titleColor: 'text-red-700', descColor: 'text-red-600/80' },
-    warning: { bg: 'bg-amber-50/80', border: 'border-amber-200/50', icon: Clock, iconColor: 'text-amber-500', titleColor: 'text-amber-700', descColor: 'text-amber-600/80' },
-    info: { bg: 'bg-blue-50/80', border: 'border-blue-200/50', icon: ShieldCheck, iconColor: 'text-blue-500', titleColor: 'text-blue-700', descColor: 'text-blue-600/80' },
-};
-
-const formatCurrency = (val: number) => {
-    if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
-    if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
-    return `$${val}`;
-};
-
-const DashboardPage = () => {
-    const activeTenant = useAuthStore((s) => s.activeTenant);
-    const [loading, setLoading] = useState(true);
-    const [overview, setOverview] = useState<DashboardOverview | null>(null);
-    const [operations, setOperations] = useState<DashboardOperation[]>([]);
-    const [alerts, setAlerts] = useState<FiscalAlert[]>([]);
-    const [dateFilter, setDateFilter] = useState<'this_month' | 'last_7_days' | 'last_30_days' | 'this_year'>('this_month');
-
-    const fetchData = async () => {
-        if (!activeTenant) return;
-        setLoading(true);
-        try {
-            const { start, end } = getDates(dateFilter);
-            const [ov, ops, acts] = await Promise.all([
-                getDashboardOverview(activeTenant, start, end),
-                getDashboardRecentActivity(activeTenant, start, end),
-                getDashboardAlerts(activeTenant, start, end)
-            ]);
-            setOverview(ov);
-            setOperations(ops);
-            setAlerts(acts);
-        } catch (err) {
-            console.error('Failed to fetch dashboard data', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTenant, dateFilter]);
-
-    if (loading && !overview) {
-        return (
-            <div className="flex items-center justify-center p-20 min-h-[50vh]">
-                <Loader2 className="animate-spin text-slate-400" size={30} />
-            </div>
-        );
+const presets:Array<{value:ExecutiveDatePreset;label:string}>=[
+    {value:'today',label:'Hoy'},{value:'7d',label:'7 días'},{value:'30d',label:'30 días'},
+    {value:'month',label:'Mes'},{value:'year',label:'Año'},{value:'custom',label:'Personalizado'},
+];
+const isPreset=(value:string|null):value is ExecutiveDatePreset=>presets.some(item=>item.value===value);
+const isoDate=(date:Date)=>date.toISOString().slice(0,10);
+function resolveRange(preset:ExecutiveDatePreset,from:string|null,to:string|null){
+    const end=new Date(); let start=new Date(end);
+    if(preset==='today')start.setHours(0,0,0,0);
+    if(preset==='7d'){start.setDate(start.getDate()-6);start.setHours(0,0,0,0);}
+    if(preset==='30d'){start.setDate(start.getDate()-29);start.setHours(0,0,0,0);}
+    if(preset==='month')start=new Date(end.getFullYear(),end.getMonth(),1);
+    if(preset==='year')start=new Date(end.getFullYear(),0,1);
+    if(preset==='custom'){
+        const customStart=from?new Date(`${from}T00:00:00`):new Date(end.getFullYear(),end.getMonth(),1);
+        const customEnd=to?new Date(`${to}T23:59:59.999`):end;
+        return {start:customStart,end:customEnd};
     }
+    return {start,end};
+}
+const money=(value:number)=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(value);
 
-    const { kpis, chart } = overview || {
-        kpis: { ops_total: 0, ops_in_transit: 0, billing_total: 0, inventory_value: 0 },
-        chart: { data: [], labels: [] }
-    };
-
-    const maxChart = chart.data.length > 0 ? Math.max(...chart.data) : 100;
-
-    return (
-        <div className="space-y-6 relative">
-            {/* Loading overlay for subsequent re-fetches */}
-            {loading && overview && (
-                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-start justify-center pt-20 rounded-xl">
-                    <Loader2 className="animate-spin text-primary" size={24} />
-                </div>
-            )}
-
-            {/* Welcome header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Cargando Tablero Dashboard 👋</h1>
-                    <p className="text-sm text-slate-400 mt-0.5">Aquí está el resumen de la operativa para tu tenant</p>
-                </div>
-                <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold shadow-md shadow-primary/15 hover:shadow-lg hover:shadow-primary/25 transition-all">
-                    <TrendingUp size={16} /> Ver reportes
-                </button>
+export default function DashboardPage(){
+    const tenantId=useAuthStore(state=>state.activeTenant); const role=useAuthStore(state=>state.getRole()); const navigate=useNavigate(); const [params,setParams]=useSearchParams();
+    const requested=params.get('range'); const preset:ExecutiveDatePreset=isPreset(requested)?requested:'month'; const from=params.get('from'); const to=params.get('to');
+    const [data,setData]=useState<ExecutiveDashboard|null>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
+    const load=useCallback(async()=>{if(!tenantId)return;setLoading(true);setError(null);try{const range=resolveRange(preset,from,to);setData(await getExecutiveDashboard(tenantId,range.start,range.end));}catch(cause){setError(cause instanceof Error?cause.message:'No fue posible cargar Executive Dashboard.');}finally{setLoading(false);}},[tenantId,preset,from,to]);
+    useEffect(()=>{void load();},[load]);
+    const setPreset=(value:ExecutiveDatePreset)=>{const next=new URLSearchParams(params);next.set('range',value);if(value!=='custom'){next.delete('from');next.delete('to');}setParams(next,{replace:true});};
+    const setDate=(key:'from'|'to',value:string)=>{const next=new URLSearchParams(params);next.set('range','custom');if(value)next.set(key,value);else next.delete(key);setParams(next,{replace:true});};
+    if(!tenantId)return <div className="rounded-2xl border bg-white p-12 text-center text-sm text-slate-400">Selecciona una organización activa.</div>;
+    return <div className="space-y-5"><header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"><div><p className="text-xs font-black uppercase tracking-[.22em] text-primary">ROTERO Command Center</p><h1 className="mt-1 text-2xl font-black text-slate-900">Executive Dashboard 2.0</h1><p className="mt-1 text-sm text-slate-500">Estado real y acciones prioritarias para {role==='finance'?'Finanzas':'Administración'}.</p></div><div className="flex flex-wrap items-center gap-2"><div className="flex flex-wrap gap-1 rounded-xl border bg-white p-1">{presets.map(item=><button key={item.value} onClick={()=>setPreset(item.value)} className={`rounded-lg px-3 py-2 text-[10px] font-black uppercase ${preset===item.value?'bg-primary text-white':'text-slate-500 hover:bg-slate-50'}`}>{item.label}</button>)}</div><button onClick={()=>void load()} className="rounded-xl border bg-white p-2.5 text-slate-500" title="Actualizar"><RefreshCw size={16} className={loading?'animate-spin':''}/></button></div></header>
+        {preset==='custom'&&<div className="flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3 text-xs text-slate-500"><CalendarDays size={15}/><label>Desde <input type="date" value={from??isoDate(new Date(new Date().getFullYear(),new Date().getMonth(),1))} onChange={event=>setDate('from',event.target.value)} className="ml-2 rounded-lg border px-2 py-1.5"/></label><label>Hasta <input type="date" value={to??isoDate(new Date())} onChange={event=>setDate('to',event.target.value)} className="ml-2 rounded-lg border px-2 py-1.5"/></label></div>}
+        {error&&<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+        {loading&&!data?<div className="flex h-64 items-center justify-center rounded-2xl border bg-white"><Loader2 className="animate-spin text-primary"/></div>:data&&<>
+            <ExecutiveKpiGrid dashboard={data}/>
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,.85fr)]"><AttentionCenter items={data.attention}/><RecentActivity items={data.recent_activity}/></div>
+            <div className={`grid gap-4 ${data.commercial?'xl:grid-cols-4':'xl:grid-cols-3'}`}>
+                <Summary icon={BriefcaseBusiness} title="Operations" route="/operations" onOpen={navigate} rows={[["En tránsito",data.operations.in_transit],["Entregadas",data.operations.delivered],["Bloqueos",data.operations.dispatch_blockers]]}/>
+                {data.commercial&&<Summary icon={ArrowRight} title="Commercial" route="/commercial?view=quotes" onOpen={navigate} rows={[["En revisión",data.commercial.in_review],["Por convertir",data.commercial.pending_conversion],["Conversión real",`${data.commercial.conversion_rate}%`]]}/>}
+                <Summary icon={Wallet} title="Finance" route="/finance" onOpen={navigate} rows={[["AR vencida",money(data.finance.ar_overdue)],["AP vencida",money(data.finance.ap_overdue)],["Vence pronto",data.finance.due_soon]]}/>
+                <Summary icon={FileCheck2} title="Documents" route="/documents?view=operations" onOpen={navigate} rows={[["Requeridos faltantes",data.documents.required_missing],["POD pendientes",data.documents.pod_pending],["Facturación bloqueada",data.operations.billing_blocked]]}/>
             </div>
+        </>}
+    </div>;
+}
 
-            {/* KPI row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard title="OTIF Score" value="98.5%" change="2.1%" trend="up" icon={CheckCircle2} className="animate-fade-in animate-fade-in-delay-1" />
-                <KPICard title="En Tránsito" value={String(kpis.ops_in_transit)} change="Activas" trend="up" icon={Truck} className="animate-fade-in animate-fade-in-delay-2" />
-                <KPICard title="Facturación Mes" value={formatCurrency(kpis.billing_total)} change="Total Timbrado" trend="up" icon={Wallet} className="animate-fade-in animate-fade-in-delay-3" />
-                <KPICard title="Inv. Valorizado" value={formatCurrency(kpis.inventory_value)} change="Estimado Global" trend="down" icon={Package} className="animate-fade-in animate-fade-in-delay-4" />
-            </div>
-
-            {/* Chart + Alerts row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Chart */}
-                <div className="lg:col-span-2 bg-surface-card rounded-2xl border border-tech-border/60 p-6 hover:shadow-lg hover:shadow-primary/4 transition-all duration-300">
-                    <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h3 className="font-bold text-slate-800">Flujo de Órdenes</h3>
-                            <p className="text-xs text-slate-400 mt-0.5">Basado en el filtro actual</p>
-                        </div>
-                        <div className="flex bg-surface rounded-lg p-0.5 border border-tech-border/60">
-                            <select
-                                className="text-xs font-medium text-slate-600 bg-transparent border-none focus:ring-0 cursor-pointer px-2 py-1 outline-none"
-                                value={dateFilter}
-                                onChange={(e) => setDateFilter(e.target.value as any)}
-                            >
-                                <option value="last_7_days">Últimos 7 días</option>
-                                <option value="last_30_days">Últimos 30 días</option>
-                                <option value="this_month">Este Mes</option>
-                                <option value="this_year">Este Año</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div className="h-56 flex items-end justify-between gap-2 px-1">
-                        {chart.data.map((h, i) => (
-                            <div key={i} className="w-full flex flex-col items-center gap-2 group">
-                                <span className="text-[10px] font-semibold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {h}%
-                                </span>
-                                <div className="w-full relative rounded-lg overflow-hidden bg-slate-100" style={{ height: '200px' }}>
-                                    <div
-                                        className="absolute bottom-0 w-full rounded-lg transition-all duration-500 group-hover:opacity-100"
-                                        style={{
-                                            height: `${(h / maxChart) * 100}%`,
-                                            background: i === chart.data.length - 1 || i === chart.data.length - 2 ? 'linear-gradient(to top, #0F2B5B, #3b6cbf)' : 'linear-gradient(to top, #cbd5e1, #94a3b8)',
-                                            opacity: i === chart.data.length - 1 || i === chart.data.length - 2 ? 1 : 0.5,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex justify-between mt-3 text-[10px] text-slate-400 font-semibold uppercase tracking-wider px-1">
-                        {chart.labels.map((label, idx) => (
-                            <span key={idx}>{label}</span>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Fiscal Alerts */}
-                <div className="bg-surface-card rounded-2xl border border-tech-border/60 p-6">
-                    <div className="flex justify-between items-center mb-5">
-                        <h3 className="font-bold text-slate-800">Notificaciones</h3>
-                        {alerts.length > 0 && (
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-accent-red text-white text-[10px] font-bold">
-                                {alerts.filter(a => a.type === 'danger' || a.type === 'warning').length || alerts.length}
-                            </span>
-                        )}
-                    </div>
-                    <div className="space-y-3">
-                        {alerts.map((alert, i) => {
-                            const style = alertStyles[alert.type];
-                            const AlertIcon = style.icon;
-                            return (
-                                <div key={i} className={`flex gap-3 p-3.5 ${style.bg} rounded-xl border ${style.border} hover:scale-[1.01] transition-transform cursor-pointer`}>
-                                    <div className="mt-0.5">
-                                        <AlertIcon className={style.iconColor} size={16} strokeWidth={2} />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className={`text-xs font-bold ${style.titleColor}`}>{alert.title}</p>
-                                        <p className={`text-[10px] ${style.descColor} mt-0.5 leading-relaxed`}>{alert.description}</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            {/* Active Operations table */}
-            <div className="bg-surface-card rounded-2xl border border-tech-border/60 overflow-hidden hover:shadow-lg hover:shadow-primary/4 transition-all duration-300">
-                <div className="p-5 flex justify-between items-center">
-                    <div>
-                        <h3 className="font-bold text-slate-800">Operaciones Recientes</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">Mostrando últimás registradas.</p>
-                    </div>
-                    <button className="text-xs font-semibold text-primary hover:text-primary-light flex items-center gap-1 transition-colors">
-                        Ver todas <ArrowRight size={14} />
-                    </button>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="border-t border-tech-border/60">
-                            <tr className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-                                <th className="px-5 py-3">Referencia</th>
-                                <th className="px-5 py-3">Cliente</th>
-                                <th className="px-5 py-3">Estado</th>
-                                <th className="px-5 py-3">Ruta</th>
-                                <th className="px-5 py-3">ETA</th>
-                                <th className="px-5 py-3 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-tech-border/40">
-                            {operations.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-5 py-8 text-center text-slate-400 text-sm">
-                                        Sin operaciones recientes.
-                                    </td>
-                                </tr>
-                            ) : operations.map((op, i) => (
-                                <tr key={op.id || i} className="hover:bg-primary-50/30 transition-colors group cursor-pointer">
-                                    <td className="px-5 py-3.5 font-semibold text-primary text-[13px]">{op.id}</td>
-                                    <td className="px-5 py-3.5 text-slate-600 text-[13px]">{op.client}</td>
-                                    <td className="px-5 py-3.5"><Badge variant={op.variant as any}>{op.status}</Badge></td>
-                                    <td className="px-5 py-3.5 text-slate-400 text-xs font-mono">{op.route}</td>
-                                    <td className="px-5 py-3.5 text-slate-500 text-xs">{op.eta}</td>
-                                    <td className="px-5 py-3.5 text-right">
-                                        <button className="text-slate-300 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
-                                            <MoreHorizontal size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default DashboardPage;
+function Summary({icon:Icon,title,route,rows,onOpen}:{icon:typeof Wallet;title:string;route:string;rows:Array<[string,string|number]>;onOpen:(route:string)=>void}){
+    return <button onClick={()=>onOpen(route)} className="rounded-2xl border bg-white p-5 text-left hover:border-primary/30 hover:shadow-lg"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-black text-slate-800"><Icon size={17} className="text-primary"/>{title}</h2><ArrowRight size={15} className="text-slate-300"/></div><dl className="mt-4 space-y-2">{rows.map(([label,value])=><div key={label} className="flex justify-between gap-3 text-xs"><dt className="text-slate-400">{label}</dt><dd className="font-black text-slate-700">{value}</dd></div>)}</dl></button>;
+}
