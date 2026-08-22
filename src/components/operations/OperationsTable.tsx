@@ -7,6 +7,9 @@ interface OperationsTableProps {
     operations: Operation[];
     selectedId: string | null;
     onSelect: (operation: Operation) => void;
+    selectedBulkIds?: Set<string>;
+    onToggleBulk?: (operation: Operation) => void;
+    onToggleAll?: () => void;
 }
 
 const AssignmentSummary = ({ operation }: { operation: Operation }) => (
@@ -21,13 +24,14 @@ const AssignmentSummary = ({ operation }: { operation: Operation }) => (
     </div>
 );
 
-export function OperationsTable({ operations, selectedId, onSelect }: OperationsTableProps) {
+export function OperationsTable({ operations, selectedId, onSelect, selectedBulkIds, onToggleBulk, onToggleAll }: OperationsTableProps) {
     return (
         <div className="overflow-hidden rounded-2xl border border-tech-border/60 bg-surface-card">
             <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[880px] text-left text-sm">
                     <thead className="border-b border-tech-border/50 bg-slate-50/70">
                         <tr className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                            {onToggleBulk && <th className="w-10 px-3 py-3.5"><input aria-label="Seleccionar todas las operaciones visibles" type="checkbox" checked={operations.length > 0 && operations.every((item) => selectedBulkIds?.has(item.db_id ?? item.id))} onChange={onToggleAll} /></th>}
                             <th className="px-5 py-3.5">Referencia / cliente</th>
                             <th className="px-5 py-3.5">Ruta disponible</th>
                             <th className="px-5 py-3.5">Estado</th>
@@ -46,6 +50,7 @@ export function OperationsTable({ operations, selectedId, onSelect }: Operations
                                     onClick={() => onSelect(operation)}
                                     className={`cursor-pointer transition-colors ${selected ? 'bg-primary-50/60' : 'hover:bg-slate-50/70'}`}
                                 >
+                                    {onToggleBulk && <td className="px-3 py-4"><input aria-label={`Seleccionar ${operation.id}`} type="checkbox" checked={selectedBulkIds?.has(operation.db_id ?? operation.id) ?? false} onClick={(event) => event.stopPropagation()} onChange={() => onToggleBulk(operation)} /></td>}
                                     <td className={`border-l-3 px-5 py-4 ${selected ? 'border-l-primary' : 'border-l-transparent'}`}>
                                         <p className="font-bold text-primary">{operation.id}</p>
                                         <p className="mt-0.5 max-w-[220px] truncate text-xs font-medium text-slate-600">{operation.client}</p>
@@ -74,17 +79,17 @@ export function OperationsTable({ operations, selectedId, onSelect }: Operations
                     const status = getOperationStatus(operation.status);
                     const selected = selectedId === operation.id;
                     return (
-                        <button
+                        <div
                             key={operation.id}
                             type="button"
                             onClick={() => onSelect(operation)}
                             className={`w-full p-4 text-left transition-colors ${selected ? 'bg-primary-50/60' : 'bg-white active:bg-slate-50'}`}
                         >
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start justify-between gap-3"><div className="flex gap-3">{onToggleBulk && <input aria-label={`Seleccionar ${operation.id}`} type="checkbox" checked={selectedBulkIds?.has(operation.db_id ?? operation.id) ?? false} onClick={(event) => event.stopPropagation()} onChange={() => onToggleBulk(operation)} />}
                                 <div className="min-w-0">
                                     <p className="font-bold text-primary">{operation.id}</p>
                                     <p className="mt-0.5 truncate text-sm font-semibold text-slate-700">{operation.client}</p>
-                                </div>
+                                </div></div>
                                 <Badge variant={status.variant}>{status.label}</Badge>
                             </div>
                             <div className="mt-3 grid gap-2 text-xs text-slate-500">
@@ -92,7 +97,7 @@ export function OperationsTable({ operations, selectedId, onSelect }: Operations
                                 <p className="flex items-center gap-2"><UserRound size={13} /> {operation.driver_name || 'Operador del proveedor por confirmar'}</p>
                                 <p className="flex items-center gap-2"><CalendarClock size={13} /> {formatOperationDate(operation.planned_departure)}</p>
                             </div>
-                        </button>
+                        </div>
                     );
                 })}
             </div>

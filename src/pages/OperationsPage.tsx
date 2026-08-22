@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { SavedViewsMenu } from '@/components/productivity/SavedViewsMenu';
+import { BulkActionBar } from '@/components/productivity/BulkActionBar';
 import { AssignmentDrawer } from '@/components/operations/AssignmentDrawer';
 import { Operation360Panel } from '@/components/operations/Operation360Panel';
 import { OperationsFilters } from '@/components/operations/OperationsFilters';
@@ -26,6 +27,8 @@ import { buildTrackingUrl, resolvePublicAppBaseUrl } from '@/services/trackingCo
 import { canManageRoteroModule } from '@/constants/roles';
 import { useAuthStore } from '@/store/authStore';
 import type { Operation } from '@/types/operations';
+import { bulkUpdateOperations, recordDataAction } from '@/services/dataOperations.service';
+import { downloadCsvContent, serializeCsv } from '@/utils/csv';
 
 const OperationsPage = () => {
     const activeTenant = useAuthStore((state) => state.activeTenant);
@@ -53,6 +56,7 @@ const OperationsPage = () => {
     const [showNewModal, setShowNewModal] = useState(false);
     const [showAssignmentDrawer, setShowAssignmentDrawer] = useState(false);
     const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
+    const [bulkIds, setBulkIds] = useState<Set<string>>(new Set()); const [bulkBusy, setBulkBusy] = useState(false);
 
     const [driverToken, setDriverToken] = useState<string | null>(null);
     const [publicToken, setPublicToken] = useState<string | null>(null);
@@ -222,6 +226,11 @@ const OperationsPage = () => {
     };
 
     const clearFilters = () => updateParams({ view: 'active', status: null, q: null, operation: null, operationId: null, tab: null, document: null });
+    const toggleBulk = (operation: Operation) => { const id = operation.db_id ?? operation.id; setBulkIds((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; }); };
+    const toggleAllBulk = () => setBulkIds((current) => filteredOperations.every((item) => current.has(item.db_id ?? item.id)) ? new Set() : new Set(filteredOperations.map((item) => item.db_id ?? item.id)));
+    const selectedOperations = operations.filter((item) => bulkIds.has(item.db_id ?? item.id));
+    const exportSelected = async () => { if (!activeTenant || !selectedOperations.length) return; const rows = selectedOperations.map((item) => ({ reference_code: item.reference_code ?? item.id, status: item.status, customer: item.client, provider: item.provider_name ?? '', route: item.route, priority: item.priority ?? '', planned_departure: item.planned_departure ?? '' })); downloadCsvContent(serializeCsv(rows), `operaciones-seleccionadas-${new Date().toISOString().slice(0, 10)}.csv`); await recordDataAction(activeTenant, 'export_requested', 'operations', rows.length, 'selected'); };
+    const updateSelected = async (action: 'set_priority' | 'add_note') => { if (!activeTenant || !bulkIds.size) return; const value = action === 'set_priority' ? window.prompt('Prioridad: low, normal o high', 'high') : window.prompt('Nota para agregar (máximo 240 caracteres)'); if (!value) return; setBulkBusy(true); setTransitionError(null); try { await bulkUpdateOperations(activeTenant, [...bulkIds], action, action === 'set_priority' ? { priority: value } : { note: value }); setBulkIds(new Set()); await fetchOps(); } catch (cause) { setTransitionError(cause instanceof Error ? cause.message : 'No se pudo aplicar la acción masiva.'); } finally { setBulkBusy(false); } };
 
     return (
         <div className="relative space-y-5">
@@ -284,6 +293,7 @@ const OperationsPage = () => {
                         onQueryChange={(nextQuery) => updateParams({ q: nextQuery || null, operation: null, operationId: null, tab: null })}
                         onClear={clearFilters}
                     />
+                    {isAdmin && <BulkActionBar count={bulkIds.size} onClear={() => setBulkIds(new Set())}><button disabled={bulkBusy} onClick={() => void exportSelected()} className="rounded-xl border px-3 py-2 text-xs font-bold">Exportar selección</button><button disabled={bulkBusy} onClick={() => void updateSelected('set_priority')} className="rounded-xl border px-3 py-2 text-xs font-bold">Cambiar prioridad</button><button disabled={bulkBusy} onClick={() => void updateSelected('add_note')} className="rounded-xl border px-3 py-2 text-xs font-bold">Agregar nota</button></BulkActionBar>}
 
                     {filteredOperations.length === 0 ? (
                         <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
@@ -301,6 +311,9 @@ const OperationsPage = () => {
                             operations={filteredOperations}
                             selectedId={activeOp?.id ?? null}
                             onSelect={(operation) => updateParams({ operation: operation.id, operationId: operation.db_id, tab: 'overview' })}
+                            selectedBulkIds={bulkIds}
+                            onToggleBulk={isAdmin ? toggleBulk : undefined}
+                            onToggleAll={isAdmin ? toggleAllBulk : undefined}
                         />
                     )}
                 </>

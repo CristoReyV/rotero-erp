@@ -24,6 +24,7 @@ const ALL_MODULES: Module[] = [
     'finance',
     'commercial',
     'documents',
+    'data',
     'tracking',
     'reports',
     'security',
@@ -49,10 +50,10 @@ for (const module of ['dashboard', 'operations', 'billing', 'finance', 'document
 for (const module of ['billing', 'finance', 'documents'] as Module[]) {
     assert.equal(canManageRoteroModule('finance', module), true);
 }
-for (const module of ['operations', 'inventory', 'customs', 'commercial', 'tracking', 'security'] as Module[]) {
+for (const module of ['operations', 'inventory', 'customs', 'commercial', 'data', 'tracking', 'security'] as Module[]) {
     assert.equal(canManageRoteroModule('finance', module), false);
 }
-for (const module of ['inventory', 'customs', 'commercial', 'tracking', 'security'] as Module[]) {
+for (const module of ['inventory', 'customs', 'commercial', 'data', 'tracking', 'security'] as Module[]) {
     assert.equal(canAccessRoteroModule('finance', module), false);
 }
 

@@ -10,6 +10,7 @@ import BillingPage from '@/pages/BillingPage';
 import FinancePage from '@/pages/FinancePage';
 import CommercialPage from '@/pages/CommercialPage';
 import DocumentsPage from '@/pages/DocumentsPage';
+import DataOperationsPage from '@/pages/DataOperationsPage';
 import TrackingPage from '@/pages/TrackingPage';
 import TrackingPublicPage from '@/pages/TrackingPublicPage';
 import DriverTrackingPage from '@/pages/DriverTrackingPage';
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
                                     { path: 'inventory', element: <InventoryPage /> },
                                     { path: 'customs', element: <CustomsPage /> },
                                     { path: 'commercial', element: <CommercialPage /> },
+                                    { path: 'data', element: <DataOperationsPage /> },
                                     { path: 'tracking', element: <TrackingPage /> },
                                     {
                                         path: 'security',

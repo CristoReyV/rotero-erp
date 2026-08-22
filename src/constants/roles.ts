@@ -27,6 +27,7 @@ const ALL_MODULES: readonly Module[] = [
     'finance',
     'commercial',
     'documents',
+    'data',
     'tracking',
     'reports',
     'security',
