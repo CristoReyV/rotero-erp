@@ -10,6 +10,7 @@ import {
     Settings,
     MapPin,
     Files,
+    Database,
 } from 'lucide-react';
 import type { Module } from '@/types/modules';
 
@@ -29,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
     { path: '/finance', icon: Wallet, label: 'Finanzas', module: 'finance' },
     { path: '/commercial', icon: Users, label: 'Comercial', module: 'commercial' },
     { path: '/documents', icon: Files, label: 'Documentos', module: 'documents' },
+    { path: '/data', icon: Database, label: 'Datos / Importación', module: 'data' },
     { path: '/tracking', icon: MapPin, label: 'Tracking & GPS', module: 'tracking' },
     { path: '/reports', icon: BarChart3, label: 'Reportes / BI', module: 'reports' },
     { path: '/security', icon: Settings, label: 'Seguridad', module: 'security' },
@@ -43,6 +45,7 @@ export const ROUTE_TITLES: Record<string, string> = {
     '/finance': 'Finanzas operativas',
     '/commercial': 'Comercial y CRM',
     '/documents': 'Documents 360',
+    '/data': 'Data Operations 360',
     '/tracking': 'Tracking y GPS',
     '/reports': 'Reportes y BI',
     '/security': 'Seguridad y Configuración',

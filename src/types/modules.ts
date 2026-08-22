@@ -7,6 +7,7 @@ export type Module =
     | 'finance'
     | 'commercial'
     | 'documents'
+    | 'data'
     | 'reports'
     | 'security'
     | 'tracking';

@@ -1,4 +1,4 @@
-import { Building2, FilePlus2, FileSearch, Landmark, Search, Truck, Wallet, X } from 'lucide-react';
+import { Building2, Database, FilePlus2, FileSearch, Landmark, Search, Truck, Upload, Wallet, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ProductRole } from '@/constants/roles';
@@ -14,6 +14,10 @@ const adminActions:Action[]=[
     {id:'ap',label:'Nueva AP',subtitle:'Cuenta por pagar',route:'/finance?view=ap&action=new',icon:Wallet},
     {id:'operations',label:'Operations',subtitle:'Control Center',route:'/operations',icon:Truck},
     {id:'documents',label:'Documents',subtitle:'Expediente 360',route:'/documents',icon:FileSearch},
+    {id:'import-customers',label:'Importar clientes',subtitle:'CSV seguro · Data Operations',route:'/data?view=import&entity=customers',icon:Upload},
+    {id:'import-providers',label:'Importar proveedores',subtitle:'CSV seguro · Data Operations',route:'/data?view=import&entity=providers',icon:Upload},
+    {id:'import-operations',label:'Importar operaciones',subtitle:'Siempre Planeada · ejecución contratada',route:'/data?view=import&entity=operations',icon:Upload},
+    {id:'export-data',label:'Exportar datos',subtitle:'Centro de exportación paginada',route:'/data?view=export',icon:Database},
 ];
 const financeActions:Action[]=[
     {id:'ar',label:'Nueva AR',subtitle:'Cuenta por cobrar',route:'/finance?view=ar&action=new',icon:Landmark},
