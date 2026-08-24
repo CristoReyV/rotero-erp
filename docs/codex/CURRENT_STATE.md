@@ -32,9 +32,17 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 
 ## Producto
 
-- F1 Commercial 360: merged en `main` y desplegado en staging.
-- F2 Operation 360: merged en `main` y desplegado en staging.
-- R1: completado con backup lógico restaurable verificado para el estado POST_F1_PRE_F2.
-- QA visual/manual combinada de F1 y F2: pendiente.
+- F1–F7: merged en `main`; migraciones aplicadas y verificadas en Supabase staging.
+- F3–F7: activos en Netlify staging sobre el mismo `main` verificado.
+- F7: `pg_cron` instalado; jobs hourly y daily digest activos con sus schedules canónicos.
+- R2.2: completado con backup lógico POST_F4_PRE_F5 restaurable y verificado.
+- QA visual/manual de F1–F7: pendiente; el smoke HTTP de staging está aprobado.
+
+## Límites vigentes
+
+- Producción: sin cambios durante R2.2.
+- Auth, Edge Functions y llaves: sin cambios durante R2.2.
+- Runtime Finance: sigue pendiente de una credencial legítima.
+- SEC.4: no fue modificado por R2.2; conserva su carril activo.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
