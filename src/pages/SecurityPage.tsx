@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Users, Shield, Settings, Activity } from 'lucide-react';
+import { Users, Settings, Activity, Bot } from 'lucide-react';
 
 const SecurityPage = () => {
     const { pathname } = useLocation();
@@ -9,6 +9,7 @@ const SecurityPage = () => {
         { id: 'users', label: 'Usuarios', icon: Users, path: '/security/users' },
         { id: 'audit', label: 'Auditoría', icon: Activity, path: '/security/audit' },
         { id: 'settings', label: 'Configuración', icon: Settings, path: '/security/settings' },
+        { id: 'automations', label: 'Automatizaciones', icon: Bot, path: '/security/automations' },
     ];
 
     return (

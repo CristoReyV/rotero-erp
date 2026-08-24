@@ -19,6 +19,7 @@ import SecurityPage from '@/pages/SecurityPage';
 import SecurityUsersPage from '@/pages/SecurityUsersPage';
 import SecurityAuditPage from '@/pages/SecurityAuditPage';
 import SettingsPage from '@/pages/SettingsPage';
+import AutomationsPage from '@/pages/AutomationsPage';
 import LoginPage from '@/pages/LoginPage';
 import { ROTERO_ENABLED_ROLES } from '@/constants/roles';
 
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
                                             { path: 'users', element: <SecurityUsersPage /> },
                                             { path: 'audit', element: <SecurityAuditPage /> },
                                             { path: 'settings', element: <SettingsPage /> },
+                                            { path: 'automations', element: <AutomationsPage /> },
                                         ]
                                     },
                                 ]

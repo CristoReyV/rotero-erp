@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AttentionCenter } from '@/components/executive/AttentionCenter';
 import { ExecutiveKpiGrid } from '@/components/executive/ExecutiveKpiGrid';
 import { RecentActivity } from '@/components/executive/RecentActivity';
+import { DailyDigestCard } from '@/components/productivity/DailyDigestCard';
 import { getExecutiveDashboard } from '@/services/executive.service';
 import { useAuthStore } from '@/store/authStore';
 import type { ExecutiveDashboard, ExecutiveDatePreset } from '@/types/executive';
@@ -43,6 +44,7 @@ export default function DashboardPage(){
         {preset==='custom'&&<div className="flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3 text-xs text-slate-500"><CalendarDays size={15}/><label>Desde <input type="date" value={from??isoDate(new Date(new Date().getFullYear(),new Date().getMonth(),1))} onChange={event=>setDate('from',event.target.value)} className="ml-2 rounded-lg border px-2 py-1.5"/></label><label>Hasta <input type="date" value={to??isoDate(new Date())} onChange={event=>setDate('to',event.target.value)} className="ml-2 rounded-lg border px-2 py-1.5"/></label></div>}
         {error&&<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
         {loading&&!data?<div className="flex h-64 items-center justify-center rounded-2xl border bg-white"><Loader2 className="animate-spin text-primary"/></div>:data&&<>
+            <DailyDigestCard tenantId={tenantId}/>
             <ExecutiveKpiGrid dashboard={data}/>
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,.85fr)]"><AttentionCenter items={data.attention}/><RecentActivity items={data.recent_activity}/></div>
             <div className={`grid gap-4 ${data.commercial?'xl:grid-cols-4':'xl:grid-cols-3'}`}>

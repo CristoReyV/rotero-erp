@@ -78,6 +78,13 @@ export interface InternalNotification {
     due_at: string | null;
     read_at: string | null;
     created_at: string;
+    is_automated: boolean;
+    automation_rule_code: string | null;
+    first_seen_at: string | null;
+    last_seen_at: string | null;
+    escalation_level: number;
+    escalated_at: string | null;
+    metadata: Record<string, unknown>;
 }
 
 export interface NotificationFeed {
