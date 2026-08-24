@@ -563,7 +563,7 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.rpc_mark_internal_notifications_read(p_tenant_id uuid, p_ids uuid[] DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.rpc_mark_internal_notifications_read(p_tenant_id uuid, p_notification_ids uuid[] DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO pg_catalog, public
@@ -573,7 +573,7 @@ BEGIN
     IF private.f5_current_role(p_tenant_id) NOT IN ('admin','finance') THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
     UPDATE public.internal_notifications SET status='read',read_at=COALESCE(read_at,now())
     WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND status<>'dismissed'
-      AND (p_ids IS NULL OR id=ANY(p_ids));
+      AND (p_notification_ids IS NULL OR id=ANY(p_notification_ids));
     GET DIAGNOSTICS v_count=ROW_COUNT;
     RETURN jsonb_build_object('success',true,'updated',v_count);
 END;
