@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 DO $catalog$
-DECLARE v_tenant uuid; v_rules integer; v_notifications integer;
+DECLARE v_tenant uuid; v_rules integer; v_notifications integer; v_snapshot record; v_current jsonb;
 BEGIN
     SELECT id INTO v_tenant FROM public.tenants WHERE slug='f5-staging-like';
     SELECT count(*) INTO v_rules FROM public.internal_notification_rules WHERE tenant_id=v_tenant;
@@ -34,6 +34,42 @@ BEGIN
         SELECT 1 FROM public.internal_notification_rules
         GROUP BY tenant_id,trigger_type,target_role,COALESCE(area,'*') HAVING count(*)>1
     ) THEN RAISE EXCEPTION 'duplicate canonical rule identity'; END IF;
+
+    IF (SELECT count(*) FROM private.f5_staging_like_rpc_snapshot)<>5 THEN
+        RAISE EXCEPTION 'staging-like RPC collision snapshot is incomplete';
+    END IF;
+    FOR v_snapshot IN SELECT * FROM private.f5_staging_like_rpc_snapshot LOOP
+        IF to_regprocedure(v_snapshot.identity)::oid IS DISTINCT FROM v_snapshot.function_oid THEN
+            RAISE EXCEPTION 'RPC OID changed for %: expected %, found %',
+                v_snapshot.identity,v_snapshot.function_oid,to_regprocedure(v_snapshot.identity)::oid;
+        END IF;
+        SELECT jsonb_build_object(
+                   'arg_names',to_jsonb(p.proargnames),
+                   'input_types',to_jsonb(p.proargtypes::regtype[]::text[]),
+                   'all_arg_types',CASE WHEN p.proallargtypes IS NULL THEN NULL ELSE
+                       (SELECT jsonb_agg(t::regtype::text ORDER BY ordinal)
+                        FROM unnest(p.proallargtypes) WITH ORDINALITY AS args(t,ordinal)) END,
+                   'arg_modes',to_jsonb(p.proargmodes),
+                   'default_count',p.pronargdefaults,
+                   'identity_arguments',pg_get_function_identity_arguments(p.oid),
+                   'arguments',pg_get_function_arguments(p.oid),
+                   'result',pg_get_function_result(p.oid)
+               )
+        INTO v_current
+        FROM pg_proc p WHERE p.oid=v_snapshot.function_oid;
+        IF v_current IS DISTINCT FROM v_snapshot.signature THEN
+            RAISE EXCEPTION 'RPC signature metadata changed for %: expected %, found %',
+                v_snapshot.identity,v_snapshot.signature,v_current;
+        END IF;
+    END LOOP;
+    IF (SELECT proargnames FROM pg_proc WHERE oid='public.rpc_mark_internal_notifications_read(uuid,uuid[])'::regprocedure::oid)
+       IS DISTINCT FROM ARRAY['p_tenant_id','p_notification_ids']::text[] THEN
+        RAISE EXCEPTION 'mark-read canonical parameter names changed';
+    END IF;
+    IF to_regprocedure('public.rpc_get_executive_dashboard(uuid,jsonb)') IS NULL
+       OR to_regprocedure('public.rpc_get_executive_dashboard(uuid,timestamp with time zone,timestamp with time zone)') IS NULL THEN
+        RAISE EXCEPTION 'executive dashboard overload coverage changed';
+    END IF;
 END;
 $catalog$;
 

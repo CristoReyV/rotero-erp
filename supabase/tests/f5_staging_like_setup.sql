@@ -111,16 +111,22 @@ AS $function$
     ) n;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.rpc_mark_internal_notifications_read(p_tenant_id uuid,p_ids uuid[] DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.rpc_mark_internal_notifications_read(p_tenant_id uuid,p_notification_ids uuid[] DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog,public
 AS $function$
 DECLARE v_count integer;
 BEGIN
     UPDATE public.internal_notifications SET status='read',read_at=COALESCE(read_at,now())
-    WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND (p_ids IS NULL OR id=ANY(p_ids));
+    WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND (p_notification_ids IS NULL OR id=ANY(p_notification_ids));
     GET DIAGNOSTICS v_count=ROW_COUNT;
     RETURN jsonb_build_object('success',true,'updated',v_count);
 END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.rpc_get_executive_dashboard(p_tenant_id uuid,p_filters jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO public
+AS $function$
+    SELECT jsonb_build_object('tenant_id',p_tenant_id,'filters',COALESCE(p_filters,'{}'::jsonb));
 $function$;
 
 CREATE OR REPLACE FUNCTION public.rpc_dismiss_internal_notification(p_notification_id uuid)
@@ -141,3 +147,40 @@ REVOKE EXECUTE ON FUNCTION public.rpc_dismiss_internal_notification(uuid) FROM P
 GRANT EXECUTE ON FUNCTION public.rpc_list_internal_notifications(uuid,jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_mark_internal_notifications_read(uuid,uuid[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_dismiss_internal_notification(uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.rpc_get_executive_dashboard(uuid,jsonb) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.rpc_get_executive_dashboard(uuid,jsonb) TO authenticated,service_role;
+
+-- Capture the exact pre-F5 identities and signature metadata. CREATE OR REPLACE
+-- must preserve these OIDs and may not rename parameters or alter defaults.
+CREATE TABLE private.f5_staging_like_rpc_snapshot (
+    identity text PRIMARY KEY,
+    function_oid oid NOT NULL,
+    signature jsonb NOT NULL
+);
+
+INSERT INTO private.f5_staging_like_rpc_snapshot(identity,function_oid,signature)
+SELECT format('%I.%I(%s)',n.nspname,p.proname,oidvectortypes(p.proargtypes)),
+       p.oid,
+       jsonb_build_object(
+           'arg_names',to_jsonb(p.proargnames),
+           'input_types',to_jsonb(p.proargtypes::regtype[]::text[]),
+           'all_arg_types',CASE WHEN p.proallargtypes IS NULL THEN NULL ELSE
+               (SELECT jsonb_agg(t::regtype::text ORDER BY ordinal)
+                FROM unnest(p.proallargtypes) WITH ORDINALITY AS args(t,ordinal)) END,
+           'arg_modes',to_jsonb(p.proargmodes),
+           'default_count',p.pronargdefaults,
+           'identity_arguments',pg_get_function_identity_arguments(p.oid),
+           'arguments',pg_get_function_arguments(p.oid),
+           'result',pg_get_function_result(p.oid)
+       )
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid=p.pronamespace
+WHERE p.oid=ANY(ARRAY[
+    'public.rpc_list_internal_notifications(uuid,jsonb)'::regprocedure::oid,
+    'public.rpc_mark_internal_notifications_read(uuid,uuid[])'::regprocedure::oid,
+    'public.rpc_dismiss_internal_notification(uuid)'::regprocedure::oid,
+    'public.rpc_get_executive_dashboard(uuid,jsonb)'::regprocedure::oid,
+    'public.rpc_get_operation_dispatch_readiness(uuid)'::regprocedure::oid
+]);
+
+REVOKE ALL ON TABLE private.f5_staging_like_rpc_snapshot FROM PUBLIC,anon,authenticated,service_role;

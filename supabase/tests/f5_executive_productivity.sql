@@ -31,6 +31,14 @@ BEGIN
         END IF;
         IF pg_get_functiondef(v_oid) ~* '\mSQLERRM\M' THEN RAISE EXCEPTION 'F5 CONTRACT FAILED: raw SQLERRM %',v_signature; END IF;
     END LOOP;
+    v_oid:='public.rpc_mark_internal_notifications_read(uuid,uuid[])'::regprocedure::oid;
+    IF (SELECT proargnames FROM pg_proc WHERE oid=v_oid)
+       IS DISTINCT FROM ARRAY['p_tenant_id','p_notification_ids']::text[]
+       OR pg_get_function_identity_arguments(v_oid)<>'p_tenant_id uuid, p_notification_ids uuid[]'
+       OR pg_get_function_arguments(v_oid)<>'p_tenant_id uuid, p_notification_ids uuid[] DEFAULT NULL::uuid[]'
+       OR pg_get_function_result(v_oid)<>'jsonb' THEN
+        RAISE EXCEPTION 'F5 CONTRACT FAILED: canonical mark-read signature metadata';
+    END IF;
     IF EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema='public' AND table_name='internal_notifications'
