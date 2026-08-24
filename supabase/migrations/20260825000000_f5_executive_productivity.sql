@@ -36,43 +36,86 @@ REVOKE EXECUTE ON FUNCTION private.f5_module_allowed(uuid,text) FROM PUBLIC, ano
 CREATE TABLE IF NOT EXISTS public.internal_notification_rules (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    role text NOT NULL,
-    module text NOT NULL,
-    kind text NOT NULL,
+    trigger_type text NOT NULL,
+    target_role text NOT NULL,
+    area text,
+    lead_days integer NOT NULL DEFAULT 0,
+    is_enabled boolean NOT NULL DEFAULT true,
     priority text NOT NULL DEFAULT 'medium',
-    enabled boolean NOT NULL DEFAULT true,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT internal_notification_rules_role_check CHECK (role IN ('admin','finance')),
-    CONSTRAINT internal_notification_rules_module_check CHECK (module IN ('operations','commercial','documents','finance')),
+    CONSTRAINT internal_notification_rules_role_check CHECK (target_role IN ('admin','operator','finance','viewer')),
+    CONSTRAINT internal_notification_rules_area_check CHECK (area IS NULL OR area IN ('operations','commercial','finance','billing','documents','payroll','provider','admin')),
+    CONSTRAINT internal_notification_rules_trigger_check CHECK (trigger_type IN (
+        'daily_control_critical','daily_control_high','daily_control_overdue','invoice_due','fiscal_workbench','payroll_pending',
+        'blocking_incident','delivered_without_pod','dispatch_blocker','required_document_missing','billing_blocked',
+        'ar_overdue','ap_overdue','finance_due_soon','quote_in_review','quote_pending_conversion'
+    )),
+    CONSTRAINT internal_notification_rules_lead_days_check CHECK (lead_days BETWEEN 0 AND 30),
     CONSTRAINT internal_notification_rules_priority_check CHECK (priority IN ('critical','high','medium','low')),
-    CONSTRAINT internal_notification_rules_unique UNIQUE (tenant_id, role, module, kind)
+    CONSTRAINT internal_notification_rules_unique UNIQUE NULLS NOT DISTINCT (tenant_id, trigger_type, target_role, area)
 );
+
+ALTER TABLE public.internal_notification_rules
+    ADD COLUMN IF NOT EXISTS priority text NOT NULL DEFAULT 'medium';
+
+ALTER TABLE public.internal_notification_rules DROP CONSTRAINT IF EXISTS internal_notification_rules_role_check;
+ALTER TABLE public.internal_notification_rules DROP CONSTRAINT IF EXISTS internal_notification_rules_area_check;
+ALTER TABLE public.internal_notification_rules DROP CONSTRAINT IF EXISTS internal_notification_rules_trigger_check;
+ALTER TABLE public.internal_notification_rules DROP CONSTRAINT IF EXISTS internal_notification_rules_lead_days_check;
+ALTER TABLE public.internal_notification_rules DROP CONSTRAINT IF EXISTS internal_notification_rules_priority_check;
+ALTER TABLE public.internal_notification_rules
+    ADD CONSTRAINT internal_notification_rules_role_check CHECK (target_role IN ('admin','operator','finance','viewer')),
+    ADD CONSTRAINT internal_notification_rules_area_check CHECK (area IS NULL OR area IN ('operations','commercial','finance','billing','documents','payroll','provider','admin')),
+    ADD CONSTRAINT internal_notification_rules_trigger_check CHECK (trigger_type IN (
+        'daily_control_critical','daily_control_high','daily_control_overdue','invoice_due','fiscal_workbench','payroll_pending',
+        'blocking_incident','delivered_without_pod','dispatch_blocker','required_document_missing','billing_blocked',
+        'ar_overdue','ap_overdue','finance_due_soon','quote_in_review','quote_pending_conversion'
+    )),
+    ADD CONSTRAINT internal_notification_rules_lead_days_check CHECK (lead_days BETWEEN 0 AND 30),
+    ADD CONSTRAINT internal_notification_rules_priority_check CHECK (priority IN ('critical','high','medium','low'));
 
 CREATE TABLE IF NOT EXISTS public.internal_notifications (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     user_id uuid NOT NULL,
     fingerprint text NOT NULL,
-    module text NOT NULL,
-    kind text NOT NULL,
+    trigger_type text NOT NULL,
+    area text NOT NULL,
     priority text NOT NULL,
+    icon text NOT NULL DEFAULT 'info',
     title text NOT NULL,
-    body text NOT NULL,
-    route text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id uuid NOT NULL,
-    occurred_at timestamptz NOT NULL DEFAULT now(),
+    body text NOT NULL DEFAULT '',
+    route text,
+    related_entity_type text,
+    related_entity_id text,
+    status text NOT NULL DEFAULT 'unread',
+    first_seen_at timestamptz NOT NULL DEFAULT now(),
+    last_seen_at timestamptz NOT NULL DEFAULT now(),
     due_at timestamptz,
     read_at timestamptz,
     dismissed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT internal_notifications_module_check CHECK (module IN ('operations','commercial','documents','finance')),
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    CONSTRAINT internal_notifications_area_check CHECK (area IN ('operations','commercial','finance','billing','documents','payroll','provider','admin')),
+    CONSTRAINT internal_notifications_trigger_check CHECK (trigger_type IN (
+        'daily_control_critical','daily_control_high','daily_control_overdue','invoice_due','fiscal_workbench','payroll_pending',
+        'blocking_incident','delivered_without_pod','dispatch_blocker','required_document_missing','billing_blocked',
+        'ar_overdue','ap_overdue','finance_due_soon','quote_in_review','quote_pending_conversion'
+    )),
     CONSTRAINT internal_notifications_priority_check CHECK (priority IN ('critical','high','medium','low')),
-    CONSTRAINT internal_notifications_fingerprint_check CHECK (char_length(trim(fingerprint)) BETWEEN 8 AND 300),
+    CONSTRAINT internal_notifications_icon_check CHECK (icon IN ('info','warning','success','truck')),
+    CONSTRAINT internal_notifications_status_check CHECK (status IN ('unread','read','dismissed')),
     CONSTRAINT internal_notifications_user_fingerprint_unique UNIQUE (tenant_id, user_id, fingerprint)
 );
+
+ALTER TABLE public.internal_notifications ADD COLUMN IF NOT EXISTS due_at timestamptz;
+ALTER TABLE public.internal_notifications DROP CONSTRAINT IF EXISTS internal_notifications_trigger_check;
+ALTER TABLE public.internal_notifications
+    ADD CONSTRAINT internal_notifications_trigger_check CHECK (trigger_type IN (
+        'daily_control_critical','daily_control_high','daily_control_overdue','invoice_due','fiscal_workbench','payroll_pending',
+        'blocking_incident','delivered_without_pod','dispatch_blocker','required_document_missing','billing_blocked',
+        'ar_overdue','ap_overdue','finance_due_soon','quote_in_review','quote_pending_conversion'
+    ));
 
 CREATE TABLE IF NOT EXISTS public.user_saved_views (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -92,13 +135,12 @@ CREATE TABLE IF NOT EXISTS public.user_saved_views (
 );
 
 CREATE INDEX IF NOT EXISTS internal_notification_rules_tenant_role_idx
-    ON public.internal_notification_rules (tenant_id, role, enabled, module);
+    ON public.internal_notification_rules (tenant_id, target_role, is_enabled);
 CREATE INDEX IF NOT EXISTS internal_notifications_user_feed_idx
-    ON public.internal_notifications (tenant_id, user_id, created_at DESC)
-    WHERE dismissed_at IS NULL;
+    ON public.internal_notifications (tenant_id, user_id, status, last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS internal_notifications_user_unread_idx
-    ON public.internal_notifications (tenant_id, user_id, priority, created_at DESC)
-    WHERE dismissed_at IS NULL AND read_at IS NULL;
+    ON public.internal_notifications (tenant_id, user_id, priority, last_seen_at DESC)
+    WHERE status = 'unread';
 CREATE INDEX IF NOT EXISTS user_saved_views_owner_module_idx
     ON public.user_saved_views (tenant_id, user_id, module, is_default DESC, updated_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS user_saved_views_owner_name_uidx
@@ -109,11 +151,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS user_saved_views_one_default_uidx
 DROP TRIGGER IF EXISTS trg_internal_notification_rules_touch_updated_at ON public.internal_notification_rules;
 CREATE TRIGGER trg_internal_notification_rules_touch_updated_at
 BEFORE UPDATE ON public.internal_notification_rules
-FOR EACH ROW EXECUTE FUNCTION public.tanda1_touch_updated_at();
-
-DROP TRIGGER IF EXISTS trg_internal_notifications_touch_updated_at ON public.internal_notifications;
-CREATE TRIGGER trg_internal_notifications_touch_updated_at
-BEFORE UPDATE ON public.internal_notifications
 FOR EACH ROW EXECUTE FUNCTION public.tanda1_touch_updated_at();
 
 DROP TRIGGER IF EXISTS trg_user_saved_views_touch_updated_at ON public.user_saved_views;
@@ -399,6 +436,30 @@ BEGIN
 END;
 $function$;
 
+-- Seed the F5 rule set once for every existing tenant while retaining all Tanda8
+-- rules.  The coalesced-area identity mirrors the canonical legacy index.
+INSERT INTO public.internal_notification_rules(
+    tenant_id,trigger_type,target_role,area,priority,is_enabled
+)
+SELECT t.id,x.kind,r.target_role,x.module,x.priority,true
+FROM public.tenants t
+CROSS JOIN (VALUES ('admin'::text),('finance'::text)) r(target_role)
+CROSS JOIN (VALUES
+    ('operations','blocking_incident','critical'),('operations','delivered_without_pod','critical'),
+    ('operations','dispatch_blocker','high'),('documents','required_document_missing','high'),
+    ('operations','billing_blocked','high'),('finance','ar_overdue','critical'),
+    ('finance','ap_overdue','critical'),('finance','finance_due_soon','medium'),
+    ('commercial','quote_in_review','medium'),('commercial','quote_pending_conversion','medium')
+) AS x(module,kind,priority)
+WHERE (r.target_role='admin' OR x.module<>'commercial')
+  AND NOT EXISTS (
+      SELECT 1 FROM public.internal_notification_rules current_rule
+      WHERE current_rule.tenant_id=t.id
+        AND current_rule.trigger_type=x.kind
+        AND current_rule.target_role=r.target_role
+        AND COALESCE(current_rule.area,'*')=COALESCE(x.module,'*')
+  );
+
 CREATE OR REPLACE FUNCTION public.rpc_refresh_internal_notifications(p_tenant_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
@@ -409,8 +470,8 @@ BEGIN
     v_role := private.f5_current_role(p_tenant_id);
     IF v_user IS NULL OR v_role NOT IN ('admin','finance') THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
 
-    INSERT INTO public.internal_notification_rules(tenant_id,role,module,kind,priority)
-    SELECT p_tenant_id,v_role,x.module,x.kind,x.priority
+    INSERT INTO public.internal_notification_rules(tenant_id,target_role,area,trigger_type,priority,is_enabled)
+    SELECT p_tenant_id,v_role,x.module,x.kind,x.priority,true
     FROM (VALUES
         ('operations','blocking_incident','critical'),('operations','delivered_without_pod','critical'),
         ('operations','dispatch_blocker','high'),('documents','required_document_missing','high'),
@@ -418,34 +479,45 @@ BEGIN
         ('finance','ap_overdue','critical'),('finance','finance_due_soon','medium'),
         ('commercial','quote_in_review','medium'),('commercial','quote_pending_conversion','medium')
     ) AS x(module,kind,priority)
-    WHERE v_role='admin' OR x.module<>'commercial'
-    ON CONFLICT (tenant_id,role,module,kind) DO NOTHING;
+    WHERE (v_role='admin' OR x.module<>'commercial')
+      AND NOT EXISTS (
+          SELECT 1 FROM public.internal_notification_rules current_rule
+          WHERE current_rule.tenant_id=p_tenant_id
+            AND current_rule.trigger_type=x.kind
+            AND current_rule.target_role=v_role
+            AND COALESCE(current_rule.area,'*')=COALESCE(x.module,'*')
+      );
 
     DELETE FROM public.internal_notifications n
     WHERE n.tenant_id=p_tenant_id AND n.user_id=v_user
       AND n.dismissed_at IS NULL AND n.fingerprint LIKE 'f5:%'
       AND NOT EXISTS (
           SELECT 1 FROM private.f5_attention_items(p_tenant_id,v_role) a
-          JOIN public.internal_notification_rules r ON r.tenant_id=p_tenant_id AND r.role=v_role
-              AND r.module=a.module AND r.kind=a.kind AND r.enabled
+          JOIN public.internal_notification_rules r ON r.tenant_id=p_tenant_id AND r.target_role=v_role
+              AND r.area=a.module AND r.trigger_type=a.kind AND r.is_enabled
           WHERE (v_role='admin' OR a.module IN ('operations','documents','finance'))
             AND n.fingerprint='f5:'||a.kind||':'||a.entity_type||':'||a.entity_id||':'||COALESCE(a.due_at::date::text,'current')
       );
 
     INSERT INTO public.internal_notifications(
-        tenant_id,user_id,fingerprint,module,kind,priority,title,body,route,
-        entity_type,entity_id,occurred_at,due_at
+        tenant_id,user_id,fingerprint,area,trigger_type,priority,icon,title,body,route,
+        related_entity_type,related_entity_id,status,first_seen_at,last_seen_at,due_at,metadata
     )
     SELECT p_tenant_id,v_user,
            'f5:'||a.kind||':'||a.entity_type||':'||a.entity_id||':'||COALESCE(a.due_at::date::text,'current'),
-           a.module,a.kind,r.priority,a.title,a.subtitle,a.route,a.entity_type,a.entity_id,a.occurred_at,a.due_at
+           a.module,a.kind,r.priority,
+           CASE WHEN r.priority IN ('critical','high') THEN 'warning' ELSE 'info' END,
+           a.title,a.subtitle,a.route,a.entity_type,a.entity_id::text,'unread',a.occurred_at,now(),a.due_at,
+           jsonb_build_object('occurred_at',a.occurred_at)
     FROM private.f5_attention_items(p_tenant_id,v_role) a
-    JOIN public.internal_notification_rules r ON r.tenant_id=p_tenant_id AND r.role=v_role
-        AND r.module=a.module AND r.kind=a.kind AND r.enabled
+    JOIN public.internal_notification_rules r ON r.tenant_id=p_tenant_id AND r.target_role=v_role
+        AND r.area=a.module AND r.trigger_type=a.kind AND r.is_enabled
     WHERE v_role='admin' OR a.module IN ('operations','documents','finance')
     ON CONFLICT (tenant_id,user_id,fingerprint) DO UPDATE SET
-        priority=EXCLUDED.priority,title=EXCLUDED.title,body=EXCLUDED.body,route=EXCLUDED.route,
-        occurred_at=EXCLUDED.occurred_at,due_at=EXCLUDED.due_at;
+        area=EXCLUDED.area,trigger_type=EXCLUDED.trigger_type,priority=EXCLUDED.priority,
+        icon=EXCLUDED.icon,title=EXCLUDED.title,body=EXCLUDED.body,route=EXCLUDED.route,
+        related_entity_type=EXCLUDED.related_entity_type,related_entity_id=EXCLUDED.related_entity_id,
+        last_seen_at=EXCLUDED.last_seen_at,due_at=EXCLUDED.due_at,metadata=EXCLUDED.metadata;
 
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RETURN jsonb_build_object('success',true,'refreshed',v_count);
@@ -464,14 +536,17 @@ BEGIN
     v_role := private.f5_current_role(p_tenant_id);
     IF v_role NOT IN ('admin','finance') THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
     SELECT COALESCE(jsonb_agg(to_jsonb(n) ORDER BY n.created_at DESC),'[]'::jsonb) INTO v_items
-    FROM (SELECT id,module,kind,priority,title,body,route,entity_type,entity_id,occurred_at,due_at,read_at,created_at
+    FROM (SELECT id,area AS module,trigger_type AS kind,priority,title,body,route,
+                 related_entity_type AS entity_type,related_entity_id AS entity_id,
+                 COALESCE(NULLIF(metadata->>'occurred_at','')::timestamptz,first_seen_at) AS occurred_at,
+                 due_at,read_at,first_seen_at AS created_at
           FROM public.internal_notifications
-          WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND dismissed_at IS NULL
-            AND (NOT COALESCE(p_unread_only,false) OR read_at IS NULL)
-          ORDER BY created_at DESC LIMIT v_limit) n;
+          WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND status<>'dismissed'
+            AND (NOT COALESCE(p_unread_only,false) OR status='unread')
+          ORDER BY first_seen_at DESC LIMIT v_limit) n;
     RETURN jsonb_build_object('items',v_items,'unread_count',(
         SELECT count(*) FROM public.internal_notifications
-        WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND dismissed_at IS NULL AND read_at IS NULL
+        WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND status='unread'
     ));
 END;
 $function$;
@@ -484,7 +559,7 @@ AS $function$
 BEGIN
     IF private.f5_current_role(p_tenant_id) NOT IN ('admin','finance') THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
     RETURN jsonb_build_object('count',(SELECT count(*) FROM public.internal_notifications
-        WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND dismissed_at IS NULL AND read_at IS NULL));
+        WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND status='unread'));
 END;
 $function$;
 
@@ -496,8 +571,8 @@ AS $function$
 DECLARE v_count integer;
 BEGIN
     IF private.f5_current_role(p_tenant_id) NOT IN ('admin','finance') THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
-    UPDATE public.internal_notifications SET read_at=COALESCE(read_at,now())
-    WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND dismissed_at IS NULL
+    UPDATE public.internal_notifications SET status='read',read_at=COALESCE(read_at,now())
+    WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND status<>'dismissed'
       AND (p_ids IS NULL OR id=ANY(p_ids));
     GET DIAGNOSTICS v_count=ROW_COUNT;
     RETURN jsonb_build_object('success',true,'updated',v_count);
@@ -512,8 +587,25 @@ AS $function$
 DECLARE v_count integer;
 BEGIN
     IF private.f5_current_role(p_tenant_id) NOT IN ('admin','finance') THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
-    UPDATE public.internal_notifications SET dismissed_at=COALESCE(dismissed_at,now())
+    UPDATE public.internal_notifications SET status='dismissed',dismissed_at=COALESCE(dismissed_at,now())
     WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid()) AND id=p_notification_id;
+    GET DIAGNOSTICS v_count=ROW_COUNT;
+    IF v_count=0 THEN RETURN jsonb_build_object('error','not_found'); END IF;
+    RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
+-- Preserve the canonical Tanda8 one-argument signature for existing consumers.
+CREATE OR REPLACE FUNCTION public.rpc_dismiss_internal_notification(p_notification_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO pg_catalog, public
+AS $function$
+DECLARE v_count integer;
+BEGIN
+    UPDATE public.internal_notifications
+    SET status='dismissed',dismissed_at=COALESCE(dismissed_at,now())
+    WHERE id=p_notification_id AND user_id=(SELECT auth.uid());
     GET DIAGNOSTICS v_count=ROW_COUNT;
     IF v_count=0 THEN RETURN jsonb_build_object('error','not_found'); END IF;
     RETURN jsonb_build_object('success',true);
@@ -641,6 +733,7 @@ REVOKE EXECUTE ON FUNCTION public.rpc_list_internal_notifications(uuid,integer,b
 REVOKE EXECUTE ON FUNCTION public.rpc_get_internal_notification_unread_count(uuid) FROM PUBLIC,anon,service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_mark_internal_notifications_read(uuid,uuid[]) FROM PUBLIC,anon,service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_dismiss_internal_notification(uuid,uuid) FROM PUBLIC,anon,service_role;
+REVOKE EXECUTE ON FUNCTION public.rpc_dismiss_internal_notification(uuid) FROM PUBLIC,anon,service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_global_search(uuid,text,integer) FROM PUBLIC,anon,service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_list_saved_views(uuid,text) FROM PUBLIC,anon,service_role;
 REVOKE EXECUTE ON FUNCTION public.rpc_save_view(uuid,jsonb) FROM PUBLIC,anon,service_role;
@@ -653,6 +746,7 @@ GRANT EXECUTE ON FUNCTION public.rpc_list_internal_notifications(uuid,integer,bo
 GRANT EXECUTE ON FUNCTION public.rpc_get_internal_notification_unread_count(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_mark_internal_notifications_read(uuid,uuid[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_dismiss_internal_notification(uuid,uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_dismiss_internal_notification(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_global_search(uuid,text,integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_list_saved_views(uuid,text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rpc_save_view(uuid,jsonb) TO authenticated;

@@ -15,6 +15,19 @@ ALTER TABLE public.internal_notifications
     ADD COLUMN IF NOT EXISTS escalated_at timestamptz,
     ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 
+-- F7 extends the canonical Tanda8/F5 discriminator; it does not add a parallel
+-- kind column.
+ALTER TABLE public.internal_notifications DROP CONSTRAINT IF EXISTS internal_notifications_trigger_check;
+ALTER TABLE public.internal_notifications
+    ADD CONSTRAINT internal_notifications_trigger_check CHECK (trigger_type IN (
+        'daily_control_critical','daily_control_high','daily_control_overdue','invoice_due','fiscal_workbench','payroll_pending',
+        'blocking_incident','delivered_without_pod','dispatch_blocker','required_document_missing','billing_blocked',
+        'ar_overdue','ap_overdue','finance_due_soon','quote_in_review','quote_pending_conversion',
+        'operation_dispatch_blocked','operation_blocking_incident','operation_missing_document','operation_pod_missing',
+        'operation_billing_blocked','operation_stale','quote_review_stale','quote_approved_not_converted',
+        'finance_due_today'
+    ));
+
 DO $constraints$
 BEGIN
     IF NOT EXISTS (
@@ -630,7 +643,7 @@ BEGIN
            COALESCE(n.escalation_level,0) AS prior_escalation_level,
            CASE
              WHEN n.id IS NOT NULL AND n.resolved_at IS NULL
-              AND p_now>=COALESCE(n.first_seen_at,n.created_at)+private.f7_interval(
+              AND p_now>=n.first_seen_at+private.f7_interval(
                   COALESCE(NULLIF(c.escalation_config->>'delay_value','')::integer,0),
                   COALESCE(NULLIF(c.escalation_config->>'delay_unit',''),'hours')
               )
@@ -654,8 +667,8 @@ BEGIN
     FROM private.f7_recipient_candidates WHERE evaluation_id=v_evaluation_id;
 
     INSERT INTO public.internal_notifications (
-        tenant_id,user_id,fingerprint,module,kind,priority,title,body,route,
-        entity_type,entity_id,occurred_at,due_at,automation_rule_id,
+        tenant_id,user_id,fingerprint,area,trigger_type,priority,icon,title,body,route,
+        related_entity_type,related_entity_id,status,due_at,automation_rule_id,
         automation_rule_code,is_automated,first_seen_at,last_seen_at,
         resolved_at,escalation_level,escalated_at,metadata
     )
@@ -663,16 +676,19 @@ BEGIN
            CASE WHEN c.next_escalation_level>0
                 THEN COALESCE(NULLIF(c.escalation_config->>'severity',''),c.severity)
                 ELSE c.severity END,
-           c.title,c.body,c.route,c.entity_type,c.entity_id,c.occurred_at,c.due_at,
+           CASE WHEN c.severity IN ('critical','high') THEN 'warning' ELSE 'info' END,
+           c.title,c.body,c.route,c.entity_type,c.entity_id::text,'unread',c.due_at,
            c.rule_id,c.code,true,p_now,p_now,NULL,c.next_escalation_level,
            CASE WHEN c.next_escalation_level>0 THEN p_now END,
-           c.metadata||jsonb_build_object('automated',true,'target_role',c.target_role)
+           c.metadata||jsonb_build_object('automated',true,'target_role',c.target_role,'occurred_at',c.occurred_at)
     FROM private.f7_recipient_candidates c
     WHERE c.evaluation_id=v_evaluation_id
     ON CONFLICT (tenant_id,user_id,fingerprint) DO UPDATE SET
-        module=EXCLUDED.module,kind=EXCLUDED.kind,priority=EXCLUDED.priority,
+        area=EXCLUDED.area,trigger_type=EXCLUDED.trigger_type,priority=EXCLUDED.priority,
+        icon=EXCLUDED.icon,
         title=EXCLUDED.title,body=EXCLUDED.body,route=EXCLUDED.route,
-        occurred_at=EXCLUDED.occurred_at,due_at=EXCLUDED.due_at,
+        related_entity_type=EXCLUDED.related_entity_type,
+        related_entity_id=EXCLUDED.related_entity_id,due_at=EXCLUDED.due_at,
         automation_rule_id=EXCLUDED.automation_rule_id,
         automation_rule_code=EXCLUDED.automation_rule_code,is_automated=true,
         first_seen_at=CASE WHEN public.internal_notifications.resolved_at IS NOT NULL
@@ -687,6 +703,10 @@ BEGIN
             WHEN public.internal_notifications.resolved_at IS NOT NULL
               OR EXCLUDED.escalation_level>public.internal_notifications.escalation_level THEN NULL
             ELSE public.internal_notifications.read_at END,
+        status=CASE
+            WHEN public.internal_notifications.resolved_at IS NOT NULL
+              OR EXCLUDED.escalation_level>public.internal_notifications.escalation_level THEN 'unread'
+            ELSE public.internal_notifications.status END,
         dismissed_at=CASE
             WHEN public.internal_notifications.resolved_at IS NOT NULL
               OR EXCLUDED.escalation_level>public.internal_notifications.escalation_level THEN NULL
@@ -694,7 +714,7 @@ BEGIN
         metadata=EXCLUDED.metadata;
 
     UPDATE public.internal_notifications n
-    SET resolved_at=p_now,last_seen_at=p_now,read_at=COALESCE(n.read_at,p_now)
+    SET resolved_at=p_now,last_seen_at=p_now,status='read',read_at=COALESCE(n.read_at,p_now)
     WHERE n.tenant_id=p_tenant_id AND n.is_automated AND n.resolved_at IS NULL
       AND (p_target_user_id IS NULL OR n.user_id=p_target_user_id)
       AND NOT EXISTS (
@@ -769,9 +789,9 @@ BEGIN
         ORDER BY m.user_id
     LOOP
         SELECT COALESCE(jsonb_agg(jsonb_build_object(
-            'id',n.id,'module',n.module,'rule_code',n.automation_rule_code,
+            'id',n.id,'module',n.area,'rule_code',n.automation_rule_code,
             'priority',n.priority,'title',n.title,'body',n.body,'route',n.route,
-            'entity_type',n.entity_type,'entity_id',n.entity_id,
+            'entity_type',n.related_entity_type,'entity_id',n.related_entity_id,
             'first_seen_at',n.first_seen_at,'escalation_level',n.escalation_level
         ) ORDER BY
             CASE n.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
@@ -780,7 +800,7 @@ BEGIN
         FROM public.internal_notifications n
         JOIN public.automation_rules r ON r.id=n.automation_rule_id
         WHERE n.tenant_id=p_tenant_id AND n.user_id=v_member.user_id
-          AND n.is_automated AND n.resolved_at IS NULL AND n.dismissed_at IS NULL
+          AND n.is_automated AND n.resolved_at IS NULL AND n.status<>'dismissed'
           AND r.is_enabled AND r.digest_enabled;
 
         SELECT jsonb_build_object(
@@ -1053,27 +1073,29 @@ BEGIN
     IF v_role NOT IN ('admin','finance') THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
     SELECT COALESCE(jsonb_agg(to_jsonb(n) ORDER BY
         CASE n.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
-        n.last_seen_at DESC,n.created_at DESC),'[]'::jsonb)
+        n.last_seen_at DESC,n.first_seen_at DESC),'[]'::jsonb)
     INTO v_items
     FROM (
-        SELECT id,module,kind,priority,title,body,route,entity_type,entity_id,
-               occurred_at,due_at,read_at,created_at,is_automated,
+        SELECT id,area AS module,trigger_type AS kind,priority,title,body,route,
+               related_entity_type AS entity_type,related_entity_id AS entity_id,
+               COALESCE(NULLIF(metadata->>'occurred_at','')::timestamptz,first_seen_at) AS occurred_at,
+               due_at,read_at,first_seen_at AS created_at,is_automated,
                automation_rule_code,first_seen_at,last_seen_at,
                escalation_level,escalated_at,metadata
         FROM public.internal_notifications
         WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid())
-          AND dismissed_at IS NULL AND resolved_at IS NULL
-          AND (NOT COALESCE(p_unread_only,false) OR read_at IS NULL)
+          AND status<>'dismissed' AND resolved_at IS NULL
+          AND (NOT COALESCE(p_unread_only,false) OR status='unread')
         ORDER BY
             CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
-            last_seen_at DESC NULLS LAST,created_at DESC
+            last_seen_at DESC NULLS LAST,first_seen_at DESC
         LIMIT v_limit
     ) n;
     RETURN jsonb_build_object(
         'items',v_items,
         'unread_count',(SELECT count(*) FROM public.internal_notifications
             WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid())
-              AND dismissed_at IS NULL AND resolved_at IS NULL AND read_at IS NULL)
+              AND status='unread' AND resolved_at IS NULL)
     );
 END;
 $function$;
@@ -1089,7 +1111,7 @@ BEGIN
     END IF;
     RETURN jsonb_build_object('count',(SELECT count(*) FROM public.internal_notifications
         WHERE tenant_id=p_tenant_id AND user_id=(SELECT auth.uid())
-          AND dismissed_at IS NULL AND resolved_at IS NULL AND read_at IS NULL));
+          AND status='unread' AND resolved_at IS NULL));
 END;
 $function$;
 

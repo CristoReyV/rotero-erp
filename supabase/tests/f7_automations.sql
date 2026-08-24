@@ -210,26 +210,26 @@ BEGIN
     END IF;
     IF EXISTS (
         SELECT 1 FROM public.internal_notifications
-        WHERE tenant_id=v_tenant AND automation_rule_code='operation_stale' AND entity_id=v_future
+        WHERE tenant_id=v_tenant AND automation_rule_code='operation_stale' AND related_entity_id=v_future::text
     ) THEN RAISE EXCEPTION 'F7 future operation marked stale'; END IF;
     IF NOT EXISTS (
         SELECT 1 FROM public.internal_notifications
         WHERE tenant_id=v_tenant AND user_id=v_admin AND automation_rule_code='operation_stale'
-          AND entity_id=v_stale AND resolved_at IS NULL
+          AND related_entity_id=v_stale::text AND resolved_at IS NULL
     ) THEN RAISE EXCEPTION 'F7 stale operation missing'; END IF;
     IF NOT EXISTS (
         SELECT 1 FROM public.internal_notifications
         WHERE tenant_id=v_tenant AND user_id=v_admin AND automation_rule_code='ar_overdue'
-          AND entity_id=v_ar AND (metadata->>'remaining_balance')::numeric=700
+          AND related_entity_id=v_ar::text AND (metadata->>'remaining_balance')::numeric=700
     ) THEN RAISE EXCEPTION 'F7 partial AR balance failed'; END IF;
     IF (SELECT count(*) FROM public.internal_notifications WHERE tenant_id=v_tenant AND automation_rule_code='operation_pod_missing')<>2
        OR EXISTS (
            SELECT 1 FROM public.internal_notifications
-           WHERE tenant_id=v_tenant AND automation_rule_code='operation_missing_document' AND entity_id=v_pod
+           WHERE tenant_id=v_tenant AND automation_rule_code='operation_missing_document' AND related_entity_id=v_pod::text
        ) THEN RAISE EXCEPTION 'F7 POD canonical path duplicated'; END IF;
     IF EXISTS (
         SELECT 1 FROM public.internal_notifications
-        WHERE tenant_id=v_tenant AND user_id=v_finance AND module='commercial'
+        WHERE tenant_id=v_tenant AND user_id=v_finance AND area='commercial'
     ) THEN RAISE EXCEPTION 'F7 Finance Commercial leak'; END IF;
     v_result_2:=private.f7_materialize_automation_notifications(v_tenant,NULL,'scheduled',v_now);
     IF (v_result_2->>'created')::integer<>0
@@ -389,9 +389,9 @@ BEGIN
     WHERE id=current_setting('f7.review')::uuid;
     UPDATE public.crm_deals
     SET quote_status='converted',converted_operation_id=(
-        SELECT entity_id FROM public.internal_notifications
-        WHERE tenant_id=v_tenant AND entity_type='operation'
-        ORDER BY created_at LIMIT 1
+        SELECT related_entity_id::uuid FROM public.internal_notifications
+        WHERE tenant_id=v_tenant AND related_entity_type='operation'
+        ORDER BY first_seen_at LIMIT 1
     ),converted_at=v_now,updated_at=v_now
     WHERE id=current_setting('f7.approved')::uuid;
     UPDATE public.finance_invoices SET status='paid',paid_at=v_now WHERE id=current_setting('f7.ar')::uuid;
@@ -403,10 +403,10 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM public.internal_notifications
         WHERE tenant_id=v_tenant AND resolved_at IS NULL AND (
-            entity_id IN (
-                current_setting('f7.incident')::uuid,current_setting('f7.required_doc')::uuid,
-                current_setting('f7.review')::uuid,current_setting('f7.approved')::uuid,
-                current_setting('f7.ar')::uuid,current_setting('f7.ap')::uuid
+            related_entity_id IN (
+                current_setting('f7.incident'),current_setting('f7.required_doc'),
+                current_setting('f7.review'),current_setting('f7.approved'),
+                current_setting('f7.ar'),current_setting('f7.ap')
             )
             OR automation_rule_code='operation_pod_missing'
         )
