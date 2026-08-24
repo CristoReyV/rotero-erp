@@ -1,4 +1,4 @@
-import { Building2, Database, FilePlus2, FileSearch, Landmark, Search, Truck, Upload, Wallet, X } from 'lucide-react';
+import { BadgeDollarSign, Building2, Database, FilePlus2, FileSearch, Landmark, Search, Truck, Upload, Wallet, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ProductRole } from '@/constants/roles';
@@ -10,6 +10,11 @@ const adminActions:Action[]=[
     {id:'quote',label:'Nueva cotización',subtitle:'Abrir Commercial 360',route:'/commercial?view=quotes&action=new-quote',icon:FilePlus2},
     {id:'customer',label:'Nuevo cliente',subtitle:'Directorio comercial',route:'/commercial?view=clients&action=new-customer',icon:Building2},
     {id:'provider',label:'Nuevo proveedor',subtitle:'Red operativa',route:'/commercial?view=providers&action=new-provider',icon:Truck},
+    {id:'buy-rate',label:'Nueva tarifa proveedor',subtitle:'BUY · precio contratado',route:'/commercial?view=rates&action=new-buy-rate',icon:BadgeDollarSign},
+    {id:'sell-rate',label:'Nueva tarifa cliente',subtitle:'SELL · precio negociado',route:'/commercial?view=rates&action=new-sell-rate',icon:BadgeDollarSign},
+    {id:'rates',label:'Buscar tarifas',subtitle:'Carriles y versiones vigentes',route:'/commercial?view=rates',icon:Search},
+    {id:'open-customer',label:'Abrir cliente',subtitle:'Partner 360 comercial',route:'/commercial?view=clients',icon:Building2},
+    {id:'open-provider',label:'Abrir proveedor',subtitle:'Partner 360 comercial',route:'/commercial?view=providers',icon:Truck},
     {id:'ar',label:'Nueva AR',subtitle:'Cuenta por cobrar',route:'/finance?view=ar&action=new',icon:Landmark},
     {id:'ap',label:'Nueva AP',subtitle:'Cuenta por pagar',route:'/finance?view=ap&action=new',icon:Wallet},
     {id:'operations',label:'Operations',subtitle:'Control Center',route:'/operations',icon:Truck},
