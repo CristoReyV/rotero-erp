@@ -1,15 +1,158 @@
-export type RateType='BUY'|'SELL'; export type RateStatus='draft'|'active'|'archived'; export type RateCurrency='MXN'|'USD';
-export type RateChargeType='base'|'fuel'|'toll'|'handling'|'loading_unloading'|'detention'|'customs_support'|'insurance'|'other';
-export interface LanePlace{municipality:string;state:string;country:string;facility?:string}
-export interface CommercialLane{id:string;tenant_id:string;scope:'national'|'international';origin_place:LanePlace;destination_place:LanePlace;label:string;is_active:boolean}
-export interface ServiceReference{id:string;service_type:string;service_class:string;presentation:string;packaging:string;modality:string}
-export interface PartnerReference{id:string;display_name:string;is_active:boolean}
-export interface RateReferenceData{lanes:CommercialLane[];services:ServiceReference[];customers:PartnerReference[];providers:PartnerReference[]}
-export interface RateChargeInput{charge_type:RateChargeType;description:string;amount:number;unit_basis?:string}
-export interface RatePayload{rate_type:RateType;provider_id?:string;customer_id?:string;lane_id:string;service_catalog_item_id:string;reference?:string;status?:RateStatus;currency:RateCurrency;valid_from:string;valid_to?:string;minimum_amount?:number;notes?:string;transit_estimate?:string;equipment_note?:string;charges:RateChargeInput[]}
-export interface RateListItem{id:string;reference:string;rate_type:RateType;status:RateStatus;provider_id?:string;provider_name?:string;customer_id?:string;customer_name?:string;lane_id:string;lane_label:string;scope:string;service_catalog_item_id:string;service_name:string;version_id:string;version:number;currency:RateCurrency;valid_from:string;valid_to?:string;is_expired:boolean;total_amount:number}
-export interface RateVersion{id:string;version:number;currency:RateCurrency;valid_from:string;valid_to?:string;notes?:string;total_amount:number;charges:Array<RateChargeInput&{id:string;position:number}>}
-export interface Rate360{card:RateListItem;lane:CommercialLane;service:ServiceReference;counterparty:PartnerReference;versions:RateVersion[];usage:Array<{deal_id:string;quote_reference:string;selected_at:string;total_amount:number;currency:RateCurrency}>}
-export interface RateComparison{rate_card_id:string;rate_version_id:string;reference:string;provider_id:string;provider_name:string;total_amount:number;currency:RateCurrency;valid_to?:string;charges:RateVersion['charges']}
-export interface BusinessContact{id:string;name:string;contact_role:'commercial'|'operations'|'billing'|'management'|'other';email?:string;phone?:string;is_primary:boolean;is_active:boolean;notes?:string}
-export interface Partner360{customer?:Record<string,unknown>;provider?:Record<string,unknown>;contacts:BusinessContact[];rates:Record<string,unknown>[];quotes?:Record<string,unknown>[];operations:Record<string,unknown>[];finance:Record<string,unknown>[];profitability?:Record<string,unknown>[];performance?:Record<string,unknown>;health?:Record<string,unknown>;activity:Record<string,unknown>[]}
+export type RateType = "BUY" | "SELL";
+export type RateStatus = "draft" | "active" | "archived";
+export type RateCurrency = "MXN" | "USD";
+export type RateChargeType =
+  | "base"
+  | "fuel"
+  | "toll"
+  | "handling"
+  | "loading_unloading"
+  | "detention"
+  | "customs_support"
+  | "insurance"
+  | "other";
+export interface LanePlace {
+  municipality: string;
+  state: string;
+  country: string;
+  facility?: string;
+}
+export interface CommercialLane {
+  id: string;
+  tenant_id: string;
+  scope: "national" | "international";
+  origin_place: LanePlace;
+  destination_place: LanePlace;
+  label: string;
+  is_active: boolean;
+}
+export interface ServiceReference {
+  id: string;
+  service_type: string;
+  service_class: string;
+  presentation: string;
+  packaging: string;
+  modality: string;
+}
+export interface PartnerReference {
+  id: string;
+  display_name: string;
+  is_active: boolean;
+}
+export interface RateReferenceData {
+  lanes: CommercialLane[];
+  services: ServiceReference[];
+  customers: PartnerReference[];
+  providers: PartnerReference[];
+}
+export interface RateChargeInput {
+  charge_type: RateChargeType;
+  description: string;
+  amount: number;
+  unit_basis?: string;
+}
+export interface RatePayload {
+  rate_type: RateType;
+  provider_id?: string;
+  customer_id?: string;
+  lane_id: string;
+  service_catalog_item_id: string;
+  reference?: string;
+  status?: RateStatus;
+  currency: RateCurrency;
+  valid_from: string;
+  valid_to?: string;
+  minimum_amount?: number;
+  notes?: string;
+  transit_estimate?: string;
+  equipment_note?: string;
+  charges: RateChargeInput[];
+}
+export interface RateListItem {
+  id: string;
+  reference: string;
+  rate_type: RateType;
+  status: RateStatus;
+  provider_id?: string;
+  provider_name?: string;
+  customer_id?: string;
+  customer_name?: string;
+  lane_id: string;
+  lane_label: string;
+  scope: string;
+  service_catalog_item_id: string;
+  service_name: string;
+  version_id: string;
+  version: number;
+  currency: RateCurrency;
+  valid_from: string;
+  valid_to?: string;
+  is_expired: boolean;
+  total_amount: number;
+}
+export interface RateVersion {
+  id: string;
+  version: number;
+  currency: RateCurrency;
+  valid_from: string;
+  valid_to?: string;
+  notes?: string;
+  total_amount: number;
+  charges: Array<RateChargeInput & { id: string; position: number }>;
+}
+export interface Rate360 {
+  card: RateListItem;
+  lane: CommercialLane;
+  service: ServiceReference;
+  counterparty: PartnerReference;
+  versions: RateVersion[];
+  usage: Array<{
+    deal_id: string;
+    quote_reference: string;
+    selected_at: string;
+    total_amount: number;
+    currency: RateCurrency;
+  }>;
+}
+export interface RateComparison {
+  rate_card_id: string;
+  rate_version_id: string;
+  reference: string;
+  provider_id: string;
+  provider_name: string;
+  total_amount: number;
+  currency: RateCurrency;
+  valid_to?: string;
+  charges: RateVersion["charges"];
+  compliance_badge: "current" | "attention" | "blocked";
+  compliance_blocking: number;
+  compliance_reasons: Array<{ code: string; name: string; status: string }>;
+}
+export interface BusinessContact {
+  id: string;
+  name: string;
+  contact_role:
+    | "commercial"
+    | "operations"
+    | "billing"
+    | "management"
+    | "other";
+  email?: string;
+  phone?: string;
+  is_primary: boolean;
+  is_active: boolean;
+  notes?: string;
+}
+export interface Partner360 {
+  customer?: Record<string, unknown>;
+  provider?: Record<string, unknown>;
+  contacts: BusinessContact[];
+  rates: Record<string, unknown>[];
+  quotes?: Record<string, unknown>[];
+  operations: Record<string, unknown>[];
+  finance: Record<string, unknown>[];
+  profitability?: Record<string, unknown>[];
+  performance?: Record<string, unknown>;
+  health?: Record<string, unknown>;
+  activity: Record<string, unknown>[];
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, LayoutGrid, List, Map, Loader2, X, TrendingUp, Building2, FileText, Truck, BadgeDollarSign } from 'lucide-react';
+import { Plus, Search, Filter, LayoutGrid, List, Map, Loader2, X, TrendingUp, Building2, FileText, Truck, BadgeDollarSign, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { moveDeal, createDeal, listPipelineDeals } from '@/services/commercial.service';
 import type { PipelineColumn, LegacyDealItem, DealCreatePayload, DealStage } from '@/types/commercial';
@@ -9,6 +9,7 @@ import { CustomerDirectory } from '@/components/commercial/CustomerDirectory';
 import { ProviderDirectory } from '@/components/commercial/ProviderDirectory';
 import { QuoteWorkspace } from '@/components/commercial/QuoteWorkspace';
 import { RateWorkspace } from '@/components/commercial/RateWorkspace';
+import { ComplianceWorkspace } from '@/components/commercial/ComplianceWorkspace';
 import { PageHeader } from '@/components/PageHeader';
 import { SavedViewsMenu } from '@/components/productivity/SavedViewsMenu';
 import { useSearchParams } from 'react-router-dom';
@@ -415,7 +416,7 @@ const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId:
     );
 };
 
-type CommercialTab = 'pipeline' | 'clients' | 'quotes' | 'providers' | 'rates';
+type CommercialTab = 'pipeline' | 'clients' | 'quotes' | 'providers' | 'rates' | 'compliance';
 
 const TABS: Array<{ id: CommercialTab; label: string; icon: typeof TrendingUp }> = [
     { id: 'pipeline', label: 'Pipeline', icon: TrendingUp },
@@ -423,6 +424,7 @@ const TABS: Array<{ id: CommercialTab; label: string; icon: typeof TrendingUp }>
     { id: 'quotes', label: 'Cotizaciones', icon: FileText },
     { id: 'providers', label: 'Proveedores', icon: Truck },
     { id: 'rates', label: 'Tarifas', icon: BadgeDollarSign },
+    { id: 'compliance', label: 'Cumplimiento', icon: ShieldCheck },
 ];
 
 const CommercialPage = () => {
@@ -440,7 +442,7 @@ const CommercialPage = () => {
                     return <button key={tab.id} type="button" onClick={() => updateParams({view:tab.id,dealId:null,quoteId:null})} className={`flex min-w-fit items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${activeTab === tab.id ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}><Icon size={15} />{tab.label}</button>;
                 })}
             </nav>
-            {!activeTenant ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No hay una empresa activa para consultar Comercial.</div> : activeTab === 'pipeline' ? <PipelineWorkspace requestedDealId={params.get('dealId')} onDealChange={(dealId)=>updateParams({dealId})}/> : activeTab === 'clients' ? <CustomerDirectory tenantId={activeTenant} requestedCustomerId={params.get('customerId')} createRequested={params.get('action')==='new-customer'} onCustomerChange={(customerId)=>updateParams({customerId})} onCreateHandled={()=>updateParams({action:null})} /> : activeTab === 'quotes' ? <QuoteWorkspace tenantId={activeTenant} /> : activeTab === 'providers' ? <ProviderDirectory tenantId={activeTenant} requestedProviderId={params.get('providerId')} createRequested={params.get('action')==='new-provider'} onProviderChange={(providerId)=>updateParams({providerId})} onCreateHandled={()=>updateParams({action:null})} /> : <RateWorkspace tenantId={activeTenant} requestedRateId={params.get('rateId')} createType={params.get('action')==='new-buy-rate'?'BUY':params.get('action')==='new-sell-rate'?'SELL':null} onRateChange={(rateId)=>updateParams({rateId})} onCreateHandled={()=>updateParams({action:null})} />}
+            {!activeTenant ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No hay una empresa activa para consultar Comercial.</div> : activeTab === 'pipeline' ? <PipelineWorkspace requestedDealId={params.get('dealId')} onDealChange={(dealId)=>updateParams({dealId})}/> : activeTab === 'clients' ? <CustomerDirectory tenantId={activeTenant} requestedCustomerId={params.get('customerId')} createRequested={params.get('action')==='new-customer'} onCustomerChange={(customerId)=>updateParams({customerId})} onCreateHandled={()=>updateParams({action:null})} /> : activeTab === 'quotes' ? <QuoteWorkspace tenantId={activeTenant} /> : activeTab === 'providers' ? <ProviderDirectory tenantId={activeTenant} requestedProviderId={params.get('providerId')} createRequested={params.get('action')==='new-provider'} onProviderChange={(providerId)=>updateParams({providerId})} onCreateHandled={()=>updateParams({action:null})} /> : activeTab === 'rates' ? <RateWorkspace tenantId={activeTenant} requestedRateId={params.get('rateId')} createType={params.get('action')==='new-buy-rate'?'BUY':params.get('action')==='new-sell-rate'?'SELL':null} onRateChange={(rateId)=>updateParams({rateId})} onCreateHandled={()=>updateParams({action:null})} /> : <ComplianceWorkspace tenantId={activeTenant} requestedTab={params.get('tab')} requestedPartnerType={params.get('partnerType')} requestedPartnerId={params.get('partnerId')} onParams={updateParams}/>}
         </div>
     );
 };

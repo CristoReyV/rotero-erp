@@ -47,6 +47,7 @@ const OPERATION_ERROR_MESSAGES: Record<string, string> = {
     missing_provider: 'Selecciona el proveedor contratado.',
     invalid_provider: 'El proveedor no pertenece al tenant activo.',
     provider_inactive: 'El proveedor está inactivo.',
+    provider_compliance_blocked: 'El proveedor tiene bloqueos configurados de cumplimiento.',
     missing_planned_departure: 'Captura la salida planeada.',
     missing_reassignment_reason: 'Describe el motivo del cambio de asignación.',
     invalid_external_url: 'La URL debe iniciar con http:// o https://.',
@@ -66,7 +67,7 @@ function getRpcErrorMessage(code: string): string {
 }
 
 function assertRpcResult<T>(data: T | { error?: string } | null, error: { message?: string } | null): T {
-    if (error) throw new Error(error.message || 'Error de comunicación con Operations.');
+    if (error) { const code=Object.keys(OPERATION_ERROR_MESSAGES).find(key=>error.message?.includes(key)); throw new Error(code?getRpcErrorMessage(code):error.message || 'Error de comunicación con Operations.'); }
     if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
         throw new Error(getRpcErrorMessage(data.error));
     }

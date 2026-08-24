@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { useNavigate } from 'react-router-dom';
 import type { ProductRole } from '@/constants/roles';
 import { globalSearch } from '@/services/executive.service';
-import type { GlobalSearchResult } from '@/types/executive';
+import { searchCompliance } from '@/services/compliance.service';
 
 interface Action { id:string; label:string; subtitle:string; route:string; icon:typeof Search }
 const adminActions:Action[]=[
@@ -13,6 +13,7 @@ const adminActions:Action[]=[
     {id:'buy-rate',label:'Nueva tarifa proveedor',subtitle:'BUY · precio contratado',route:'/commercial?view=rates&action=new-buy-rate',icon:BadgeDollarSign},
     {id:'sell-rate',label:'Nueva tarifa cliente',subtitle:'SELL · precio negociado',route:'/commercial?view=rates&action=new-sell-rate',icon:BadgeDollarSign},
     {id:'rates',label:'Buscar tarifas',subtitle:'Carriles y versiones vigentes',route:'/commercial?view=rates',icon:Search},
+    {id:'compliance',label:'Cumplimiento y contratos',subtitle:'Matriz, vencimientos y Partner360',route:'/commercial?view=compliance',icon:FileSearch},
     {id:'open-customer',label:'Abrir cliente',subtitle:'Partner 360 comercial',route:'/commercial?view=clients',icon:Building2},
     {id:'open-provider',label:'Abrir proveedor',subtitle:'Partner 360 comercial',route:'/commercial?view=providers',icon:Truck},
     {id:'ar',label:'Nueva AR',subtitle:'Cuenta por cobrar',route:'/finance?view=ar&action=new',icon:Landmark},
@@ -33,11 +34,11 @@ const financeActions:Action[]=[
 ];
 
 export function GlobalCommandPalette({tenantId,role}:{tenantId:string|null;role:ProductRole|null}) {
-    const navigate=useNavigate(); const [open,setOpen]=useState(false); const [query,setQuery]=useState(''); const [results,setResults]=useState<GlobalSearchResult[]>([]); const [active,setActive]=useState(0); const [loading,setLoading]=useState(false); const input=useRef<HTMLInputElement>(null);
+    const navigate=useNavigate(); const [open,setOpen]=useState(false); const [query,setQuery]=useState(''); const [results,setResults]=useState<Array<{type:string;id:string;primary_label:string;secondary_label?:string;status?:string;route:string}>>([]); const [active,setActive]=useState(0); const [loading,setLoading]=useState(false); const input=useRef<HTMLInputElement>(null);
     const actions=role==='admin'?adminActions:role==='finance'?financeActions:[];
     useEffect(()=>{const key=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setOpen(true);}if(event.key==='Escape')setOpen(false);};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key);},[]);
     useEffect(()=>{if(open)window.setTimeout(()=>input.current?.focus(),0);else{setQuery('');setResults([]);setActive(0);}},[open]);
-    useEffect(()=>{if(!open||!tenantId||query.trim().length<2){setResults([]);return;}const timer=window.setTimeout(async()=>{setLoading(true);try{setResults(await globalSearch(tenantId,query.trim()));setActive(0);}finally{setLoading(false);}},250);return()=>window.clearTimeout(timer);},[open,query,tenantId]);
+    useEffect(()=>{if(!open||!tenantId||query.trim().length<2){setResults([]);return;}const timer=window.setTimeout(async()=>{setLoading(true);try{const[base,compliance]=await Promise.all([globalSearch(tenantId,query.trim()),role==='admin'?searchCompliance(tenantId,query.trim()):Promise.resolve([])]);setResults([...base,...compliance]);setActive(0);}finally{setLoading(false);}},250);return()=>window.clearTimeout(timer);},[open,query,tenantId,role]);
     const choices=useMemo(()=>[
         ...actions.map(action=>({key:`action-${action.id}`,label:action.label,subtitle:action.subtitle,route:action.route,kind:'Acción'})),
         ...results.map(result=>({key:`result-${result.type}-${result.id}`,label:result.primary_label,subtitle:result.secondary_label||result.status,route:result.route,kind:result.type})),

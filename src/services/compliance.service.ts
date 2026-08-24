@@ -1,0 +1,30 @@
+import { supabase } from '@/lib/supabase';
+import { downloadCsvContent, serializeCsv } from '@/utils/csv';
+import type { ComplianceDashboard,ComplianceExpiration,ComplianceMatrixRow,ComplianceRequirement,ComplianceSummary,PartnerComplianceBundle,PartnerContract,PartnerType,ProviderComplianceBadge } from '@/types/compliance';
+import type { AttentionItem } from '@/types/executive';
+
+const messages:Record<string,string>={unauthorized:'No tienes acceso a Cumplimiento.',invalid_payload:'Revisa los datos capturados.',invalid_partner:'El partner no pertenece al tenant activo.',invalid_requirement:'El requisito no aplica al partner.',invalid_document:'Selecciona un documento privado del expediente del partner.',invalid_contact:'El contacto responsable no corresponde al partner.',invalid_review:'La revisión requiere una decisión y motivo válido.',invalid_waiver:'La dispensa requiere motivo y vencimiento futuro.',contract_immutable:'Los contratos activos e históricos no se reescriben; usa Renovar.',invalid_contract_state:'La transición del contrato no es válida.',provider_compliance_blocked:'El proveedor tiene bloqueos configurados de cumplimiento.',missing_override_reason:'El override Admin requiere un motivo.'};
+function result<T>(data:unknown,error:{message?:string;details?:string}|null):T{if(error){const code=Object.keys(messages).find(key=>error.message?.includes(key));throw new Error(code?messages[code]:error.message||'Error de Compliance 360.')}if(data&&typeof data==='object'&&'error'in data){const code=String((data as{error:unknown}).error);throw new Error(messages[code]??code)}return data as T}
+async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{const{data,error}=await supabase.rpc(name,args);return result<T>(data,error)}
+export const listComplianceRequirements=(tenantId:string,filters:Record<string,unknown>={})=>rpc<ComplianceRequirement[]>('rpc_list_compliance_requirements',{p_tenant_id:tenantId,p_filters:filters});
+export const saveComplianceRequirement=(tenantId:string,id:string|null,payload:Record<string,unknown>)=>rpc<{id:string}>('rpc_upsert_compliance_requirement',{p_tenant_id:tenantId,p_requirement_id:id,p_payload:payload});
+export const archiveComplianceRequirement=(id:string)=>rpc<{success:boolean}>('rpc_archive_compliance_requirement',{p_requirement_id:id});
+export const getPartnerCompliance=(tenantId:string,type:PartnerType,id:string)=>rpc<PartnerComplianceBundle>('rpc_get_partner_compliance_bundle',{p_tenant_id:tenantId,p_partner_type:type,p_partner_id:id});
+export const getPartnerComplianceStatus=(tenantId:string,type:PartnerType,id:string,asOf?:string)=>rpc<ComplianceSummary>('rpc_get_partner_compliance_status',{p_tenant_id:tenantId,p_partner_type:type,p_partner_id:id,p_as_of:asOf??new Date().toISOString().slice(0,10)});
+export const listComplianceMatrix=(tenantId:string,filters:Record<string,unknown>={})=>rpc<ComplianceMatrixRow[]>('rpc_list_compliance_matrix',{p_tenant_id:tenantId,p_filters:filters});
+export const listComplianceExpirations=(tenantId:string,days:number)=>rpc<ComplianceExpiration[]>('rpc_list_compliance_expirations',{p_tenant_id:tenantId,p_days:days});
+export const submitComplianceRecord=(tenantId:string,payload:Record<string,unknown>)=>rpc<{id:string}>('rpc_submit_partner_compliance_record',{p_tenant_id:tenantId,p_payload:payload});
+export const reviewComplianceRecord=(id:string,decision:'accepted'|'rejected',note?:string)=>rpc('rpc_review_partner_compliance_record',{p_record_id:id,p_decision:decision,p_note:note??null});
+export const waivePartnerRequirement=(tenantId:string,payload:Record<string,unknown>)=>rpc<{id:string}>('rpc_waive_partner_requirement',{p_tenant_id:tenantId,p_payload:payload});
+export const savePartnerContract=(tenantId:string,id:string|null,payload:Record<string,unknown>)=>rpc<{id:string}>('rpc_upsert_partner_contract',{p_tenant_id:tenantId,p_contract_id:id,p_payload:payload});
+export const activatePartnerContract=(id:string)=>rpc('rpc_activate_partner_contract',{p_contract_id:id});
+export const renewPartnerContract=(id:string,payload:Record<string,unknown>)=>rpc<{id:string}>('rpc_renew_partner_contract',{p_contract_id:id,p_payload:payload});
+export const terminatePartnerContract=(id:string,reason:string)=>rpc('rpc_terminate_partner_contract',{p_contract_id:id,p_reason:reason});
+export const getProviderComplianceBadges=(tenantId:string,ids:string[])=>ids.length?rpc<ProviderComplianceBadge[]>('rpc_get_provider_compliance_badges',{p_tenant_id:tenantId,p_provider_ids:ids}):Promise.resolve([]);
+export const getProviderOperationalEligibility=(tenantId:string,id:string)=>rpc<{provider_id:string;eligible:boolean;badge:string;blocking:number;reasons:ProviderComplianceBadge['reasons']}>('rpc_get_provider_operational_eligibility',{p_tenant_id:tenantId,p_provider_id:id});
+export const createProviderComplianceOverride=(operationId:string,providerId:string,reason:string)=>rpc('rpc_create_provider_compliance_override',{p_operation_id:operationId,p_provider_id:providerId,p_reason:reason});
+export const getComplianceDashboard=(tenantId:string)=>rpc<ComplianceDashboard>('rpc_get_compliance_dashboard',{p_tenant_id:tenantId});
+export const listComplianceAttentionItems=(tenantId:string)=>rpc<AttentionItem[]>('rpc_list_compliance_attention_items',{p_tenant_id:tenantId});
+export const searchCompliance=(tenantId:string,query:string)=>rpc<Array<{type:string;id:string;primary_label:string;secondary_label:string;route:string}>>('rpc_search_compliance',{p_tenant_id:tenantId,p_query:query,p_limit:5});
+export async function exportPartnerCompliance(tenantId:string,filters:Record<string,unknown>={}){const rows=await rpc<Record<string,unknown>[]>('rpc_export_partner_compliance',{p_tenant_id:tenantId,p_filters:filters});const headers=['partner','type','requirement','review_status','derived_status','valid_to','warning_window','blocking','contract_reference','document_filename'];downloadCsvContent(serializeCsv(rows,headers),'cumplimiento-partners-rotero.csv')}
+export type { PartnerContract };
