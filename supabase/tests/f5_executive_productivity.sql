@@ -12,6 +12,7 @@ BEGIN
         'public.rpc_list_internal_notifications(uuid,integer,boolean)',
         'public.rpc_get_internal_notification_unread_count(uuid)',
         'public.rpc_mark_internal_notifications_read(uuid,uuid[])',
+        'public.rpc_dismiss_internal_notification(uuid)',
         'public.rpc_dismiss_internal_notification(uuid,uuid)',
         'public.rpc_global_search(uuid,text,integer)',
         'public.rpc_list_saved_views(uuid,text)',
@@ -30,6 +31,15 @@ BEGIN
         END IF;
         IF pg_get_functiondef(v_oid) ~* '\mSQLERRM\M' THEN RAISE EXCEPTION 'F5 CONTRACT FAILED: raw SQLERRM %',v_signature; END IF;
     END LOOP;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='internal_notifications'
+          AND column_name IN ('module','kind','entity_type','entity_id','occurred_at','created_at','updated_at')
+    ) THEN RAISE EXCEPTION 'F5 CONTRACT FAILED: parallel notification columns'; END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='internal_notifications' AND column_name='due_at'
+    ) THEN RAISE EXCEPTION 'F5 CONTRACT FAILED: due_at extension missing'; END IF;
     FOREACH v_table IN ARRAY ARRAY['internal_notification_rules','internal_notifications','user_saved_views'] LOOP
         IF to_regclass('public.'||v_table) IS NULL OR NOT EXISTS(SELECT 1 FROM pg_class WHERE oid=to_regclass('public.'||v_table) AND relrowsecurity) THEN
             RAISE EXCEPTION 'F5 CONTRACT FAILED: table/RLS %',v_table;
