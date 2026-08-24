@@ -4,6 +4,7 @@ import { getCommercialErrorMessage, getCustomer360, listCustomers, upsertCustome
 import type { CommercialCurrency, Customer, Customer360, CustomerPayload } from '@/types/commercial';
 import { formatCommercialCurrency } from '@/utils/commercialCalculations';
 import { EntityDocumentsPanel } from '@/components/documents/EntityDocumentsPanel';
+import { Partner360Panel } from '@/components/commercial/Partner360Panel';
 
 const EMPTY_FORM: CustomerPayload = {
     display_name: '',
@@ -165,7 +166,7 @@ export function CustomerDirectory({ tenantId, requestedCustomerId, createRequest
                 </aside>
             </div>
 
-            {selected && <EntityDocumentsPanel tenantId={tenantId} sourceModule="commercial" entityType="customer" entityId={selected.customer.id} title="Documentos del cliente" />}
+            {selected && <><Partner360Panel tenantId={tenantId} entityType="customer" entityId={selected.customer.id}/><EntityDocumentsPanel tenantId={tenantId} sourceModule="commercial" entityType="customer" entityId={selected.customer.id} title="Documentos del cliente" /></>}
             {modalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm">
                     <form onSubmit={submit} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">

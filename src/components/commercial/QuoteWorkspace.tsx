@@ -12,6 +12,8 @@ import { relateQuoteDocumentsToOperation } from '@/services/documents.service';
 import { BulkActionBar } from '@/components/productivity/BulkActionBar';
 import { recordDataAction } from '@/services/dataOperations.service';
 import { downloadCsvContent, serializeCsv } from '@/utils/csv';
+import { QuoteRateComparison } from '@/components/commercial/QuoteRateComparison';
+import { MarginTargetCalculator } from '@/components/commercial/MarginTargetCalculator';
 
 const STATUS_META: Record<QuoteStatus, { label: string; className: string }> = {
     draft: { label: 'Borrador', className: 'bg-slate-100 text-slate-600' },
@@ -189,6 +191,8 @@ export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
                 <aside className="rounded-2xl border bg-white p-5">{!selected ? <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-slate-400"><FileText /><p className="text-sm">Selecciona una cotización para revisar economía y seguimiento.</p></div> : <QuoteDetail quote={selected} busy={busy} onEdit={() => openEdit(selected)} onDuplicate={() => void duplicate()} onPrint={() => window.print()} onTransition={(next, message) => void changeStatus(next, message)} onConvert={() => void convert()} onOpenOperation={() => selected.converted_operation_reference && navigate(`/operations?view=all&operation=${encodeURIComponent(selected.converted_operation_reference)}`)} />}</aside>
             </div>
             {selected && <EntityDocumentsPanel tenantId={tenantId} sourceModule="commercial" entityType="quote" entityId={selected.id} title="Archivos de cotización" allowOperationalTransfer />}
+            {selected && <QuoteRateComparison tenantId={tenantId} quote={selected} onApplied={load}/>}
+            {selected && <MarginTargetCalculator quote={selected}/>}
             {selected && <PrintableQuote quote={selected} />}
             {modalOpen && <QuoteModal form={form} setForm={setForm} customers={customers} providers={providers} opportunities={opportunities} editing={Boolean(editingId)} busy={busy} margin={formMargin} onClose={() => setModalOpen(false)} onSubmit={submit} />}
         </div>
