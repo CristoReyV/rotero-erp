@@ -96,9 +96,11 @@ DECLARE
     v_incident uuid; v_required_doc uuid; v_pod uuid;
     v_review uuid; v_approved uuid;
     v_ar uuid; v_ap uuid; v_today uuid; v_soon uuid;
-    v_now timestamptz:='2026-08-24 06:30:00+00';
+    v_now timestamptz:=clock_timestamp();
+    v_business_date date;
     v_result jsonb; v_result_2 jsonb;
 BEGIN
+    v_business_date:=(v_now AT TIME ZONE 'America/Tijuana')::date;
     INSERT INTO auth.users(instance_id,id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) VALUES
       ('00000000-0000-0000-0000-000000000000',v_admin,'authenticated','authenticated','f7-admin@example.invalid',now(),'{}','{}',now(),now()),
       ('00000000-0000-0000-0000-000000000000',v_finance,'authenticated','authenticated','f7-finance@example.invalid',now(),'{}','{}',now(),now()),
@@ -177,24 +179,24 @@ BEGIN
     INSERT INTO public.finance_invoices(
         tenant_id,direction,counterparty_name,reference,amount,currency,status,due_date,customer_id,operation_id,created_at
     ) VALUES (
-        v_tenant,'ar','Cliente F7','AR-F7',1000,'MXN','open',DATE '2026-08-20',v_customer,v_delivered,v_now-interval '10 days'
+        v_tenant,'ar','Cliente F7','AR-F7',1000,'MXN','open',v_business_date-4,v_customer,v_delivered,v_now-interval '10 days'
     ) RETURNING id INTO v_ar;
     INSERT INTO public.finance_payments(tenant_id,invoice_id,amount,currency,paid_at,created_by)
       VALUES(v_tenant,v_ar,300,'MXN',v_now-interval '1 day',v_admin);
     INSERT INTO public.finance_invoices(
         tenant_id,direction,counterparty_name,reference,amount,currency,status,due_date,provider_id,operation_id,created_at
     ) VALUES (
-        v_tenant,'ap','Proveedor F7','AP-F7',500,'MXN','open',DATE '2026-08-19',v_provider,v_delivered,v_now-interval '10 days'
+        v_tenant,'ap','Proveedor F7','AP-F7',500,'MXN','open',v_business_date-5,v_provider,v_delivered,v_now-interval '10 days'
     ) RETURNING id INTO v_ap;
     INSERT INTO public.finance_invoices(
         tenant_id,direction,counterparty_name,reference,amount,currency,status,due_date,customer_id,created_at
     ) VALUES (
-        v_tenant,'ar','Cliente hoy F7','TODAY-F7',250,'MXN','open',DATE '2026-08-23',v_customer,v_now-interval '2 days'
+        v_tenant,'ar','Cliente hoy F7','TODAY-F7',250,'MXN','open',v_business_date,v_customer,v_now-interval '2 days'
     ) RETURNING id INTO v_today;
     INSERT INTO public.finance_invoices(
         tenant_id,direction,counterparty_name,reference,amount,currency,status,due_date,provider_id,created_at
     ) VALUES (
-        v_tenant,'ap','Proveedor pronto F7','SOON-F7',350,'MXN','open',DATE '2026-08-27',v_provider,v_now-interval '2 days'
+        v_tenant,'ap','Proveedor pronto F7','SOON-F7',350,'MXN','open',v_business_date+4,v_provider,v_now-interval '2 days'
     ) RETURNING id INTO v_soon;
 
     PERFORM private.f7_seed_rules(v_tenant);
@@ -241,7 +243,7 @@ BEGIN
     IF (SELECT count(*) FROM public.automation_daily_digests WHERE tenant_id=v_tenant)<>2
        OR EXISTS (
            SELECT 1 FROM public.automation_daily_digests
-           WHERE tenant_id=v_tenant AND business_date<>DATE '2026-08-23'
+           WHERE tenant_id=v_tenant AND business_date<>v_business_date
        ) THEN RAISE EXCEPTION 'F7 digest idempotency/timezone failed'; END IF;
     IF EXISTS (
         SELECT 1 FROM public.automation_daily_digests d,
@@ -264,6 +266,7 @@ BEGIN
     PERFORM set_config('f7.today',v_today::text,true);
     PERFORM set_config('f7.soon',v_soon::text,true);
     PERFORM set_config('f7.now',v_now::text,true);
+    PERFORM set_config('f7.business_date',v_business_date::text,true);
 END;
 $fixtures$;
 
@@ -303,7 +306,8 @@ BEGIN
         RAISE EXCEPTION 'F7 health failed %',v_result;
     END IF;
     v_result:=public.rpc_get_daily_digest(v_tenant);
-    IF v_result->'digest' IS NULL OR v_result->>'business_date'<>'2026-08-23' THEN
+    IF v_result->'digest' IS NULL
+       OR v_result->>'business_date'<>current_setting('f7.business_date') THEN
         RAISE EXCEPTION 'F7 Admin digest failed %',v_result;
     END IF;
     v_result:=public.rpc_list_internal_notifications(v_tenant,100,false);
