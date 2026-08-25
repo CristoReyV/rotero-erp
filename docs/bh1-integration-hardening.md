@@ -21,7 +21,7 @@ Finance remains limited to Dashboard, read-only Operations, contextual Documents
 
 ## Findings and fixes
 
-Triage: **P0 1 / P1 5 / P2 4 / P3 2**.
+Triage: **P0 1 / P1 5 / P2 6 / P3 2** (**4 P2 fixed / 2 P2 deferred**).
 
 - **P0 fixed — executable stale mutations.** Staging had active Commercial note/checklist and Customs descargo mutations plus old overloads with default PUBLIC execution, mutable search paths and raw `SQLERRM`. BH1 makes active ACLs authenticated-only, revokes obsolete overloads from every API role, sets safe paths and returns stable safe codes.
 - **P1 fixed — staging schema/RPC drift.** Seven active F1/F6 RPCs referenced canonical `contact_*` fields while staging retained `primary_contact_*`. A non-destructive compatibility surface backfills existing values and restores list/upsert/quote/import/export without changing identities.
