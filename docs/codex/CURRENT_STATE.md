@@ -32,17 +32,20 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 
 ## Producto
 
-- F1–F7: merged en `main`; migraciones aplicadas y verificadas en Supabase staging.
-- F3–F7: activos en Netlify staging sobre el mismo `main` verificado.
-- F7: `pg_cron` instalado; jobs hourly y daily digest activos con sus schedules canónicos.
+- F1–F10: merged en `main`; migraciones aplicadas y verificadas en Supabase staging.
+- F3–F10: activos en Netlify staging sobre el mismo `main` verificado.
+- F8 Rates/Partner360, F9 Compliance/Contracts y F10 Claims/Customer Service: staging PASS mediante el release acumulado R3.
+- F7: `pg_cron` instalado y saludable; conserva exactamente los jobs hourly y daily digest con sus schedules canónicos.
 - R2.2: completado con backup lógico POST_F4_PRE_F5 restaurable y verificado.
-- QA visual/manual de F1–F7: pendiente; el smoke HTTP de staging está aprobado.
+- R3: completado con backup lógico PRE_F8_F10 restaurable y verificado; rollout DB, deploy staging y smoke HTTP aprobados.
+- QA visual/manual de F1–F10: pendiente; el smoke HTTP de staging está aprobado.
 
 ## Límites vigentes
 
-- Producción: sin cambios durante R2.2.
-- Auth, Edge Functions y llaves: sin cambios durante R2.2.
+- Producción: sin cambios durante R3.
+- Auth, Edge Functions y llaves: sin cambios durante R3.
 - Runtime Finance: sigue pendiente de una credencial legítima.
-- SEC.4: no fue modificado por R2.2; conserva su carril activo.
+- Tracking M4: permanece CLOSED / PASS, sin cambios de capacidades durante R3.
+- SEC.4: no fue modificado por R3; conserva su carril activo.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
