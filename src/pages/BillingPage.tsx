@@ -137,6 +137,14 @@ const BillingPage = () => {
     }, [query]);
 
     useEffect(() => {
+        const cfdiId=searchParams.get('cfdiId');
+        if(cfdiId&&cfdis.some((item)=>item.db_id===cfdiId)&&selectedCfdiId!==cfdiId){
+            setSelectedCfdiId(cfdiId);
+            void loadDetail(cfdiId);
+        }
+    },[cfdis,loadDetail,searchParams,selectedCfdiId]);
+
+    useEffect(() => {
         void loadCFDIs();
         return () => {
             listRequestId.current += 1;
@@ -168,6 +176,7 @@ const BillingPage = () => {
 
     const openDetail = (cfdiId: string) => {
         setSelectedCfdiId(cfdiId);
+        const nextParams=new URLSearchParams(searchParams);nextParams.set('cfdiId',cfdiId);setSearchParams(nextParams,{replace:true});
         void loadDetail(cfdiId);
     };
 
@@ -176,6 +185,7 @@ const BillingPage = () => {
         setSelectedCfdiId(null);
         setSelectedDetail(null);
         setDetailError(null);
+        const nextParams=new URLSearchParams(searchParams);nextParams.delete('cfdiId');setSearchParams(nextParams,{replace:true});
     };
 
     if (!canViewBilling) {

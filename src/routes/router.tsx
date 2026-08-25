@@ -1,40 +1,34 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { AppLayout } from '@/layout/AppLayout';
 import { AuthGuard } from '@/components/AuthGuard';
 import { RoleGuard } from '@/components/RoleGuard';
-import DashboardPage from '@/pages/DashboardPage';
-import OperationsPage from '@/pages/OperationsPage';
-import InventoryPage from '@/pages/InventoryPage';
-import CustomsPage from '@/pages/CustomsPage';
-import BillingPage from '@/pages/BillingPage';
-import FinancePage from '@/pages/FinancePage';
-import CommercialPage from '@/pages/CommercialPage';
-import DocumentsPage from '@/pages/DocumentsPage';
-import DataOperationsPage from '@/pages/DataOperationsPage';
-import TrackingPage from '@/pages/TrackingPage';
-import TrackingPublicPage from '@/pages/TrackingPublicPage';
-import DriverTrackingPage from '@/pages/DriverTrackingPage';
-import ReportsPage from '@/pages/ReportsPage';
-import SecurityPage from '@/pages/SecurityPage';
-import SecurityUsersPage from '@/pages/SecurityUsersPage';
-import SecurityAuditPage from '@/pages/SecurityAuditPage';
-import SettingsPage from '@/pages/SettingsPage';
-import AutomationsPage from '@/pages/AutomationsPage';
-import ClaimsPage from '@/pages/ClaimsPage';
-import LoginPage from '@/pages/LoginPage';
 import { ROTERO_ENABLED_ROLES } from '@/constants/roles';
+
+const DashboardPage=lazy(()=>import('@/pages/DashboardPage')); const OperationsPage=lazy(()=>import('@/pages/OperationsPage'));
+const InventoryPage=lazy(()=>import('@/pages/InventoryPage')); const CustomsPage=lazy(()=>import('@/pages/CustomsPage'));
+const BillingPage=lazy(()=>import('@/pages/BillingPage')); const FinancePage=lazy(()=>import('@/pages/FinancePage'));
+const CommercialPage=lazy(()=>import('@/pages/CommercialPage')); const DocumentsPage=lazy(()=>import('@/pages/DocumentsPage'));
+const DataOperationsPage=lazy(()=>import('@/pages/DataOperationsPage')); const TrackingPage=lazy(()=>import('@/pages/TrackingPage'));
+const TrackingPublicPage=lazy(()=>import('@/pages/TrackingPublicPage')); const DriverTrackingPage=lazy(()=>import('@/pages/DriverTrackingPage'));
+const ReportsPage=lazy(()=>import('@/pages/ReportsPage')); const SecurityPage=lazy(()=>import('@/pages/SecurityPage'));
+const SecurityUsersPage=lazy(()=>import('@/pages/SecurityUsersPage')); const SecurityAuditPage=lazy(()=>import('@/pages/SecurityAuditPage'));
+const SettingsPage=lazy(()=>import('@/pages/SettingsPage')); const AutomationsPage=lazy(()=>import('@/pages/AutomationsPage'));
+const ClaimsPage=lazy(()=>import('@/pages/ClaimsPage')); const LoginPage=lazy(()=>import('@/pages/LoginPage'));
+
+const page=(element:ReactNode)=><Suspense fallback={<div className="p-10 text-center text-sm text-slate-400">Cargando módulo…</div>}>{element}</Suspense>;
 
 export const router = createBrowserRouter([
     {
         path: '/login',
-        element: <LoginPage />
+        element: page(<LoginPage />)
     },
     {
         path: '/',
         children: [
             {
                 index: true,
-                element: <LoginPage />
+                element: page(<LoginPage />)
             },
             {
                 element: <AuthGuard />,
@@ -45,32 +39,32 @@ export const router = createBrowserRouter([
                             {
                                 element: <RoleGuard allowedRoles={ROTERO_ENABLED_ROLES} />,
                                 children: [
-                                    { path: 'dashboard', element: <DashboardPage /> },
-                                    { path: 'operations', element: <OperationsPage /> },
-                                    { path: 'billing', element: <BillingPage /> },
-                                    { path: 'finance', element: <FinancePage /> },
-                                    { path: 'reports', element: <ReportsPage /> },
-                                    { path: 'documents', element: <DocumentsPage /> },
+                                    { path: 'dashboard', element: page(<DashboardPage />) },
+                                    { path: 'operations', element: page(<OperationsPage />) },
+                                    { path: 'billing', element: page(<BillingPage />) },
+                                    { path: 'finance', element: page(<FinancePage />) },
+                                    { path: 'reports', element: page(<ReportsPage />) },
+                                    { path: 'documents', element: page(<DocumentsPage />) },
                                 ]
                             },
                             {
                                 element: <RoleGuard allowedRoles={['admin']} />,
                                 children: [
-                                    { path: 'inventory', element: <InventoryPage /> },
-                                    { path: 'customs', element: <CustomsPage /> },
-                                    { path: 'commercial', element: <CommercialPage /> },
-                                    { path: 'claims', element: <ClaimsPage /> },
-                                    { path: 'data', element: <DataOperationsPage /> },
-                                    { path: 'tracking', element: <TrackingPage /> },
+                                    { path: 'inventory', element: page(<InventoryPage />) },
+                                    { path: 'customs', element: page(<CustomsPage />) },
+                                    { path: 'commercial', element: page(<CommercialPage />) },
+                                    { path: 'claims', element: page(<ClaimsPage />) },
+                                    { path: 'data', element: page(<DataOperationsPage />) },
+                                    { path: 'tracking', element: page(<TrackingPage />) },
                                     {
                                         path: 'security',
-                                        element: <SecurityPage />,
+                                        element: page(<SecurityPage />),
                                         children: [
                                             { index: true, element: <Navigate to="users" replace /> },
-                                            { path: 'users', element: <SecurityUsersPage /> },
-                                            { path: 'audit', element: <SecurityAuditPage /> },
-                                            { path: 'settings', element: <SettingsPage /> },
-                                            { path: 'automations', element: <AutomationsPage /> },
+                                            { path: 'users', element: page(<SecurityUsersPage />) },
+                                            { path: 'audit', element: page(<SecurityAuditPage />) },
+                                            { path: 'settings', element: page(<SettingsPage />) },
+                                            { path: 'automations', element: page(<AutomationsPage />) },
                                         ]
                                     },
                                 ]
@@ -84,11 +78,11 @@ export const router = createBrowserRouter([
     },
     {
         path: '/t/:token',
-        element: <TrackingPublicPage />
+        element: page(<TrackingPublicPage />)
     },
     {
         path: '/driver/:token',
-        element: <DriverTrackingPage />
+        element: page(<DriverTrackingPage />)
     },
     {
         path: '/invite/:token',
@@ -96,10 +90,10 @@ export const router = createBrowserRouter([
     },
     {
         path: '/demo/public/:token',
-        element: <TrackingPublicPage />
+        element: page(<TrackingPublicPage />)
     },
     {
         path: '/demo/driver/:token',
-        element: <DriverTrackingPage />
+        element: page(<DriverTrackingPage />)
     }
 ]);

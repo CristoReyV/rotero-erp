@@ -7,7 +7,7 @@ const panel = readFileSync('src/components/operations/Operation360Panel.tsx', 'u
 const assignment = readFileSync('src/components/operations/AssignmentDrawer.tsx', 'utf8');
 const nav = readFileSync('src/constants/nav.ts', 'utf8');
 
-assert.match(router, /path: 'operations', element: <OperationsPage/);
+assert.match(router, /path: 'operations', element: page\(<OperationsPage/);
 assert.match(page, /<OperationsTable/);
 assert.match(page, /<Operation360Panel/);
 assert.match(page, /canManage=\{canManageOperations\}/);
