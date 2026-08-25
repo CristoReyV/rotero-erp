@@ -64,15 +64,15 @@ export async function uploadDocumentFile(input: UploadDocumentInput, onProgress?
 
     onProgress?.('registering');
     return registerWithCompensation(async () => {
-        const { data, error } = await supabase.rpc('rpc_register_document_file', {
-            p_tenant_id: input.tenantId,
-            p_payload: {
+        const payload = {
                 storage_path: storagePath, file_name: input.file.name, mime_type: input.file.type,
                 size_bytes: input.file.size, checksum_sha256: checksum, file_kind: input.fileKind,
                 source_module: input.sourceModule, source_entity_type: input.entityType,
                 source_entity_id: input.entityId, notes: input.notes, metadata: input.metadata ?? {},
-            },
-        });
+        };
+        const { data, error } = input.entityType === 'claim'
+            ? await supabase.rpc('rpc_register_claim_document', { p_claim_id: input.entityId, p_payload: payload })
+            : await supabase.rpc('rpc_register_document_file', { p_tenant_id: input.tenantId, p_payload: payload });
         return rpcResult<DocumentFile>(data, error);
     }, async () => {
         const { error } = await supabase.storage.from(contract.bucket).remove([storagePath]);

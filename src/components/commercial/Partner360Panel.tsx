@@ -18,6 +18,7 @@ import {
 } from "@/services/rates.service";
 import type { Partner360 } from "@/types/rates";
 import { PartnerCompliancePanel } from "@/components/commercial/PartnerCompliancePanel";
+import { PartnerClaimsPanel } from "@/components/claims/PartnerClaimsPanel";
 type Tab =
   | "summary"
   | "contacts"
@@ -28,7 +29,8 @@ type Tab =
   | "performance"
   | "activity"
   | "compliance"
-  | "contracts";
+  | "contracts"
+  | "claims";
 const tabs: Record<"customer" | "provider", Array<[Tab, string]>> = {
   customer: [
     ["summary", "Resumen"],
@@ -39,6 +41,7 @@ const tabs: Record<"customer" | "provider", Array<[Tab, string]>> = {
     ["rates", "Tarifas"],
     ["compliance", "Cumplimiento"],
     ["contracts", "Contratos"],
+    ["claims", "Reclamaciones"],
     ["activity", "Actividad"],
   ],
   provider: [
@@ -50,6 +53,7 @@ const tabs: Record<"customer" | "provider", Array<[Tab, string]>> = {
     ["performance", "Desempeño"],
     ["compliance", "Cumplimiento"],
     ["contracts", "Contratos"],
+    ["claims", "Reclamaciones"],
     ["activity", "Actividad"],
   ],
 };
@@ -212,6 +216,7 @@ export function Partner360Panel({
           initialTab={tab}
         />
       )}
+      {tab === "claims" && <PartnerClaimsPanel tenantId={tenantId} entityType={entityType} entityId={entityId} />}
       {tab === "activity" && (
         <List rows={data.activity} empty="Sin actividad registrada." />
       )}

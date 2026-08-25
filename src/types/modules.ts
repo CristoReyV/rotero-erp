@@ -6,6 +6,7 @@ export type Module =
     | 'billing'
     | 'finance'
     | 'commercial'
+    | 'claims'
     | 'documents'
     | 'data'
     | 'reports'

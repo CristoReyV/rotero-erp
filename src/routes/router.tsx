@@ -20,6 +20,7 @@ import SecurityUsersPage from '@/pages/SecurityUsersPage';
 import SecurityAuditPage from '@/pages/SecurityAuditPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AutomationsPage from '@/pages/AutomationsPage';
+import ClaimsPage from '@/pages/ClaimsPage';
 import LoginPage from '@/pages/LoginPage';
 import { ROTERO_ENABLED_ROLES } from '@/constants/roles';
 
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
                                     { path: 'inventory', element: <InventoryPage /> },
                                     { path: 'customs', element: <CustomsPage /> },
                                     { path: 'commercial', element: <CommercialPage /> },
+                                    { path: 'claims', element: <ClaimsPage /> },
                                     { path: 'data', element: <DataOperationsPage /> },
                                     { path: 'tracking', element: <TrackingPage /> },
                                     {

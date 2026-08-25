@@ -133,7 +133,7 @@ function RuleCard({ rule, saving, onChange, onSave }: {
     onChange: <K extends keyof AutomationRule>(id: string, key: K, value: AutomationRule[K]) => void;
     onSave: (rule: AutomationRule) => Promise<void>;
 }) {
-    const roleLocked = rule.module === 'commercial' || rule.module === 'finance';
+    const roleLocked = rule.module === 'commercial' || rule.module === 'finance' || rule.module === 'claims';
     return <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
