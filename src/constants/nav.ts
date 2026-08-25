@@ -11,6 +11,7 @@ import {
     MapPin,
     Files,
     Database,
+    MessageSquareWarning,
 } from 'lucide-react';
 import type { Module } from '@/types/modules';
 
@@ -29,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
     { path: '/billing', icon: FileText, label: 'Facturación', module: 'billing' },
     { path: '/finance', icon: Wallet, label: 'Finanzas', module: 'finance' },
     { path: '/commercial', icon: Users, label: 'Comercial', module: 'commercial' },
+    { path: '/claims', icon: MessageSquareWarning, label: 'Reclamaciones', module: 'claims' },
     { path: '/documents', icon: Files, label: 'Documentos', module: 'documents' },
     { path: '/data', icon: Database, label: 'Datos / Importación', module: 'data' },
     { path: '/tracking', icon: MapPin, label: 'Tracking & GPS', module: 'tracking' },
@@ -44,6 +46,7 @@ export const ROUTE_TITLES: Record<string, string> = {
     '/billing': 'Facturación y CFDI 4.0',
     '/finance': 'Finanzas operativas',
     '/commercial': 'Comercial y CRM',
+    '/claims': 'Claims & Customer Service 360',
     '/documents': 'Documents 360',
     '/data': 'Data Operations 360',
     '/tracking': 'Tracking y GPS',

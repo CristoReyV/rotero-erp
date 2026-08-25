@@ -1,5 +1,5 @@
-export type DocumentSourceModule = 'operations' | 'commercial' | 'billing' | 'finance' | 'documents';
-export type DocumentEntityType = 'operation' | 'quote' | 'customer' | 'provider' | 'billing_document' | 'generated_document' | 'finance_invoice';
+export type DocumentSourceModule = 'operations' | 'commercial' | 'billing' | 'finance' | 'documents' | 'claims';
+export type DocumentEntityType = 'operation' | 'quote' | 'customer' | 'provider' | 'billing_document' | 'generated_document' | 'finance_invoice' | 'claim';
 export type DocumentFileKind = 'generated_pdf' | 'fiscal_xml' | 'fiscal_pdf' | 'provider_upload' | 'operation_evidence' | 'supporting_file' | 'html_snapshot';
 export type DocumentFileStatus = 'active' | 'superseded' | 'cancelled';
 export type GeneratedDocumentStatus = 'draft' | 'final' | 'cancelled';

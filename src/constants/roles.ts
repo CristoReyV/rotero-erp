@@ -26,6 +26,7 @@ const ALL_MODULES: readonly Module[] = [
     'billing',
     'finance',
     'commercial',
+    'claims',
     'documents',
     'data',
     'tracking',
@@ -68,7 +69,7 @@ export function canProductRoleManageModule(role: ProductRole | null, module: Mod
     return role !== null && PRODUCT_ROLE_MANAGED_MODULES[role].includes(module);
 }
 
-export function canProductRoleManageDocumentContext(role: ProductRole | null, sourceModule: 'operations' | 'commercial' | 'billing' | 'finance' | 'documents'): boolean {
+export function canProductRoleManageDocumentContext(role: ProductRole | null, sourceModule: 'operations' | 'commercial' | 'billing' | 'finance' | 'documents' | 'claims'): boolean {
     if (role === 'admin') return true;
     if (role === 'finance') return ['operations', 'billing', 'finance'].includes(sourceModule);
     if (role === 'operator') return ['operations', 'commercial', 'documents'].includes(sourceModule);

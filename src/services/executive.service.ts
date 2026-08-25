@@ -71,16 +71,28 @@ export async function globalSearch(tenantId: string, query: string, limit = 5): 
 }
 
 export async function listSavedViews(tenantId: string, module: ProductivityModule): Promise<SavedView[]> {
+    if (module === 'claims') {
+        const { data, error } = await supabase.rpc('rpc_list_claim_saved_views', { p_tenant_id: tenantId });
+        return assertResult<SavedView[]>(data, error);
+    }
     const { data, error } = await supabase.rpc('rpc_list_saved_views', { p_tenant_id: tenantId, p_module: module });
     return assertResult<{ items: SavedView[] }>(data, error).items;
 }
 
 export async function saveView(tenantId: string, payload: SaveViewPayload): Promise<SavedView> {
+    if (payload.module === 'claims') {
+        const { data, error } = await supabase.rpc('rpc_save_claim_view', { p_tenant_id: tenantId, p_view_id: payload.id ?? null, p_payload: payload });
+        return assertResult<SavedView>(data, error);
+    }
     const { data, error } = await supabase.rpc('rpc_save_view', { p_tenant_id: tenantId, p_payload: payload });
     return assertResult<SavedView>(data, error);
 }
 
-export async function deleteSavedView(tenantId: string, viewId: string): Promise<void> {
+export async function deleteSavedView(tenantId: string, viewId: string, module?: ProductivityModule): Promise<void> {
+    if (module === 'claims') {
+        const { data, error } = await supabase.rpc('rpc_delete_claim_view', { p_tenant_id: tenantId, p_view_id: viewId });
+        assertResult(data, error); return;
+    }
     const { data, error } = await supabase.rpc('rpc_delete_saved_view', { p_tenant_id: tenantId, p_view_id: viewId });
     assertResult(data, error);
 }

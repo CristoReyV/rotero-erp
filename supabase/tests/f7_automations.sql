@@ -201,8 +201,9 @@ BEGIN
 
     PERFORM private.f7_seed_rules(v_tenant);
     PERFORM private.f7_seed_rules(v_tenant);
-    IF (SELECT count(*) FROM public.automation_rules WHERE tenant_id=v_tenant)<>12 THEN
-        RAISE EXCEPTION 'F7 default seed not idempotent';
+    IF (SELECT count(*) FROM public.automation_rules WHERE tenant_id=v_tenant)<>16
+       OR (SELECT count(*) FROM public.automation_rules WHERE tenant_id=v_tenant AND code IN ('claim_first_response_overdue','claim_resolution_overdue','claim_action_overdue','critical_claim_open'))<>4 THEN
+        RAISE EXCEPTION 'F7 + F9 + F10 default seed not idempotent';
     END IF;
     v_result:=private.f7_materialize_automation_notifications(v_tenant,NULL,'scheduled',v_now);
     IF v_result->>'success'<>'true' OR (v_result->>'created')::integer<16 THEN
@@ -278,12 +279,16 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub',current_setting('f7.admin'),true);
     PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('f7.admin'),'role','authenticated')::text,true);
     v_result:=public.rpc_list_automation_rules(v_tenant);
-    IF jsonb_array_length(v_result->'items')<>16
+    IF jsonb_array_length(v_result->'items')<>20
        OR NOT EXISTS (
            SELECT 1 FROM jsonb_array_elements(v_result->'items') x
            WHERE x->>'code' IN ('partner_document_expiring','partner_document_expired','partner_contract_expiring','rate_expiring')
            HAVING count(*)=4
-       ) THEN RAISE EXCEPTION 'F7 + F9 Admin rules list failed %',v_result; END IF;
+       ) OR NOT EXISTS (
+           SELECT 1 FROM jsonb_array_elements(v_result->'items') x
+           WHERE x->>'code' IN ('claim_first_response_overdue','claim_resolution_overdue','claim_action_overdue','critical_claim_open')
+           HAVING count(*)=4
+       ) THEN RAISE EXCEPTION 'F7 + F9 + F10 Admin rules list failed %',v_result; END IF;
     SELECT (x->>'id')::uuid INTO v_rule
     FROM jsonb_array_elements(v_result->'items') x WHERE x->>'code'='operation_stale';
     v_result:=public.rpc_update_automation_rule(v_tenant,v_rule,jsonb_build_object(

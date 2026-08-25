@@ -2,7 +2,7 @@ import type { ProductRole } from '@/constants/roles';
 
 export type ExecutiveDatePreset = 'today' | '7d' | '30d' | 'month' | 'year' | 'custom';
 export type AttentionSeverity = 'critical' | 'high' | 'medium' | 'low';
-export type ProductivityModule = 'operations' | 'commercial' | 'documents' | 'finance';
+export type ProductivityModule = 'operations' | 'commercial' | 'documents' | 'finance' | 'claims';
 
 export interface AttentionItem {
     kind: string;
@@ -93,7 +93,7 @@ export interface NotificationFeed {
 }
 
 export interface GlobalSearchResult {
-    type: 'operation' | 'customer' | 'provider' | 'quote' | 'document' | 'finance_invoice';
+    type: 'operation' | 'customer' | 'provider' | 'quote' | 'document' | 'finance_invoice' | 'claim';
     id: string;
     primary_label: string;
     secondary_label: string;
