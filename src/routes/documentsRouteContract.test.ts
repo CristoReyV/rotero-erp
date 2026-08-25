@@ -4,7 +4,7 @@ import { canProductRoleAccessModule, canProductRoleManageModule } from '@/consta
 
 const router = readFileSync('src/routes/router.tsx', 'utf8');
 const nav = readFileSync('src/constants/nav.ts', 'utf8');
-assert.match(router, /path: 'documents', element: <DocumentsPage \/>/);
+assert.match(router, /path: 'documents', element: page\(<DocumentsPage \/>\)/);
 assert.match(nav, /path: '\/documents'.*module: 'documents'/);
 assert.equal(canProductRoleAccessModule('admin', 'documents'), true);
 assert.equal(canProductRoleAccessModule('finance', 'documents'), true);

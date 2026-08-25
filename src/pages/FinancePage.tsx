@@ -35,6 +35,8 @@ const isTab = (value: string | null): value is FinanceTab => TABS.some((tab) => 
 export default function FinancePage() {
     const tenantId = useAuthStore((state) => state.activeTenant); const role = useAuthStore((state) => state.getRole());
     const canView = canAccessRoteroModule(role, 'finance'); const [params,setParams]=useSearchParams(); const requested=params.get('view'); const tab:FinanceTab=isTab(requested)?requested:'overview';
+    const customerId=params.get('customerId');const providerId=params.get('providerId');const partnerId=tab==='ar'?customerId:tab==='ap'?providerId:null;
+    const partnerName=params.get('counterpartyName')??'';const suggestedTerms=Math.max(0,Number(params.get('suggestedTerms')??0)||0);
     const [overview,setOverview]=useState<Overview|null>(null); const [invoices,setInvoices]=useState<FinanceInvoice[]>([]); const [payments,setPayments]=useState<FinancePayment[]>([]);
     const [alerts,setAlerts]=useState<FinanceDueAlert[]>([]); const [profitability,setProfitability]=useState<FinanceProfitability|null>(null); const [operations,setOperations]=useState<Operation[]>([]);
     const [search,setSearch]=useState(''); const [status,setStatus]=useState<InvoiceStatus|''>(''); const [currency,setCurrency]=useState<FinanceCurrency|''>(''); const [daysAhead,setDaysAhead]=useState(14);
@@ -42,9 +44,9 @@ export default function FinancePage() {
     const [bulkIds,setBulkIds]=useState<Set<string>>(new Set());
 
     const load=useCallback(async()=>{if(!tenantId||!canView)return;setLoading(true);setError(null);try{const direction:InvoiceDirection|undefined=tab==='ar'?'ar':tab==='ap'?'ap':undefined;const [nextOverview,nextInvoices,nextPayments,nextAlerts,nextProfitability,nextOperations]=await Promise.all([
-        getFinanceOverview(tenantId), listFinanceInvoices(tenantId,{direction,search:search||undefined,status:status||undefined,currency:currency||undefined,limit:200}),
+        getFinanceOverview(tenantId), listFinanceInvoices(tenantId,{direction,search:search||undefined,status:status||undefined,currency:currency||undefined,customer_id:tab==='ar'?customerId||undefined:undefined,provider_id:tab==='ap'?providerId||undefined:undefined,limit:200}),
         listFinancePayments(tenantId,{limit:200}), listFinanceDueAlerts(tenantId,{days_ahead:daysAhead}), getFinanceProfitability(tenantId), listOperations(tenantId),
-    ]);setOverview(nextOverview);setInvoices(nextInvoices);setPayments(nextPayments);setAlerts(nextAlerts);setProfitability(nextProfitability);setOperations(nextOperations);}catch(cause){setError(cause instanceof Error?cause.message:'No fue posible cargar Finance 360.');}finally{setLoading(false);}},[tenantId,canView,tab,search,status,currency,daysAhead]);
+    ]);setOverview(nextOverview);setInvoices(nextInvoices);setPayments(nextPayments);setAlerts(nextAlerts);setProfitability(nextProfitability);setOperations(nextOperations);}catch(cause){setError(cause instanceof Error?cause.message:'No fue posible cargar Finance 360.');}finally{setLoading(false);}},[tenantId,canView,tab,search,status,currency,daysAhead,customerId,providerId]);
     useEffect(()=>{void load();},[load]);
     useEffect(()=>{const invoiceId=params.get('invoiceId');if(invoiceId){const invoice=invoices.find(item=>item.id===invoiceId);if(invoice)setSelected(invoice);}const action=params.get('action');if(action==='new'&&(tab==='ar'||tab==='ap')){setCreating(tab);const next=new URLSearchParams(params);next.delete('action');setParams(next,{replace:true});}},[invoices,params,setParams,tab]);
     const changeTab=(value:FinanceTab)=>{const next=new URLSearchParams(params);next.set('view',value);next.delete('invoiceId');setParams(next);setStatus('');setCurrency('');setSearch('');setBulkIds(new Set());};
@@ -69,6 +71,6 @@ export default function FinancePage() {
             {tab==='due'&&<DueAlertsPanel items={alerts} daysAhead={daysAhead} onDaysAhead={setDaysAhead} onOpen={openById}/>}
             {tab==='profitability'&&<ProfitabilityWorkspace data={profitability}/>}
         </>}
-        {tenantId&&<FinanceInvoiceDrawer tenantId={tenantId} invoice={selected} onClose={()=>{setSelected(null);const next=new URLSearchParams(params);next.delete('invoiceId');setParams(next,{replace:true});}} onPay={(invoice)=>{setSelected(null);setPaying(invoice);}} onChanged={()=>void load()}/>} {tenantId&&<PaymentDrawer tenantId={tenantId} invoice={paying} onClose={()=>setPaying(null)} onSaved={()=>{setPaying(null);void load();}}/>} {tenantId&&creating&&<InvoiceCreateModal tenantId={tenantId} direction={creating} operations={operations} onClose={()=>setCreating(null)} onSaved={()=>{setCreating(null);void load();}}/>}
+        {tenantId&&<FinanceInvoiceDrawer tenantId={tenantId} invoice={selected} onClose={()=>{setSelected(null);const next=new URLSearchParams(params);next.delete('invoiceId');setParams(next,{replace:true});}} onPay={(invoice)=>{setSelected(null);setPaying(invoice);}} onChanged={()=>void load()}/>} {tenantId&&<PaymentDrawer tenantId={tenantId} invoice={paying} onClose={()=>setPaying(null)} onSaved={()=>{setPaying(null);void load();}}/>} {tenantId&&creating&&<InvoiceCreateModal tenantId={tenantId} direction={creating} operations={operations} partnerId={partnerId} partnerName={partnerName} suggestedTerms={suggestedTerms} onClose={()=>setCreating(null)} onSaved={()=>{setCreating(null);void load();}}/>}
     </div>;
 }

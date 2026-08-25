@@ -106,6 +106,7 @@ export function Partner360Panel({
   const entity =
     (entityType === "customer" ? data.customer : data.provider) ?? {};
   const days = Number(entity.payment_terms_days ?? 0);
+  const partnerName = encodeURIComponent(String(entity.display_name ?? ""));
   return (
     <section className="space-y-4 rounded-2xl border bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -117,13 +118,13 @@ export function Partner360Panel({
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            to={`/commercial?view=${entityType === "customer" ? "quotes" : "rates"}&${entityType}Id=${entityId}`}
+            to={`/commercial?view=${entityType === "customer" ? "quotes" : "rates"}&action=${entityType === "customer" ? "new-quote" : "new-buy-rate"}&${entityType}Id=${entityId}`}
             className="rounded-lg border px-3 py-2 text-xs font-bold"
           >
             {entityType === "customer" ? "Nueva cotización" : "Nueva tarifa"}
           </Link>
           <Link
-            to={`/finance?view=${entityType === "customer" ? "ar" : "ap"}&${entityType}_id=${entityId}&suggested_terms=${days}`}
+            to={`/finance?view=${entityType === "customer" ? "ar" : "ap"}&action=new&${entityType}Id=${entityId}&counterpartyName=${partnerName}&suggestedTerms=${days}`}
             className="rounded-lg border px-3 py-2 text-xs font-bold"
           >
             Nueva {entityType === "customer" ? "AR" : "AP"}

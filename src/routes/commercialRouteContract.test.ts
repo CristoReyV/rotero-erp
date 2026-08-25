@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('./router.tsx', import.meta.url), 'utf8');
 const adminGuard = source.indexOf("allowedRoles={['admin']}");
-const commercialRoute = source.indexOf("{ path: 'commercial', element: <CommercialPage /> }");
+const commercialRoute = source.indexOf("{ path: 'commercial', element: page(<CommercialPage />) }");
 const publicTrackingRoute = source.indexOf("path: '/t/:token'");
 const driverTrackingRoute = source.indexOf("path: '/driver/:token'");
 

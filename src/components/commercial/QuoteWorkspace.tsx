@@ -41,7 +41,7 @@ const EMPTY_QUOTE: QuoteFormState = {
     origin_municipality: '', origin_state: '', origin_country: 'MX', destination_municipality: '', destination_state: '', destination_country: 'MX',
 };
 
-export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
+export function QuoteWorkspace({ tenantId, requestedCustomerId }: { tenantId: string; requestedCustomerId?: string|null }) {
     const navigate = useNavigate();
     const [params,setParams]=useSearchParams(); const requestedQuoteId=params.get('quoteId');
     const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -80,9 +80,9 @@ export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
     }, [search, status, tenantId, requestedQuoteId]);
 
     useEffect(() => { void load(); }, [load]);
-    useEffect(() => { if (params.get('action') === 'new-quote') { openCreate(); const next=new URLSearchParams(params);next.delete('action');setParams(next,{replace:true}); } }, [params, setParams]);
+    useEffect(() => { if (params.get('action') === 'new-quote') { openCreate(requestedCustomerId); const next=new URLSearchParams(params);next.delete('action');setParams(next,{replace:true}); } }, [params, requestedCustomerId, setParams]);
 
-    const openCreate = () => { setEditingId(null); setForm(EMPTY_QUOTE); setModalOpen(true); setError(null); };
+    const openCreate = (customerId?:unknown) => { setEditingId(null); setForm({...EMPTY_QUOTE,customer_id:typeof customerId==='string'?customerId:''}); setModalOpen(true); setError(null); };
     const openEdit = (quote: Quote) => {
         const payload = quote.quote_payload;
         setEditingId(quote.id);
@@ -181,7 +181,7 @@ export function QuoteWorkspace({ tenantId }: { tenantId: string }) {
             <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 lg:flex-row lg:items-center">
                 <form onSubmit={(event) => { event.preventDefault(); void load(); }} className="flex min-w-0 flex-1 gap-2"><div className="relative min-w-0 flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar referencia, cliente, proveedor u oportunidad" className="w-full rounded-xl border bg-slate-50 py-2.5 pl-9 pr-3 text-sm" /></div><button className="rounded-xl border px-4 text-xs font-bold text-slate-600">Buscar</button></form>
                 <select value={status} onChange={(event) => setStatus(event.target.value as QuoteStatus | 'all')} className="rounded-xl border bg-white px-3 py-2.5 text-xs font-semibold"><option value="all">Todos los estados</option>{Object.entries(STATUS_META).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}</select>
-                <button onClick={openCreate} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white"><Plus size={15} /> Nueva cotización</button>
+                <button onClick={()=>openCreate()} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white"><Plus size={15} /> Nueva cotización</button>
             </div>
             {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
             {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
