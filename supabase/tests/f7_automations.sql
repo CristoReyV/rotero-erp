@@ -278,7 +278,12 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub',current_setting('f7.admin'),true);
     PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('f7.admin'),'role','authenticated')::text,true);
     v_result:=public.rpc_list_automation_rules(v_tenant);
-    IF jsonb_array_length(v_result->'items')<>12 THEN RAISE EXCEPTION 'F7 Admin rules list failed %',v_result; END IF;
+    IF jsonb_array_length(v_result->'items')<>16
+       OR NOT EXISTS (
+           SELECT 1 FROM jsonb_array_elements(v_result->'items') x
+           WHERE x->>'code' IN ('partner_document_expiring','partner_document_expired','partner_contract_expiring','rate_expiring')
+           HAVING count(*)=4
+       ) THEN RAISE EXCEPTION 'F7 + F9 Admin rules list failed %',v_result; END IF;
     SELECT (x->>'id')::uuid INTO v_rule
     FROM jsonb_array_elements(v_result->'items') x WHERE x->>'code'='operation_stale';
     v_result:=public.rpc_update_automation_rule(v_tenant,v_rule,jsonb_build_object(

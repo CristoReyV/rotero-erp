@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, CalendarDays, FileCheck2, Loader2, RefreshCw, Wallet } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, CalendarDays, FileCheck2, Loader2, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AttentionCenter } from '@/components/executive/AttentionCenter';
 import { ExecutiveKpiGrid } from '@/components/executive/ExecutiveKpiGrid';
 import { RecentActivity } from '@/components/executive/RecentActivity';
 import { DailyDigestCard } from '@/components/productivity/DailyDigestCard';
 import { getExecutiveDashboard } from '@/services/executive.service';
+import { getComplianceDashboard, listComplianceAttentionItems } from '@/services/compliance.service';
 import { useAuthStore } from '@/store/authStore';
 import type { ExecutiveDashboard, ExecutiveDatePreset } from '@/types/executive';
+import type { ComplianceDashboard } from '@/types/compliance';
 
 const presets:Array<{value:ExecutiveDatePreset;label:string}>=[
     {value:'today',label:'Hoy'},{value:'7d',label:'7 días'},{value:'30d',label:'30 días'},
@@ -35,7 +37,8 @@ export default function DashboardPage(){
     const tenantId=useAuthStore(state=>state.activeTenant); const role=useAuthStore(state=>state.getRole()); const navigate=useNavigate(); const [params,setParams]=useSearchParams();
     const requested=params.get('range'); const preset:ExecutiveDatePreset=isPreset(requested)?requested:'month'; const from=params.get('from'); const to=params.get('to');
     const [data,setData]=useState<ExecutiveDashboard|null>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
-    const load=useCallback(async()=>{if(!tenantId)return;setLoading(true);setError(null);try{const range=resolveRange(preset,from,to);setData(await getExecutiveDashboard(tenantId,range.start,range.end));}catch(cause){setError(cause instanceof Error?cause.message:'No fue posible cargar Executive Dashboard.');}finally{setLoading(false);}},[tenantId,preset,from,to]);
+    const [compliance,setCompliance]=useState<ComplianceDashboard|null>(null);
+    const load=useCallback(async()=>{if(!tenantId)return;setLoading(true);setError(null);try{const range=resolveRange(preset,from,to);const[dashboard,complianceSummary,complianceAttention]=await Promise.all([getExecutiveDashboard(tenantId,range.start,range.end),role==='admin'?getComplianceDashboard(tenantId):Promise.resolve(null),role==='admin'?listComplianceAttentionItems(tenantId):Promise.resolve([])]);setData({...dashboard,attention:[...complianceAttention,...dashboard.attention]});setCompliance(complianceSummary);}catch(cause){setError(cause instanceof Error?cause.message:'No fue posible cargar Executive Dashboard.');}finally{setLoading(false);}},[tenantId,preset,from,to,role]);
     useEffect(()=>{void load();},[load]);
     const setPreset=(value:ExecutiveDatePreset)=>{const next=new URLSearchParams(params);next.set('range',value);if(value!=='custom'){next.delete('from');next.delete('to');}setParams(next,{replace:true});};
     const setDate=(key:'from'|'to',value:string)=>{const next=new URLSearchParams(params);next.set('range','custom');if(value)next.set(key,value);else next.delete(key);setParams(next,{replace:true});};
@@ -47,11 +50,12 @@ export default function DashboardPage(){
             <DailyDigestCard tenantId={tenantId}/>
             <ExecutiveKpiGrid dashboard={data}/>
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,.85fr)]"><AttentionCenter items={data.attention}/><RecentActivity items={data.recent_activity}/></div>
-            <div className={`grid gap-4 ${data.commercial?'xl:grid-cols-4':'xl:grid-cols-3'}`}>
+            <div className={`grid gap-4 ${data.commercial?'xl:grid-cols-5':'xl:grid-cols-3'}`}>
                 <Summary icon={BriefcaseBusiness} title="Operations" route="/operations" onOpen={navigate} rows={[["En tránsito",data.operations.in_transit],["Entregadas",data.operations.delivered],["Bloqueos",data.operations.dispatch_blockers]]}/>
                 {data.commercial&&<Summary icon={ArrowRight} title="Commercial" route="/commercial?view=quotes" onOpen={navigate} rows={[["En revisión",data.commercial.in_review],["Por convertir",data.commercial.pending_conversion],["Conversión real",`${data.commercial.conversion_rate}%`]]}/>}
                 <Summary icon={Wallet} title="Finance" route="/finance" onOpen={navigate} rows={[["AR vencida",money(data.finance.ar_overdue)],["AP vencida",money(data.finance.ap_overdue)],["Vence pronto",data.finance.due_soon]]}/>
                 <Summary icon={FileCheck2} title="Documents" route="/documents?view=operations" onOpen={navigate} rows={[["Requeridos faltantes",data.documents.required_missing],["POD pendientes",data.documents.pod_pending],["Facturación bloqueada",data.operations.billing_blocked]]}/>
+                {role==='admin'&&compliance&&<Summary icon={ShieldCheck} title="Compliance" route="/commercial?view=compliance" onOpen={navigate} rows={[["Proveedores bloqueados",compliance.blocked_providers],["Documentos 30d",compliance.documents_expiring_30d],["Contratos 30d",compliance.contracts_expiring_30d]]}/>}
             </div>
         </>}
     </div>;

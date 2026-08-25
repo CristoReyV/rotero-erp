@@ -1,18 +1,188 @@
-import{ supabase }from'@/lib/supabase';import type{BusinessContact,CommercialLane,Partner360,Rate360,RateComparison,RateListItem,RatePayload,RateReferenceData}from'@/types/rates';
-function result<T>(data:unknown,error:{message?:string}|null):T{if(error)throw new Error(error.message||'rpc_error');if(data&&typeof data==='object'&&'error'in data)throw new Error(String((data as{error:string}).error));return data as T}
-export async function listRateReferenceData(tenantId:string){const{data,error}=await supabase.rpc('rpc_list_rate_reference_data',{p_tenant_id:tenantId});return result<RateReferenceData>(data,error)}
-export async function listRates(tenantId:string,filters:Record<string,unknown>={}){const{data,error}=await supabase.rpc('rpc_list_rates',{p_tenant_id:tenantId,p_filters:filters});return result<RateListItem[]>(data,error)}
-export async function getRate360(rateId:string){const{data,error}=await supabase.rpc('rpc_get_rate_360',{p_rate_card_id:rateId});return result<Rate360>(data,error)}
-export async function upsertLane(tenantId:string,laneId:string|null,payload:Pick<CommercialLane,'scope'|'origin_place'|'destination_place'>){const{data,error}=await supabase.rpc('rpc_upsert_lane',{p_tenant_id:tenantId,p_lane_id:laneId,p_payload:payload});return result<{id:string}>(data,error)}
-export async function createRate(tenantId:string,payload:RatePayload){const{data,error}=await supabase.rpc('rpc_create_rate',{p_tenant_id:tenantId,p_payload:payload});return result<{id:string;version_id:string}>(data,error)}
-export async function createRateVersion(rateId:string,payload:Omit<RatePayload,'rate_type'|'provider_id'|'customer_id'|'lane_id'|'service_catalog_item_id'>){const{data,error}=await supabase.rpc('rpc_create_rate_version',{p_rate_card_id:rateId,p_payload:payload});return result<{id:string;version_id:string;version:number}>(data,error)}
-export async function archiveRate(rateId:string){const{data,error}=await supabase.rpc('rpc_archive_rate',{p_rate_card_id:rateId});return result<{success:boolean}>(data,error)}
-export async function duplicateRate(rateId:string){const{data,error}=await supabase.rpc('rpc_duplicate_rate',{p_rate_card_id:rateId});return result<{id:string}>(data,error)}
-export async function compareProviderRates(tenantId:string,filters:{lane_id:string;service_catalog_item_id:string;operational_date:string;currency:string}){const{data,error}=await supabase.rpc('rpc_compare_provider_rates',{p_tenant_id:tenantId,p_filters:filters});return result<RateComparison[]>(data,error)}
-export async function applyRateToQuote(dealId:string,versionId:string){const{data,error}=await supabase.rpc('rpc_apply_rate_to_quote',{p_deal_id:dealId,p_rate_version_id:versionId});return result<{success:boolean;total_amount:number;currency:string}>(data,error)}
-export async function listPartnerContacts(tenantId:string,entityType:'customer'|'provider',entityId:string){const{data,error}=await supabase.rpc('rpc_list_partner_contacts',{p_tenant_id:tenantId,p_entity_type:entityType,p_entity_id:entityId});return result<BusinessContact[]>(data,error)}
-export async function upsertBusinessContact(tenantId:string,contactId:string|null,payload:Record<string,unknown>){const{data,error}=await supabase.rpc('rpc_upsert_business_contact',{p_tenant_id:tenantId,p_contact_id:contactId,p_payload:payload});return result<{id:string}>(data,error)}
-export async function getCustomerPartner360(id:string){const{data,error}=await supabase.rpc('rpc_get_customer_partner_360',{p_customer_id:id});return result<Partner360>(data,error)}
-export async function getProvider360(id:string){const{data,error}=await supabase.rpc('rpc_get_provider_360',{p_provider_id:id});return result<Partner360>(data,error)}
-export async function updatePartnerTerms(tenantId:string,entityType:'customer'|'provider',entityId:string,days:number){const{data,error}=await supabase.rpc('rpc_update_partner_terms',{p_tenant_id:tenantId,p_entity_type:entityType,p_entity_id:entityId,p_payment_terms_days:days});return result<{success:boolean}>(data,error)}
-export async function exportRates(tenantId:string,filters:Record<string,unknown>={}){const{data,error}=await supabase.rpc('rpc_export_rates',{p_tenant_id:tenantId,p_filters:filters});return result<Record<string,unknown>[]>(data,error)}
+import { supabase } from "@/lib/supabase";
+import type {
+  BusinessContact,
+  CommercialLane,
+  Partner360,
+  Rate360,
+  RateComparison,
+  RateListItem,
+  RatePayload,
+  RateReferenceData,
+} from "@/types/rates";
+function result<T>(data: unknown, error: { message?: string } | null): T {
+  if (error) throw new Error(error.message || "rpc_error");
+  if (data && typeof data === "object" && "error" in data)
+    throw new Error(String((data as { error: string }).error));
+  return data as T;
+}
+export async function listRateReferenceData(tenantId: string) {
+  const { data, error } = await supabase.rpc("rpc_list_rate_reference_data", {
+    p_tenant_id: tenantId,
+  });
+  return result<RateReferenceData>(data, error);
+}
+export async function listRates(
+  tenantId: string,
+  filters: Record<string, unknown> = {},
+) {
+  const { data, error } = await supabase.rpc("rpc_list_rates", {
+    p_tenant_id: tenantId,
+    p_filters: filters,
+  });
+  return result<RateListItem[]>(data, error);
+}
+export async function getRate360(rateId: string) {
+  const { data, error } = await supabase.rpc("rpc_get_rate_360", {
+    p_rate_card_id: rateId,
+  });
+  return result<Rate360>(data, error);
+}
+export async function upsertLane(
+  tenantId: string,
+  laneId: string | null,
+  payload: Pick<CommercialLane, "scope" | "origin_place" | "destination_place">,
+) {
+  const { data, error } = await supabase.rpc("rpc_upsert_lane", {
+    p_tenant_id: tenantId,
+    p_lane_id: laneId,
+    p_payload: payload,
+  });
+  return result<{ id: string }>(data, error);
+}
+export async function createRate(tenantId: string, payload: RatePayload) {
+  const { data, error } = await supabase.rpc("rpc_create_rate", {
+    p_tenant_id: tenantId,
+    p_payload: payload,
+  });
+  return result<{ id: string; version_id: string }>(data, error);
+}
+export async function createRateVersion(
+  rateId: string,
+  payload: Omit<
+    RatePayload,
+    | "rate_type"
+    | "provider_id"
+    | "customer_id"
+    | "lane_id"
+    | "service_catalog_item_id"
+  >,
+) {
+  const { data, error } = await supabase.rpc("rpc_create_rate_version", {
+    p_rate_card_id: rateId,
+    p_payload: payload,
+  });
+  return result<{ id: string; version_id: string; version: number }>(
+    data,
+    error,
+  );
+}
+export async function archiveRate(rateId: string) {
+  const { data, error } = await supabase.rpc("rpc_archive_rate", {
+    p_rate_card_id: rateId,
+  });
+  return result<{ success: boolean }>(data, error);
+}
+export async function duplicateRate(rateId: string) {
+  const { data, error } = await supabase.rpc("rpc_duplicate_rate", {
+    p_rate_card_id: rateId,
+  });
+  return result<{ id: string }>(data, error);
+}
+export async function compareProviderRates(
+  tenantId: string,
+  filters: {
+    lane_id: string;
+    service_catalog_item_id: string;
+    operational_date: string;
+    currency: string;
+  },
+) {
+  const { data, error } = await supabase.rpc("rpc_compare_provider_rates", {
+    p_tenant_id: tenantId,
+    p_filters: filters,
+  });
+  const rates = result<RateComparison[]>(data, error);
+  if (!rates.length) return rates;
+  const badgeResponse = await supabase.rpc("rpc_get_provider_compliance_badges", {
+    p_tenant_id: tenantId,
+    p_provider_ids: [...new Set(rates.map((rate) => rate.provider_id))],
+  });
+  const badges = result<Array<{ provider_id: string; badge: RateComparison["compliance_badge"]; blocking: number; reasons: RateComparison["compliance_reasons"] }>>(badgeResponse.data, badgeResponse.error);
+  const byProvider = new Map(badges.map((badge) => [badge.provider_id, badge]));
+  return rates.map((rate) => ({
+    ...rate,
+    compliance_badge: byProvider.get(rate.provider_id)?.badge ?? "current",
+    compliance_blocking: byProvider.get(rate.provider_id)?.blocking ?? 0,
+    compliance_reasons: byProvider.get(rate.provider_id)?.reasons ?? [],
+  }));
+}
+export async function applyRateToQuote(dealId: string, versionId: string) {
+  const { data, error } = await supabase.rpc("rpc_apply_rate_to_quote", {
+    p_deal_id: dealId,
+    p_rate_version_id: versionId,
+  });
+  return result<{ success: boolean; total_amount: number; currency: string }>(
+    data,
+    error,
+  );
+}
+export async function listPartnerContacts(
+  tenantId: string,
+  entityType: "customer" | "provider",
+  entityId: string,
+) {
+  const { data, error } = await supabase.rpc("rpc_list_partner_contacts", {
+    p_tenant_id: tenantId,
+    p_entity_type: entityType,
+    p_entity_id: entityId,
+  });
+  return result<BusinessContact[]>(data, error);
+}
+export async function upsertBusinessContact(
+  tenantId: string,
+  contactId: string | null,
+  payload: Record<string, unknown>,
+) {
+  const { data, error } = await supabase.rpc("rpc_upsert_business_contact", {
+    p_tenant_id: tenantId,
+    p_contact_id: contactId,
+    p_payload: payload,
+  });
+  return result<{ id: string }>(data, error);
+}
+export async function getCustomerPartner360(id: string) {
+  const { data, error } = await supabase.rpc("rpc_get_customer_partner_360", {
+    p_customer_id: id,
+  });
+  return result<Partner360>(data, error);
+}
+export async function getProvider360(id: string) {
+  const { data, error } = await supabase.rpc("rpc_get_provider_360", {
+    p_provider_id: id,
+  });
+  return result<Partner360>(data, error);
+}
+export async function updatePartnerTerms(
+  tenantId: string,
+  entityType: "customer" | "provider",
+  entityId: string,
+  days: number,
+) {
+  const { data, error } = await supabase.rpc("rpc_update_partner_terms", {
+    p_tenant_id: tenantId,
+    p_entity_type: entityType,
+    p_entity_id: entityId,
+    p_payment_terms_days: days,
+  });
+  return result<{ success: boolean }>(data, error);
+}
+export async function exportRates(
+  tenantId: string,
+  filters: Record<string, unknown> = {},
+) {
+  const { data, error } = await supabase.rpc("rpc_export_rates", {
+    p_tenant_id: tenantId,
+    p_filters: filters,
+  });
+  return result<Record<string, unknown>[]>(data, error);
+}

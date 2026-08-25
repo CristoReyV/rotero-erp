@@ -11,6 +11,7 @@ export function OperationReadiness({ data, canManageTracking, onGenerateTokens }
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Check ok={readiness.is_minimum_planned_complete} label="Planeación" detail="Servicio, lugares y ventana operativa válidos." />
             <Check ok={readiness.is_assignment_complete} label="Proveedor / asignación" detail={operation.execution_type === 'third_party' ? 'Proveedor contratado y salida planeada.' : 'Chofer y unidad internos asignados.'} />
+            {operation.execution_type === 'third_party' && <Check ok={readiness.provider_compliance_ready !== false} label="Elegibilidad del proveedor" detail={readiness.provider_compliance_ready === false ? 'Existe una política requerida, bloqueante y de asignación sin resolver.' : 'Sin bloqueos operativos configurados o con override específico.'} />}
             <Check ok={!documentSummary.has_missing_required} label="Documentos requeridos" detail={`${documentSummary.present_required_count}/${documentSummary.required_count} presentes.`} />
             <Check ok={!incidentSummary.has_blocking_incidents} label="Incidencias bloqueantes" detail={`${incidentSummary.blocking_incident_count} abierta(s).`} />
             <Check ok={readiness.has_driver_token} label="Capability chofer" detail="La capability se crea o rota solo mediante acción Admin explícita." />

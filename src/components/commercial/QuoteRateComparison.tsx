@@ -1,2 +1,147 @@
-import{useEffect,useState}from'react';import{applyRateToQuote,compareProviderRates,listRateReferenceData,listRates}from'@/services/rates.service';import type{Quote}from'@/types/commercial';import type{RateComparison,RateReferenceData}from'@/types/rates';import{formatCommercialCurrency}from'@/utils/commercialCalculations';
-export function QuoteRateComparison({tenantId,quote,onApplied}:{tenantId:string;quote:Quote;onApplied:()=>Promise<void>}){const[refs,setRefs]=useState<RateReferenceData|null>(null),[lane,setLane]=useState(''),[service,setService]=useState(quote.quote_payload.service_catalog_item_id||''),[rows,setRows]=useState<RateComparison[]>([]),[sell,setSell]=useState<Record<string,unknown>|null>(null),[message,setMessage]=useState('');useEffect(()=>{void listRateReferenceData(tenantId).then(setRefs)},[tenantId]);const date=quote.quote_payload.operational_window_start?.slice(0,10)||new Date().toISOString().slice(0,10);const compare=async()=>{if(!lane||!service)return;const[buy,sells]=await Promise.all([compareProviderRates(tenantId,{lane_id:lane,service_catalog_item_id:service,operational_date:date,currency:quote.quote_payload.currency}),listRates(tenantId,{rate_type:'SELL',customer_id:quote.customer_id,lane_id:lane,service_catalog_item_id:service,currency:quote.quote_payload.currency,valid_on:date,status:'active'})]);setRows(buy);setSell(sells[0]??null);setMessage(buy.length?'':'No hay tarifa vigente exacta')};const useRate=async(versionId:string)=>{await applyRateToQuote(quote.id,versionId);await onApplied();setMessage('Tarifa aplicada y snapshot inmutable creado.')};if(quote.quote_status!=='draft')return null;return <section className="space-y-3 rounded-2xl border bg-white p-5"><div><p className="text-xs font-black uppercase text-primary">Comparar tarifas de proveedores</p><p className="text-xs text-slate-400">Coincidencia exacta de carril, servicio, fecha y moneda. Menor costo no significa mejor proveedor.</p></div>{refs&&<div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]"><select value={lane} onChange={e=>setLane(e.target.value)} className="rounded-xl border p-2.5 text-sm"><option value="">Carril exacto</option>{refs.lanes.map(l=><option key={l.id} value={l.id}>{l.label}</option>)}</select><select value={service} onChange={e=>setService(e.target.value)} className="rounded-xl border p-2.5 text-sm"><option value="">Servicio</option>{refs.services.map(s=><option key={s.id} value={s.id}>{s.service_type} {s.service_class}</option>)}</select><button onClick={()=>void compare()} className="rounded-xl bg-slate-900 px-4 text-xs font-black text-white">Comparar</button></div>}{sell&&<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs"><b>Tarifa negociada del cliente:</b> {formatCommercialCurrency(Number(sell.total_amount),String(sell.currency))}<button onClick={()=>void useRate(String(sell.version_id))} className="float-right font-black text-emerald-700">Usar tarifa SELL</button></div>}{rows.map(r=><div key={r.rate_version_id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border p-3 text-sm"><div><b>{r.provider_name}</b><p className="text-xs text-slate-400">{r.reference} · hasta {r.valid_to||'abierta'}</p></div><b>{formatCommercialCurrency(r.total_amount,r.currency)}</b><button onClick={()=>void useRate(r.rate_version_id)} className="rounded-lg bg-primary px-3 py-2 text-xs font-black text-white">Usar tarifa</button></div>)}{message&&<p className="text-xs font-bold text-slate-500">{message}</p>}</section>}
+import { useEffect, useState } from "react";
+import {
+  applyRateToQuote,
+  compareProviderRates,
+  listRateReferenceData,
+  listRates,
+} from "@/services/rates.service";
+import type { Quote } from "@/types/commercial";
+import type { RateComparison, RateReferenceData } from "@/types/rates";
+import { formatCommercialCurrency } from "@/utils/commercialCalculations";
+export function QuoteRateComparison({
+  tenantId,
+  quote,
+  onApplied,
+}: {
+  tenantId: string;
+  quote: Quote;
+  onApplied: () => Promise<void>;
+}) {
+  const [refs, setRefs] = useState<RateReferenceData | null>(null),
+    [lane, setLane] = useState(""),
+    [service, setService] = useState(
+      quote.quote_payload.service_catalog_item_id || "",
+    ),
+    [rows, setRows] = useState<RateComparison[]>([]),
+    [sell, setSell] = useState<Record<string, unknown> | null>(null),
+    [message, setMessage] = useState("");
+  useEffect(() => {
+    void listRateReferenceData(tenantId).then(setRefs);
+  }, [tenantId]);
+  const date =
+    quote.quote_payload.operational_window_start?.slice(0, 10) ||
+    new Date().toISOString().slice(0, 10);
+  const compare = async () => {
+    if (!lane || !service) return;
+    const [buy, sells] = await Promise.all([
+      compareProviderRates(tenantId, {
+        lane_id: lane,
+        service_catalog_item_id: service,
+        operational_date: date,
+        currency: quote.quote_payload.currency,
+      }),
+      listRates(tenantId, {
+        rate_type: "SELL",
+        customer_id: quote.customer_id,
+        lane_id: lane,
+        service_catalog_item_id: service,
+        currency: quote.quote_payload.currency,
+        valid_on: date,
+        status: "active",
+      }),
+    ]);
+    setRows(buy);
+    setSell(sells[0] ?? null);
+    setMessage(buy.length ? "" : "No hay tarifa vigente exacta");
+  };
+  const useRate = async (versionId: string) => {
+    await applyRateToQuote(quote.id, versionId);
+    await onApplied();
+    setMessage("Tarifa aplicada y snapshot inmutable creado.");
+  };
+  if (quote.quote_status !== "draft") return null;
+  return (
+    <section className="space-y-3 rounded-2xl border bg-white p-5">
+      <div>
+        <p className="text-xs font-black uppercase text-primary">
+          Comparar tarifas de proveedores
+        </p>
+        <p className="text-xs text-slate-400">
+          Coincidencia exacta de carril, servicio, fecha y moneda. Menor costo
+          no significa mejor proveedor.
+        </p>
+      </div>
+      {refs && (
+        <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+          <select
+            value={lane}
+            onChange={(e) => setLane(e.target.value)}
+            className="rounded-xl border p-2.5 text-sm"
+          >
+            <option value="">Carril exacto</option>
+            {refs.lanes.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={service}
+            onChange={(e) => setService(e.target.value)}
+            className="rounded-xl border p-2.5 text-sm"
+          >
+            <option value="">Servicio</option>
+            {refs.services.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.service_type} {s.service_class}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => void compare()}
+            className="rounded-xl bg-slate-900 px-4 text-xs font-black text-white"
+          >
+            Comparar
+          </button>
+        </div>
+      )}
+      {sell && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs">
+          <b>Tarifa negociada del cliente:</b>{" "}
+          {formatCommercialCurrency(
+            Number(sell.total_amount),
+            String(sell.currency),
+          )}
+          <button
+            onClick={() => void useRate(String(sell.version_id))}
+            className="float-right font-black text-emerald-700"
+          >
+            Usar tarifa SELL
+          </button>
+        </div>
+      )}
+      {rows.map((r) => (
+        <div
+          key={r.rate_version_id}
+          className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border p-3 text-sm"
+        >
+          <div>
+            <div className="flex flex-wrap items-center gap-2"><b>{r.provider_name}</b><span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${r.compliance_badge === "blocked" ? "bg-red-50 text-red-700" : r.compliance_badge === "attention" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{r.compliance_badge === "blocked" ? "Bloqueado" : r.compliance_badge === "attention" ? "Atención" : "Vigente"}</span></div>
+            <p className="text-xs text-slate-400">
+              {r.reference} · hasta {r.valid_to || "abierta"}
+            </p>
+            {r.compliance_reasons.length > 0 && <p className="mt-1 text-[10px] font-bold text-red-600">{r.compliance_reasons.map(reason => `${reason.name}: ${reason.status}`).join(" · ")}</p>}
+          </div>
+          <b>{formatCommercialCurrency(r.total_amount, r.currency)}</b>
+          <button
+            onClick={() => void useRate(r.rate_version_id)}
+            className="rounded-lg bg-primary px-3 py-2 text-xs font-black text-white"
+          >
+            Usar tarifa
+          </button>
+        </div>
+      ))}
+      {message && <p className="text-xs font-bold text-slate-500">{message}</p>}
+    </section>
+  );
+}

@@ -226,6 +226,8 @@ export interface OperationReadiness {
     has_driver_token: boolean;
     has_public_token: boolean;
     blocking_reasons: string[];
+    provider_compliance_ready?: boolean;
+    provider_compliance_blocker_reasons?: Array<{ code?: string; name?: string; status?: string }> | string[];
 }
 
 export interface OperationBillingSummary {
