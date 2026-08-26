@@ -186,64 +186,94 @@ DROP TRIGGER IF EXISTS fiscal0_attempts_immutable ON public.fiscal_provider_atte
 CREATE TRIGGER fiscal0_attempts_immutable BEFORE UPDATE OR DELETE ON public.fiscal_provider_attempts
     FOR EACH ROW EXECUTE FUNCTION private.fiscal0_attempts_immutable();
 
-CREATE OR REPLACE FUNCTION private.fiscal0_validate(p_cfdi public.billing_cfdis)
+CREATE OR REPLACE FUNCTION private.fiscal0_validate(p_cfdi_id uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
 AS $function$
-DECLARE v_missing jsonb := '[]'::jsonb; v_concept jsonb;
+DECLARE
+    v_cfdi public.billing_cfdis%ROWTYPE;
+    v_missing jsonb := '[]'::jsonb;
+    v_concept jsonb;
+    v_document_count integer;
+    v_operation_count integer;
 BEGIN
-    IF NULLIF(trim(COALESCE(p_cfdi.fiscal_input#>>'{issuer,rfc}', p_cfdi.rfc_emisor)), '') IS NULL THEN
+    SELECT * INTO v_cfdi FROM public.billing_cfdis WHERE id = p_cfdi_id;
+    IF v_cfdi.id IS NULL THEN
+        RETURN jsonb_build_object('valid', false, 'missing_fields', jsonb_build_array('billing_cfdi'));
+    END IF;
+    SELECT count(*), count(DISTINCT bd.operation_id) FILTER (WHERE bd.operation_id IS NOT NULL)
+      INTO v_document_count, v_operation_count
+    FROM public.billing_documents bd
+    WHERE bd.tenant_id = v_cfdi.tenant_id AND bd.linked_cfdi_id = v_cfdi.id;
+    IF NULLIF(trim(COALESCE(v_cfdi.fiscal_input#>>'{issuer,rfc}', v_cfdi.rfc_emisor)), '') IS NULL THEN
         v_missing := v_missing || '"issuer.rfc"'::jsonb;
     END IF;
-    IF NULLIF(trim(COALESCE(p_cfdi.fiscal_input#>>'{receiver,rfc}', p_cfdi.rfc_receptor)), '') IS NULL THEN
+    IF NULLIF(trim(COALESCE(v_cfdi.fiscal_input#>>'{receiver,rfc}', v_cfdi.rfc_receptor)), '') IS NULL THEN
         v_missing := v_missing || '"receiver.rfc"'::jsonb;
     END IF;
-    IF p_cfdi.currency NOT IN ('MXN','USD') THEN v_missing := v_missing || '"currency"'::jsonb; END IF;
-    IF p_cfdi.total <= 0 OR p_cfdi.subtotal <= 0 OR p_cfdi.total < p_cfdi.subtotal THEN
+    IF v_cfdi.currency NOT IN ('MXN','USD') THEN v_missing := v_missing || '"currency"'::jsonb; END IF;
+    IF v_cfdi.total <= 0 OR v_cfdi.subtotal <= 0 OR v_cfdi.total < v_cfdi.subtotal THEN
         v_missing := v_missing || '"positive_totals"'::jsonb;
     END IF;
-    IF jsonb_typeof(p_cfdi.fiscal_input->'concepts') <> 'array'
-       OR jsonb_array_length(COALESCE(p_cfdi.fiscal_input->'concepts','[]'::jsonb)) = 0 THEN
+    IF jsonb_typeof(v_cfdi.fiscal_input->'concepts') <> 'array'
+       OR jsonb_array_length(COALESCE(v_cfdi.fiscal_input->'concepts','[]'::jsonb)) = 0 THEN
         v_missing := v_missing || '"concepts"'::jsonb;
     ELSE
-        FOR v_concept IN SELECT value FROM jsonb_array_elements(p_cfdi.fiscal_input->'concepts') LOOP
+        FOR v_concept IN SELECT value FROM jsonb_array_elements(v_cfdi.fiscal_input->'concepts') LOOP
             IF COALESCE(NULLIF(v_concept->>'description',''),'') = ''
                OR COALESCE(NULLIF(v_concept->>'amount','')::numeric,0) <= 0 THEN
                 v_missing := v_missing || '"valid_concepts"'::jsonb; EXIT;
             END IF;
         END LOOP;
     END IF;
-    IF p_cfdi.operation_id IS NULL AND NOT EXISTS (
-        SELECT 1 FROM public.billing_documents bd
-        WHERE bd.tenant_id = p_cfdi.tenant_id AND bd.linked_cfdi_id = p_cfdi.id
-    ) THEN v_missing := v_missing || '"invoice_relation"'::jsonb; END IF;
-    IF NULLIF(trim(COALESCE(p_cfdi.fiscal_input#>>'{payment,method}', '')), '') IS NULL THEN
+    IF v_document_count = 0 THEN
+        v_missing := v_missing || '"invoice_relation"'::jsonb;
+    ELSIF v_operation_count > 1 THEN
+        v_missing := v_missing || '"ambiguous_operation_relation"'::jsonb;
+    END IF;
+    IF NULLIF(trim(COALESCE(v_cfdi.fiscal_input#>>'{payment,method}', '')), '') IS NULL THEN
         v_missing := v_missing || '"payment.method"'::jsonb;
     END IF;
-    RETURN jsonb_build_object('valid', jsonb_array_length(v_missing)=0, 'missing_fields', v_missing, 'cfdi_version', p_cfdi.cfdi_version);
+    RETURN jsonb_build_object('valid', jsonb_array_length(v_missing)=0, 'missing_fields', v_missing, 'cfdi_version', v_cfdi.cfdi_version);
 EXCEPTION WHEN invalid_text_representation THEN
-    RETURN jsonb_build_object('valid', false, 'missing_fields', jsonb_build_array('valid_concepts'), 'cfdi_version', p_cfdi.cfdi_version);
+    RETURN jsonb_build_object('valid', false, 'missing_fields', jsonb_build_array('valid_concepts'), 'cfdi_version', v_cfdi.cfdi_version);
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION private.fiscal0_snapshot(p_cfdi public.billing_cfdis)
-RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
+CREATE OR REPLACE FUNCTION private.fiscal0_snapshot(p_cfdi_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
 AS $function$
-    SELECT jsonb_strip_nulls(jsonb_build_object(
-        'schema','rotero.fiscal-input','schema_version',1,'cfdi_version',(p_cfdi).cfdi_version,
-        'billing_cfdi_id',(p_cfdi).id,'tenant_id',(p_cfdi).tenant_id,'operation_id',(p_cfdi).operation_id,
-        'issuer',COALESCE((p_cfdi).fiscal_input->'issuer',jsonb_build_object('rfc',(p_cfdi).rfc_emisor)),
-        'receiver',COALESCE((p_cfdi).fiscal_input->'receiver',jsonb_build_object('rfc',(p_cfdi).rfc_receptor,'name',(p_cfdi).receptor_name)),
-        'concepts',(p_cfdi).fiscal_input->'concepts','taxes',(p_cfdi).fiscal_input->'taxes',
-        'payment',(p_cfdi).fiscal_input->'payment','related_cfdis',(p_cfdi).fiscal_input->'related_cfdis',
-        'currency',(p_cfdi).currency,'subtotal',(p_cfdi).subtotal,'total',(p_cfdi).total,
-        'exchange_rate',(p_cfdi).exchange_rate,
-        'carta_porte',CASE WHEN (p_cfdi).has_carta_porte THEN (
+DECLARE
+    v_cfdi public.billing_cfdis%ROWTYPE;
+    v_operation_ids uuid[];
+BEGIN
+    SELECT * INTO v_cfdi FROM public.billing_cfdis WHERE id = p_cfdi_id;
+    IF v_cfdi.id IS NULL THEN RETURN NULL; END IF;
+    SELECT COALESCE(array_agg(DISTINCT bd.operation_id ORDER BY bd.operation_id)
+                    FILTER (WHERE bd.operation_id IS NOT NULL), ARRAY[]::uuid[])
+      INTO v_operation_ids
+    FROM public.billing_documents bd
+    WHERE bd.tenant_id = v_cfdi.tenant_id AND bd.linked_cfdi_id = v_cfdi.id;
+    IF cardinality(v_operation_ids) > 1 THEN
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'ambiguous_operation_relation';
+    END IF;
+    RETURN jsonb_strip_nulls(jsonb_build_object(
+        'schema','rotero.fiscal-input','schema_version',1,'cfdi_version',v_cfdi.cfdi_version,
+        'billing_cfdi_id',v_cfdi.id,'tenant_id',v_cfdi.tenant_id,
+        'operation_id',CASE WHEN cardinality(v_operation_ids)=1 THEN v_operation_ids[1] ELSE NULL END,
+        'issuer',COALESCE(v_cfdi.fiscal_input->'issuer',jsonb_build_object('rfc',v_cfdi.rfc_emisor)),
+        'receiver',COALESCE(v_cfdi.fiscal_input->'receiver',jsonb_build_object('rfc',v_cfdi.rfc_receptor,'name',v_cfdi.receptor_name)),
+        'concepts',v_cfdi.fiscal_input->'concepts','taxes',v_cfdi.fiscal_input->'taxes',
+        'payment',v_cfdi.fiscal_input->'payment','related_cfdis',v_cfdi.fiscal_input->'related_cfdis',
+        'currency',v_cfdi.currency,'subtotal',v_cfdi.subtotal,'total',v_cfdi.total,
+        'exchange_rate',v_cfdi.exchange_rate,
+        'carta_porte',CASE WHEN v_cfdi.has_carta_porte THEN (
             SELECT jsonb_strip_nulls(jsonb_build_object(
                 'carta_porte_id',cp.id,'transport_type',cp.trans_type,'carrier_name',cp.carrier_name,
                 'vehicle_plate',cp.vehicle_plate,'origin',cp.origin,'destination',cp.destination,'goods_description',cp.goods_desc
-            )) FROM public.billing_carta_porte cp WHERE cp.cfdi_id=(p_cfdi).id
+            )) FROM public.billing_carta_porte cp WHERE cp.cfdi_id=v_cfdi.id
         ) ELSE NULL END
     ));
+END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.rpc_get_fiscal_readiness(p_cfdi_id uuid)
@@ -256,7 +286,7 @@ BEGIN
     IF NOT public.tanda1_user_has_role(v_cfdi.tenant_id,ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
     SELECT * INTO v_config FROM public.fiscal_provider_configs WHERE tenant_id=v_cfdi.tenant_id;
     RETURN jsonb_build_object(
-        'cfdi_id',v_cfdi.id,'fiscal_status',v_cfdi.fiscal_status,'validation',private.fiscal0_validate(v_cfdi),
+        'cfdi_id',v_cfdi.id,'fiscal_status',v_cfdi.fiscal_status,'validation',private.fiscal0_validate(v_cfdi.id),
         'provider',jsonb_build_object('configured',COALESCE(v_config.enabled,false) AND v_config.provider_code IS NOT NULL,
             'code',v_config.provider_code,'environment',COALESCE(v_config.environment,'sandbox')),
         'request_fingerprint',v_cfdi.request_fingerprint,'provider_document_id',v_cfdi.provider_document_id,
@@ -297,9 +327,9 @@ BEGIN
     IF v_cfdi.id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;
     IF NOT public.tanda1_user_has_role(v_cfdi.tenant_id,ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;
     IF v_cfdi.fiscal_status <> 'draft' THEN RETURN jsonb_build_object('error','invalid_transition'); END IF;
-    v_validation := private.fiscal0_validate(v_cfdi);
+    v_validation := private.fiscal0_validate(v_cfdi.id);
     IF NOT (v_validation->>'valid')::boolean THEN RETURN jsonb_build_object('error','validation_failed','validation',v_validation); END IF;
-    v_snapshot := private.fiscal0_snapshot(v_cfdi);
+    v_snapshot := private.fiscal0_snapshot(v_cfdi.id);
     v_fingerprint := encode(extensions.digest(convert_to(v_snapshot::text,'UTF8'),'sha256'),'hex');
     UPDATE public.billing_cfdis SET fiscal_status='ready_for_api',fiscal_snapshot=v_snapshot,
         fiscal_snapshot_created_at=now(),request_fingerprint=v_fingerprint,fiscal_error_code=NULL,
@@ -613,8 +643,8 @@ REVOKE ALL ON TABLE public.fiscal_provider_configs,public.fiscal_requests,public
 REVOKE ALL ON FUNCTION private.fiscal0_status_transition_allowed(text,text) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION private.fiscal0_guard_cfdi() FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION private.fiscal0_attempts_immutable() FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION private.fiscal0_validate(public.billing_cfdis) FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION private.fiscal0_snapshot(public.billing_cfdis) FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION private.fiscal0_validate(uuid) FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION private.fiscal0_snapshot(uuid) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION private.fiscal0_claim_requests(integer) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION private.fiscal0_apply_provider_result(uuid,jsonb,timestamptz) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION private.fiscal0_link_artifact(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
