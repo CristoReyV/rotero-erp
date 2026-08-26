@@ -36,11 +36,12 @@ export async function refreshInternalNotifications(tenantId: string): Promise<vo
     assertResult(data, error);
 }
 
-export async function listInternalNotifications(tenantId: string, unreadOnly = false): Promise<NotificationFeed> {
-    const { data, error } = await supabase.rpc('rpc_list_internal_notifications', {
+export async function listInternalNotifications(tenantId: string, unreadOnly = false, cursor:NotificationFeed['next_cursor']=null): Promise<NotificationFeed> {
+    const { data, error } = await supabase.rpc('rpc_list_internal_notifications_page', {
         p_tenant_id: tenantId,
-        p_limit: 60,
         p_unread_only: unreadOnly,
+        p_cursor:cursor,
+        p_limit:25,
     });
     return assertResult<NotificationFeed>(data, error);
 }

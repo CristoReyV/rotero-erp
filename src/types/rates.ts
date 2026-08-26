@@ -129,7 +129,7 @@ export interface RateComparison {
   compliance_reasons: Array<{ code: string; name: string; status: string }>;
 }
 export interface BusinessContact {
-  id: string;
+  id: string | null;
   name: string;
   contact_role:
     | "commercial"
@@ -142,11 +142,35 @@ export interface BusinessContact {
   is_primary: boolean;
   is_active: boolean;
   notes?: string;
+  source?: "structured" | "canonical_fallback";
+}
+export type PartnerHistoryKind =
+  | "quotes"
+  | "operations"
+  | "rates"
+  | "activity"
+  | "compliance"
+  | "contracts"
+  | "claims";
+export interface PartnerHistoryCursor {
+  tenant_id: string;
+  entity_type: "customer" | "provider";
+  entity_id: string;
+  history_type: PartnerHistoryKind;
+  sort_at: string;
+  id: string;
+}
+export interface PartnerHistoryPage<T = Record<string, unknown>> {
+  items: T[];
+  next_cursor: PartnerHistoryCursor | null;
+  has_more: boolean;
 }
 export interface Partner360 {
   customer?: Record<string, unknown>;
   provider?: Record<string, unknown>;
   contacts: BusinessContact[];
+  primary_contact?: BusinessContact | null;
+  history_counts: Partial<Record<PartnerHistoryKind | "documents", number>>;
   rates: Record<string, unknown>[];
   quotes?: Record<string, unknown>[];
   operations: Record<string, unknown>[];
@@ -155,4 +179,6 @@ export interface Partner360 {
   performance?: Record<string, unknown>;
   health?: Record<string, unknown>;
   activity: Record<string, unknown>[];
+  business_date: string;
+  timezone: string;
 }

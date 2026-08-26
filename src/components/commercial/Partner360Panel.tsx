@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Activity,
   Contact,
@@ -13,10 +13,11 @@ import {
 import {
   getCustomerPartner360,
   getProvider360,
+  listPartnerHistoryPage,
   updatePartnerTerms,
   upsertBusinessContact,
 } from "@/services/rates.service";
-import type { Partner360 } from "@/types/rates";
+import type { BusinessContact, Partner360, PartnerHistoryKind, PartnerHistoryPage } from "@/types/rates";
 import { PartnerCompliancePanel } from "@/components/commercial/PartnerCompliancePanel";
 import { PartnerClaimsPanel } from "@/components/claims/PartnerClaimsPanel";
 type Tab =
@@ -66,31 +67,50 @@ export function Partner360Panel({
   entityType: "customer" | "provider";
   entityId: string;
 }) {
+  const [params,setParams]=useSearchParams();
+  const requestedTab=params.get("partnerTab") as Tab|null;
+  const allowedTabs=tabs[entityType].map(([id])=>id);
   const [data, setData] = useState<Partner360 | null>(null),
-    [tab, setTab] = useState<Tab>("summary"),
+    [tab, setTabState] = useState<Tab>(requestedTab&&allowedTabs.includes(requestedTab)?requestedTab:"summary"),
     [busy, setBusy] = useState(true),
     [error, setError] = useState(""),
-    [contact, setContact] = useState(false);
+    [contact, setContact] = useState(false),
+    [histories,setHistories]=useState<Partial<Record<PartnerHistoryKind,PartnerHistoryPage>>>({}),
+    [historyBusy,setHistoryBusy]=useState<PartnerHistoryKind|null>(null),
+    [historyError,setHistoryError]=useState("");
+  const requestId=useRef(0);
+  const setTab=(nextTab:Tab)=>{setTabState(nextTab);const next=new URLSearchParams(params);next.set("partnerTab",nextTab);setParams(next,{replace:true});};
   const load = useCallback(async () => {
+    const current=++requestId.current;
     setBusy(true);
     try {
-      setData(
+      const next=
         entityType === "customer"
           ? await getCustomerPartner360(entityId)
-          : await getProvider360(entityId),
-      );
+          : await getProvider360(entityId);
+      if(current!==requestId.current)return;
+      setData(next);
+      setHistories({});
       setError("");
     } catch (e) {
-      setError(
+      if(current===requestId.current)setError(
         e instanceof Error ? e.message : "No fue posible cargar Partner 360",
       );
     } finally {
-      setBusy(false);
+      if(current===requestId.current)setBusy(false);
     }
   }, [entityId, entityType]);
   useEffect(() => {
     void load();
   }, [load]);
+  const historyType=(['quotes','operations','rates','activity'] as PartnerHistoryKind[]).includes(tab as PartnerHistoryKind)?tab as PartnerHistoryKind:null;
+  const loadHistory=useCallback(async(kind:PartnerHistoryKind,more=false)=>{
+    const current=histories[kind];setHistoryBusy(kind);setHistoryError("");
+    try{const page=await listPartnerHistoryPage(tenantId,entityType,entityId,kind,more?current?.next_cursor??null:null);setHistories(value=>({...value,[kind]:more&&value[kind]?{...page,items:[...value[kind]!.items,...page.items]}:page}));}
+    catch(cause){setHistoryError(cause instanceof Error?cause.message:"No fue posible cargar el historial.");}
+    finally{setHistoryBusy(null);}
+  },[entityId,entityType,histories,tenantId]);
+  useEffect(()=>{if(historyType&&!histories[historyType])void loadHistory(historyType);},[histories,historyType,loadHistory]);
   if (busy)
     return (
       <div className="flex h-32 items-center justify-center">
@@ -159,7 +179,7 @@ export function Partner360Panel({
           <Metric
             icon={Route}
             label="Operaciones"
-            value={data.operations.length}
+            value={data.history_counts?.operations??0}
           />
           <Metric
             icon={Wallet}
@@ -197,13 +217,13 @@ export function Partner360Panel({
         />
       )}
       {tab === "quotes" && (
-        <List rows={data.quotes ?? []} empty="Sin cotizaciones." />
+        <PagedHistory page={histories.quotes} loading={historyBusy==='quotes'} error={historyError} empty="Sin cotizaciones." onMore={()=>void loadHistory('quotes',true)}/>
       )}
       {tab === "operations" && (
-        <List rows={data.operations} empty="Sin operaciones." />
+        <PagedHistory page={histories.operations} loading={historyBusy==='operations'} error={historyError} empty="Sin operaciones." onMore={()=>void loadHistory('operations',true)}/>
       )}
       {tab === "finance" && <CurrencyRows rows={data.finance} />}{" "}
-      {tab === "rates" && <List rows={data.rates} empty="Sin tarifas." />}
+      {tab === "rates" && <PagedHistory page={histories.rates} loading={historyBusy==='rates'} error={historyError} empty="Sin tarifas." onMore={()=>void loadHistory('rates',true)}/>}
       {tab === "performance" && (
         <pre className="overflow-x-auto rounded-xl bg-slate-50 p-3 text-xs">
           {JSON.stringify(data.performance ?? {}, null, 2)}
@@ -219,7 +239,7 @@ export function Partner360Panel({
       )}
       {tab === "claims" && <PartnerClaimsPanel tenantId={tenantId} entityType={entityType} entityId={entityId} />}
       {tab === "activity" && (
-        <List rows={data.activity} empty="Sin actividad registrada." />
+        <PagedHistory page={histories.activity} loading={historyBusy==='activity'} error={historyError} empty="Sin actividad registrada." onMore={()=>void loadHistory('activity',true)}/>
       )}
       {contact && (
         <ContactModal
@@ -257,14 +277,14 @@ function List({
   rows,
   empty,
 }: {
-  rows: Record<string, unknown>[];
+  rows: Array<Record<string, unknown>|BusinessContact>;
   empty: string;
 }) {
   if (!rows.length)
     return <p className="py-6 text-center text-sm text-slate-400">{empty}</p>;
   return (
     <div className="grid gap-2 md:grid-cols-2">
-      {rows.slice(0, 50).map((row, i) => (
+      {rows.slice(0, 50).map((source, i) => { const row=source as unknown as Record<string,unknown>; return (
         <div
           key={String(row.id ?? i)}
           className="rounded-xl border p-3 text-xs"
@@ -290,9 +310,13 @@ function List({
             )}
           </p>
         </div>
-      ))}
+      )})}
     </div>
   );
+}
+function PagedHistory({page,loading,error,empty,onMore}:{page?:PartnerHistoryPage;loading:boolean;error:string;empty:string;onMore:()=>void}){
+  if(!page&&loading)return <div className="flex h-28 items-center justify-center"><Loader2 className="animate-spin text-primary"/></div>;
+  return <div className="space-y-3">{error&&<p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}<List rows={page?.items??[]} empty={empty}/>{page?.has_more&&<div className="flex justify-center"><button type="button" disabled={loading} onClick={onMore} className="rounded-xl border px-4 py-2 text-xs font-bold disabled:opacity-50">{loading?'Cargando…':'Cargar más'}</button></div>}</div>;
 }
 function CurrencyRows({ rows }: { rows: Record<string, unknown>[] }) {
   if (!rows.length)
@@ -339,15 +363,13 @@ function ContactModal({
       is_primary: false,
       notes: "",
     }),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),[error,setError]=useState("");
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await upsertBusinessContact(tenantId, null, {
-      ...form,
-      [`${entityType}_id`]: entityId,
-    });
-    await onSaved();
+    setError("");
+    try{await upsertBusinessContact(tenantId, null, {...form,[`${entityType}_id`]: entityId});await onSaved();}
+    catch(cause){setError(cause instanceof Error?cause.message:"No fue posible guardar el contacto.");setBusy(false);}
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
@@ -357,10 +379,11 @@ function ContactModal({
       >
         <div className="flex justify-between">
           <h3 className="font-black">Nuevo contacto</h3>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={onClose} aria-label="Cerrar formulario de contacto">
             <X />
           </button>
         </div>
+        {error&&<p className="mt-3 rounded-lg bg-red-50 p-2 text-xs text-red-700">{error}</p>}
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Field
             label="Nombre *"
@@ -408,7 +431,7 @@ function ContactModal({
           disabled={busy || !form.name}
           className="mt-5 w-full rounded-xl bg-primary p-3 text-sm font-black text-white"
         >
-          Guardar contacto
+          {busy?'Guardando…':'Guardar contacto'}
         </button>
       </form>
     </div>

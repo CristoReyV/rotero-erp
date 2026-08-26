@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Building, Edit3, Inbox, Loader2, Mail, Phone, Plus, Search, X } from 'lucide-react';
 import { getCommercialErrorMessage, listProviders, upsertProvider } from '@/services/commercial.service';
 import type { LogisticsProvider, LogisticsProviderPayload } from '@/types/commercial';
 import { formatCommercialCurrency } from '@/utils/commercialCalculations';
 import { EntityDocumentsPanel } from '@/components/documents/EntityDocumentsPanel';
 import { Partner360Panel } from '@/components/commercial/Partner360Panel';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const EMPTY_PROVIDER: LogisticsProviderPayload = {
     display_name: '', legal_name: '', tax_id: '', contact_name: '', contact_email: '',
@@ -16,24 +17,27 @@ export function ProviderDirectory({ tenantId, requestedProviderId, createRequest
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebouncedValue(search.trim());
     const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [selected, setSelected] = useState<LogisticsProvider | null>(null);
     const [editing, setEditing] = useState<LogisticsProvider | null>(null);
     const [form, setForm] = useState<LogisticsProviderPayload>(EMPTY_PROVIDER);
     const [modalOpen, setModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const requestId=useRef(0);
 
     const load = useCallback(async () => {
+        const current=++requestId.current;
         setLoading(true); setError(null);
         try {
             const data = await listProviders(tenantId, {
-                searchText: search.trim() || undefined,
+                searchText: debouncedSearch || undefined,
                 active: activeFilter === 'all' ? undefined : activeFilter === 'active',
             });
-            setItems(data);
-        } catch (loadError) { setError(getCommercialErrorMessage(loadError)); }
-        finally { setLoading(false); }
-    }, [activeFilter, search, tenantId]);
+            if(current===requestId.current)setItems(data);
+        } catch (loadError) { if(current===requestId.current)setError(getCommercialErrorMessage(loadError)); }
+        finally { if(current===requestId.current)setLoading(false); }
+    }, [activeFilter, debouncedSearch, tenantId]);
 
     useEffect(() => { void load(); }, [load]);
     useEffect(() => {

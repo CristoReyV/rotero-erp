@@ -3,6 +3,9 @@ import type {
   BusinessContact,
   CommercialLane,
   Partner360,
+  PartnerHistoryCursor,
+  PartnerHistoryKind,
+  PartnerHistoryPage,
   Rate360,
   RateComparison,
   RateListItem,
@@ -10,9 +13,9 @@ import type {
   RateReferenceData,
 } from "@/types/rates";
 function result<T>(data: unknown, error: { message?: string } | null): T {
-  if (error) throw new Error(error.message || "rpc_error");
+  if (error) throw new Error("No fue posible completar la consulta.");
   if (data && typeof data === "object" && "error" in data)
-    throw new Error(String((data as { error: string }).error));
+    throw new Error({unauthorized:"No tienes acceso a Partner 360.",not_found:"El registro ya no existe.",invalid_cursor:"La página solicitada ya no es válida.",invalid_history:"Este historial no está disponible."}[String((data as { error: string }).error)] ?? "No fue posible completar la consulta.");
   return data as T;
 }
 export async function listRateReferenceData(tenantId: string) {
@@ -161,6 +164,24 @@ export async function getProvider360(id: string) {
     p_provider_id: id,
   });
   return result<Partner360>(data, error);
+}
+export async function listPartnerHistoryPage(
+  tenantId: string,
+  entityType: "customer" | "provider",
+  entityId: string,
+  historyType: PartnerHistoryKind,
+  cursor: PartnerHistoryCursor | null = null,
+  limit = 25,
+) {
+  const { data, error } = await supabase.rpc("rpc_list_partner_history_page", {
+    p_tenant_id: tenantId,
+    p_entity_type: entityType,
+    p_entity_id: entityId,
+    p_history_type: historyType,
+    p_cursor: cursor,
+    p_limit: limit,
+  });
+  return result<PartnerHistoryPage>(data, error);
 }
 export async function updatePartnerTerms(
   tenantId: string,

@@ -7,7 +7,7 @@ const topbar=readFileSync(new URL('../layout/Topbar.tsx',import.meta.url),'utf8'
 const notification=readFileSync(new URL('../components/productivity/NotificationCenter.tsx',import.meta.url),'utf8');
 const migration=readFileSync(new URL('../../supabase/migrations/20260825000000_f5_executive_productivity.sql',import.meta.url),'utf8');
 
-for(const rpc of ['rpc_get_executive_dashboard','rpc_list_attention_items','rpc_global_search','rpc_refresh_internal_notifications','rpc_list_internal_notifications','rpc_mark_internal_notifications_read','rpc_dismiss_internal_notification','rpc_list_saved_views','rpc_save_view','rpc_delete_saved_view']){
+for(const rpc of ['rpc_get_executive_dashboard','rpc_list_attention_items','rpc_global_search','rpc_refresh_internal_notifications','rpc_list_internal_notifications_page','rpc_mark_internal_notifications_read','rpc_dismiss_internal_notification','rpc_list_saved_views','rpc_save_view','rpc_delete_saved_view']){
     assert.ok(service.includes(`'${rpc}'`),`Executive service must consume ${rpc}`);
 }
 assert.ok(!dashboard.includes('OTIF'), 'Dashboard must not fabricate OTIF');

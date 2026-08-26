@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Ban, Download, ExternalLink, FileClock, FileOutput, Files, Loader2, Printer, Search } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { SavedViewsMenu } from '@/components/productivity/SavedViewsMenu';
@@ -14,6 +14,7 @@ import { canProductRoleManageDocumentContext } from '@/constants/roles';
 import { BulkActionBar } from '@/components/productivity/BulkActionBar';
 import { recordDataAction } from '@/services/dataOperations.service';
 import { downloadCsvContent, serializeCsv } from '@/utils/csv';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 type View = 'all' | 'operations' | 'commercial' | 'billing' | 'generated' | 'pending';
 const VIEWS: Array<{ id: View; label: string }> = [{ id: 'all', label: 'Todos' }, { id: 'operations', label: 'Operaciones' }, { id: 'commercial', label: 'Comercial' }, { id: 'billing', label: 'Facturación' }, { id: 'generated', label: 'Generados' }, { id: 'pending', label: 'Pendientes' }];
@@ -23,29 +24,30 @@ export default function DocumentsPage() {
     const setView=(nextView:View)=>{const next=new URLSearchParams(params);next.set('view',nextView);next.delete('fileId');setParams(next,{replace:true});}; const entityType=params.get('entityType') as DocumentEntityType|null; const entityId=params.get('entityId'); const selectedFileId=params.get('fileId');
     const [files, setFiles] = useState<DocumentFile[]>([]); const [generated, setGenerated] = useState<GeneratedDocument[]>([]);
     const [bulkIds, setBulkIds] = useState<Set<string>>(new Set());
-    const [search, setSearch] = useState(params.get('q')??''); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+    const [search, setSearch] = useState(params.get('q')??''); const debouncedSearch=useDebouncedValue(search.trim()); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
     const [kind, setKind] = useState<DocumentFileKind | ''>(''); const [statusFilter, setStatusFilter] = useState<DocumentFileStatus | ''>('');
     const [dateFrom, setDateFrom] = useState(''); const [dateTo, setDateTo] = useState('');
     const [nextCursor, setNextCursor] = useState<{ created_at: string; id: string } | null>(null);
     const [templateType, setTemplateType] = useState<DocumentTemplateType>('operation_document'); const [sources, setSources] = useState<DocumentSourceOption[]>([]); const [sourceId, setSourceId] = useState(''); const [busy, setBusy] = useState(false);
+    const requestId=useRef(0);
     const canGenerate = canProductRoleManageDocumentContext(role, templateType === 'commercial_quote' ? 'commercial' : 'operations');
 
     const load = useCallback(async () => {
-        if (!tenantId) return; setLoading(true); setError(null);
+        if (!tenantId) return; const current=++requestId.current;setLoading(true); setError(null);
         try {
-            if (view === 'generated') setGenerated(await listGeneratedDocuments(tenantId, { search, limit: 100 }));
+            if (view === 'generated') {const data=await listGeneratedDocuments(tenantId, { search:debouncedSearch, limit: 100 });if(current===requestId.current)setGenerated(data);}
             else {
-                const filters: DocumentFileFilters = { search: search || undefined, file_kind: kind || undefined, status: statusFilter || undefined, date_from: dateFrom || undefined, date_to: dateTo || undefined, limit: 50 };
+                const filters: DocumentFileFilters = { search: debouncedSearch || undefined, file_kind: kind || undefined, status: statusFilter || undefined, date_from: dateFrom || undefined, date_to: dateTo || undefined, limit: 50 };
                 if (entityType) filters.source_entity_type=entityType; if (entityId) filters.source_entity_id=entityId;
                 if (view === 'operations') filters.source_module = 'operations';
                 if (view === 'commercial') filters.source_module = 'commercial';
                 if (view === 'billing') filters.source_module = 'billing';
                 if (view === 'pending') filters.status = 'superseded';
-                const page = await listDocumentFiles(tenantId, filters); setFiles(page.items); setNextCursor(page.next_cursor);
+                const page = await listDocumentFiles(tenantId, filters);if(current!==requestId.current)return;setFiles(page.items); setNextCursor(page.next_cursor);
             }
-        } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible cargar Documents 360.'); }
-        finally { setLoading(false); }
-    }, [dateFrom, dateTo, entityId, entityType, kind, search, statusFilter, tenantId, view]);
+        } catch (cause) { if(current===requestId.current)setError(cause instanceof Error ? cause.message : 'No fue posible cargar Documents 360.'); }
+        finally { if(current===requestId.current)setLoading(false); }
+    }, [dateFrom, dateTo, debouncedSearch, entityId, entityType, kind, statusFilter, tenantId, view]);
     useEffect(() => { void load(); }, [load]);
     useEffect(() => { if (!tenantId || view !== 'generated') return; void listDocumentSourceOptions(tenantId, templateType).then((items) => { setSources(items); setSourceId(items[0]?.id ?? ''); }).catch(() => setSources([])); }, [templateType, tenantId, view]);
 
@@ -56,7 +58,7 @@ export default function DocumentsPage() {
     const loadMore = async () => {
         if (!tenantId || !nextCursor) return; setLoading(true);
         try {
-            const filters: DocumentFileFilters = { search: search || undefined, file_kind: kind || undefined, status: statusFilter || undefined, date_from: dateFrom || undefined, date_to: dateTo || undefined, limit: 50, cursor_created_at: nextCursor.created_at, cursor_id: nextCursor.id };
+            const filters: DocumentFileFilters = { search: debouncedSearch || undefined, file_kind: kind || undefined, status: statusFilter || undefined, date_from: dateFrom || undefined, date_to: dateTo || undefined, limit: 50, cursor_created_at: nextCursor.created_at, cursor_id: nextCursor.id };
             if (entityType) filters.source_entity_type=entityType; if (entityId) filters.source_entity_id=entityId;
             if (view === 'operations') filters.source_module = 'operations'; if (view === 'commercial') filters.source_module = 'commercial'; if (view === 'billing') filters.source_module = 'billing'; if (view === 'pending') filters.status = 'superseded';
             const page = await listDocumentFiles(tenantId, filters); setFiles((current) => [...current, ...page.items]); setNextCursor(page.next_cursor);

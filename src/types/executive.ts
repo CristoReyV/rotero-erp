@@ -90,6 +90,8 @@ export interface InternalNotification {
 export interface NotificationFeed {
     items: InternalNotification[];
     unread_count: number;
+    has_more: boolean;
+    next_cursor: {tenant_id:string;user_id:string;unread_only:boolean;first_seen_at:string;id:string}|null;
 }
 
 export interface GlobalSearchResult {
