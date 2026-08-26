@@ -7,9 +7,10 @@
 
 > **Nota de reconciliación (SEC.4B):** Las Edge Functions vigentes son
 > `track-public`, `driver-view` y `track-driver`. Se autentican mediante tokens
-> funcionales, requieren `verify_jwt=false` y todavía usan
-> `SUPABASE_SERVICE_ROLE_KEY` como estado legacy. La configuración explícita,
-> CORS staging y migración de credenciales quedan pendientes de SEC.4C–SEC.4H.
+> funcionales y requieren `verify_jwt=false`. El resolver acepta únicamente la
+> entrada `trackingedge` de `SUPABASE_SECRET_KEYS`; los fallbacks singular y
+> `service_role` fueron retirados. La deshabilitación de llaves legacy queda
+> pendiente de un inventario de consumidores y autorización separados.
 > `track-admin` no está implementada en el árbol actual y queda fuera de SEC.4.
 
 > **Reconciliación local M4.1A (2026-08-03; no aplicada):** La migración
