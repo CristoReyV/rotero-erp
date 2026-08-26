@@ -1,8 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import type {
     CFDIStatus, CFDI, CFDIListRow, CFDIFilters, CFDICreatePayload,
-    CFDIUpdatePatch, CartaPorteUpsertPayload, CFDIWithDetail
+    CFDIUpdatePatch, CartaPorteUpsertPayload, CFDIWithDetail, FiscalReadiness
 } from '@/types/billing';
+import { normalizeFiscalError, withFiscalMutationGuard } from './fiscalContracts';
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
@@ -110,4 +111,56 @@ export async function upsertCartaPorte(cfdiId: string, payload: CartaPorteUpsert
     if (data?.error) throw new Error(data.error);
 
     return { id: data.id };
+}
+
+function fiscalRpcResult<T>(data: unknown, error: { message?: string } | null): T {
+    if (error) throw new Error('No fue posible comunicarse con la orquestación fiscal.');
+    if (data && typeof data === 'object' && 'error' in data) {
+        throw new Error(normalizeFiscalError((data as { error: unknown }).error));
+    }
+    return data as T;
+}
+
+export async function getFiscalReadiness(cfdiId: string): Promise<FiscalReadiness> {
+    if (USE_MOCKS) return {
+        cfdi_id: cfdiId, fiscal_status: 'draft', validation: { valid: false, missing_fields: ['concepts'], cfdi_version: '4.0' },
+        provider: { configured: false, code: null, environment: 'sandbox' }, last_attempt: null,
+    };
+    const { data, error } = await supabase.rpc('rpc_get_fiscal_readiness', { p_cfdi_id: cfdiId });
+    return fiscalRpcResult<FiscalReadiness>(data, error);
+}
+
+export async function validateFiscalDocument(cfdiId: string): Promise<void> {
+    return withFiscalMutationGuard(`${cfdiId}:validate`, async () => {
+        const { data, error } = await supabase.rpc('rpc_prepare_cfdi_for_api', { p_cfdi_id: cfdiId });
+        fiscalRpcResult(data, error);
+    });
+}
+
+export async function queueFiscalStamp(cfdiId: string): Promise<void> {
+    return withFiscalMutationGuard(`${cfdiId}:stamp`, async () => {
+        const { data, error } = await supabase.rpc('rpc_queue_fiscal_stamp', { p_cfdi_id: cfdiId });
+        fiscalRpcResult(data, error);
+    });
+}
+
+export async function retryFiscalRequest(requestId: string): Promise<void> {
+    return withFiscalMutationGuard(`${requestId}:retry`, async () => {
+        const { data, error } = await supabase.rpc('rpc_retry_fiscal_request', { p_request_id: requestId });
+        fiscalRpcResult(data, error);
+    });
+}
+
+export async function queueFiscalStatusCheck(cfdiId: string): Promise<void> {
+    return withFiscalMutationGuard(`${cfdiId}:status`, async () => {
+        const { data, error } = await supabase.rpc('rpc_queue_fiscal_status_check', { p_cfdi_id: cfdiId });
+        fiscalRpcResult(data, error);
+    });
+}
+
+export async function requestFiscalCancellation(cfdiId: string, reason: string): Promise<void> {
+    return withFiscalMutationGuard(`${cfdiId}:cancel`, async () => {
+        const { data, error } = await supabase.rpc('rpc_request_fiscal_cancellation', { p_cfdi_id: cfdiId, p_reason: reason });
+        fiscalRpcResult(data, error);
+    });
 }

@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { AlertCircle, FileText, Loader2, RotateCw, Search, ShieldAlert, X } from 'lucide-react';
+import { AlertCircle, Ban, Download, FileCheck2, FileText, Loader2, RotateCw, Search, Send, ShieldAlert, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/Badge';
 import { PageHeader } from '@/components/PageHeader';
-import { getCFDIDetail, listCFDIs } from '@/services/billing.service';
+import {
+    getCFDIDetail, getFiscalReadiness, listCFDIs, queueFiscalStamp, queueFiscalStatusCheck,
+    requestFiscalCancellation, retryFiscalRequest, validateFiscalDocument,
+} from '@/services/billing.service';
+import { createDocumentSignedUrl, listDocumentFiles } from '@/services/documents.service';
+import { getFiscalActionAvailability } from '@/services/fiscalContracts';
 import { useAuthStore } from '@/store/authStore';
 import { canAccessRoteroModule } from '@/constants/roles';
-import type { CFDIFilters, CFDIListRow, CFDIStatus, CFDIWithDetail } from '@/types/billing';
+import type { CFDIFilters, CFDIListRow, CFDIStatus, CFDIWithDetail, FiscalReadiness } from '@/types/billing';
 import type { BadgeVariant } from '@/types/common';
 
 type BillingView = 'all' | 'draft' | 'registered' | 'error' | 'cancelled';
@@ -84,6 +89,10 @@ const BillingPage = () => {
     const [selectedDetail, setSelectedDetail] = useState<CFDIWithDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
+    const [fiscalReadiness, setFiscalReadiness] = useState<FiscalReadiness | null>(null);
+    const [fiscalBusy, setFiscalBusy] = useState<string | null>(null);
+    const [fiscalError, setFiscalError] = useState<string | null>(null);
+    const [cancellationReason, setCancellationReason] = useState('');
     const listRequestId = useRef(0);
     const detailRequestId = useRef(0);
 
@@ -123,8 +132,11 @@ const BillingPage = () => {
         setDetailError(null);
         setSelectedDetail(null);
         try {
-            const data = await getCFDIDetail(cfdiId);
-            if (requestId === detailRequestId.current) setSelectedDetail(data);
+            const [data, readiness] = await Promise.all([getCFDIDetail(cfdiId), getFiscalReadiness(cfdiId)]);
+            if (requestId === detailRequestId.current) {
+                setSelectedDetail(data);
+                setFiscalReadiness(readiness);
+            }
         } catch (loadError) {
             if (requestId === detailRequestId.current) setDetailError(getErrorMessage(loadError));
         } finally {
@@ -155,6 +167,8 @@ const BillingPage = () => {
         detailRequestId.current += 1;
         setSelectedCfdiId(null);
         setSelectedDetail(null);
+        setFiscalReadiness(null);
+        setFiscalError(null);
         setDetailError(null);
     }, [activeView, query]);
 
@@ -185,7 +199,34 @@ const BillingPage = () => {
         setSelectedCfdiId(null);
         setSelectedDetail(null);
         setDetailError(null);
+        setFiscalReadiness(null);
+        setFiscalError(null);
+        setCancellationReason('');
         const nextParams=new URLSearchParams(searchParams);nextParams.delete('cfdiId');setSearchParams(nextParams,{replace:true});
+    };
+
+    const fiscalActions = fiscalReadiness ? getFiscalActionAvailability(fiscalReadiness) : null;
+
+    const runFiscalAction = async (name: string, action: () => Promise<void>) => {
+        if (!selectedCfdiId || fiscalBusy) return;
+        setFiscalBusy(name); setFiscalError(null);
+        try { await action(); await loadDetail(selectedCfdiId); await loadCFDIs(); }
+        catch (actionError) { setFiscalError(getErrorMessage(actionError)); }
+        finally { setFiscalBusy(null); }
+    };
+
+    const downloadFiscalArtifact = async (kind: 'xml' | 'pdf') => {
+        if (!activeTenant || !selectedCfdiId || !fiscalReadiness) return;
+        const fileId = kind === 'xml' ? fiscalReadiness.xml_document_file_id : fiscalReadiness.pdf_document_file_id;
+        if (!fileId) return;
+        setFiscalBusy(`download-${kind}`); setFiscalError(null);
+        try {
+            const page = await listDocumentFiles(activeTenant, { source_entity_type: 'billing_cfdi', source_entity_id: selectedCfdiId, status: 'active' });
+            const file = page.items.find((item) => item.id === fileId);
+            if (!file) throw new Error('El artefacto fiscal todavía no está disponible.');
+            window.open(await createDocumentSignedUrl(file, true), '_blank', 'noopener,noreferrer');
+        } catch (actionError) { setFiscalError(getErrorMessage(actionError)); }
+        finally { setFiscalBusy(null); }
     };
 
     if (!canViewBilling) {
@@ -360,7 +401,7 @@ const BillingPage = () => {
                             ) : selectedDetail ? (
                                 <div className="space-y-5">
                                     <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs leading-relaxed text-slate-600">
-                                        Identificadores y estados almacenados para control interno. Sin integración SAT/PAC confirmada.
+                                        Preparación fiscal provider-neutral. Ninguna acción simula timbrado ni confirma comunicación con SAT/PAC.
                                     </div>
                                     <dl className="divide-y divide-slate-100 rounded-xl border border-slate-100 px-4">
                                         {[
@@ -373,6 +414,13 @@ const BillingPage = () => {
                                             ['Subtotal', formatCurrency(selectedDetail.subtotal || 0, selectedDetail.currency)],
                                             ['Total', formatCurrency(selectedDetail.total || 0, selectedDetail.currency)],
                                             ['Moneda', selectedDetail.currency || 'No registrada'],
+                                            ['Operación', selectedDetail.operation_id || 'Sin relación'],
+                                            ['Estado fiscal', fiscalReadiness?.fiscal_status || 'No disponible'],
+                                            ['CFDI', fiscalReadiness?.validation.cfdi_version || selectedDetail.cfdi_version || 'No registrado'],
+                                            ['Proveedor', fiscalReadiness?.provider.code || 'No configurado'],
+                                            ['Entorno', fiscalReadiness?.provider.environment || 'sandbox'],
+                                            ['Último intento', fiscalReadiness?.last_attempt ? `${fiscalReadiness.last_attempt.status} · ${formatDate(fiscalReadiness.last_attempt.updated_at)}` : 'Sin intentos'],
+                                            ['Error seguro', fiscalReadiness?.safe_error_message || fiscalReadiness?.safe_error_code || 'Sin error'],
                                             ['Emisión registrada', formatDate(selectedDetail.issued_at)],
                                             ['Alta interna', formatDate(selectedDetail.created_at)],
                                         ].map(([label, value]) => (
@@ -382,6 +430,37 @@ const BillingPage = () => {
                                             </div>
                                         ))}
                                     </dl>
+
+                                    {fiscalReadiness && fiscalActions && (
+                                        <section className="space-y-3 rounded-xl border border-slate-200 p-4">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-800">Control fiscal</h3>
+                                                <p className="mt-1 text-[11px] text-slate-500">
+                                                    {fiscalActions.externalDisabledReason || 'Proveedor habilitado explícitamente para este tenant y entorno.'}
+                                                </p>
+                                            </div>
+                                            {!fiscalReadiness.validation.valid && fiscalReadiness.validation.missing_fields.length > 0 && (
+                                                <p className="rounded-lg bg-amber-50 p-3 text-[11px] text-amber-800">
+                                                    Faltantes: {fiscalReadiness.validation.missing_fields.join(', ')}
+                                                </p>
+                                            )}
+                                            {fiscalError && <p className="rounded-lg bg-red-50 p-3 text-[11px] text-red-700">{fiscalError}</p>}
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button type="button" disabled={!fiscalActions.validate || Boolean(fiscalBusy)} onClick={() => void runFiscalAction('validate', () => validateFiscalDocument(selectedCfdiId))} className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"><FileCheck2 size={14} /> Validar</button>
+                                                <button type="button" disabled={!fiscalActions.submit || Boolean(fiscalBusy)} onClick={() => void runFiscalAction('submit', () => queueFiscalStamp(selectedCfdiId))} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"><Send size={14} /> Enviar a timbrar</button>
+                                                <button type="button" disabled={!fiscalActions.retry || !fiscalReadiness.last_attempt || Boolean(fiscalBusy)} onClick={() => fiscalReadiness.last_attempt && void runFiscalAction('retry', () => retryFiscalRequest(fiscalReadiness.last_attempt!.request_id))} className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"><RotateCw size={14} /> Reintentar</button>
+                                                <button type="button" disabled={!fiscalActions.refresh || Boolean(fiscalBusy)} onClick={() => void runFiscalAction('refresh', () => queueFiscalStatusCheck(selectedCfdiId))} className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"><RotateCw size={14} /> Consultar estado</button>
+                                            </div>
+                                            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Motivo de cancelación
+                                                <input value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} disabled={!fiscalActions.cancel} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-normal normal-case tracking-normal disabled:bg-slate-50" />
+                                            </label>
+                                            <button type="button" disabled={!fiscalActions.cancel || !cancellationReason.trim() || Boolean(fiscalBusy)} onClick={() => void runFiscalAction('cancel', () => requestFiscalCancellation(selectedCfdiId, cancellationReason))} className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-40"><Ban size={14} /> Cancelar</button>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button type="button" disabled={!fiscalActions.downloadXml || Boolean(fiscalBusy)} onClick={() => void downloadFiscalArtifact('xml')} className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"><Download size={14} /> Descargar XML</button>
+                                                <button type="button" disabled={!fiscalActions.downloadPdf || Boolean(fiscalBusy)} onClick={() => void downloadFiscalArtifact('pdf')} className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"><Download size={14} /> Descargar PDF</button>
+                                            </div>
+                                        </section>
+                                    )}
                                 </div>
                             ) : null}
                         </div>

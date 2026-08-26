@@ -1,7 +1,16 @@
 export type CFDIStatus = 'draft' | 'timbrado' | 'cancelado' | 'error';
+export type FiscalStatus =
+    | 'draft' | 'ready_for_api' | 'queued' | 'submitting' | 'processing' | 'stamped'
+    | 'rejected' | 'api_error' | 'cancellation_requested' | 'cancelled' | 'cancellation_rejected';
+
+export type FiscalSafeError =
+    | 'provider_not_configured' | 'validation_failed' | 'provider_unavailable' | 'provider_timeout'
+    | 'provider_rejected' | 'already_processing' | 'already_stamped' | 'invalid_transition'
+    | 'cancellation_failed' | 'artifact_unavailable' | 'status_conflict';
 
 export interface CFDI {
     id: string; // The database UUID
+    operation_id?: string | null;
     uuid: string; // The fiscal UUID
     serie?: string;
     folio: string;
@@ -17,6 +26,19 @@ export interface CFDI {
     issued_at?: string;
     cancelled_at?: string;
     pac_provider?: string;
+    fiscal_status: FiscalStatus;
+    fiscal_provider?: string | null;
+    provider_document_id?: string | null;
+    fiscal_stamped_at?: string | null;
+    fiscal_cancelled_at?: string | null;
+    fiscal_last_checked_at?: string | null;
+    fiscal_error_code?: FiscalSafeError | null;
+    fiscal_error_message_safe?: string | null;
+    request_fingerprint?: string | null;
+    provider_version?: string | null;
+    cfdi_version: string;
+    xml_document_file_id?: string | null;
+    pdf_document_file_id?: string | null;
     notes?: string;
     created_at: string;
 }
@@ -34,6 +56,22 @@ export interface CartaPorte {
 
 export interface CFDIWithDetail extends CFDI {
     carta_porte?: CartaPorte;
+}
+
+export interface FiscalReadiness {
+    cfdi_id: string;
+    fiscal_status: FiscalStatus;
+    validation: { valid: boolean; missing_fields: string[]; cfdi_version: string };
+    provider: { configured: boolean; code: string | null; environment: 'sandbox' | 'production' };
+    request_fingerprint?: string | null;
+    provider_document_id?: string | null;
+    fiscal_uuid?: string | null;
+    last_checked_at?: string | null;
+    safe_error_code?: FiscalSafeError | null;
+    safe_error_message?: string | null;
+    xml_document_file_id?: string | null;
+    pdf_document_file_id?: string | null;
+    last_attempt?: { request_id: string; request_type: string; status: string; attempt_count: number; safe_error_code?: string | null; updated_at: string } | null;
 }
 
 // Map real data back to the UI interface format originally used
