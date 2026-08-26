@@ -1,5 +1,5 @@
 # Edge Functions — Tracking Module
-> **Versión:** 1.1 · **Fecha de reconciliación:** 2026-07-29
+> **Versión:** 1.2 · **Fecha de reconciliación:** 2026-08-26
 > **Módulo:** OPS_TRACK · **Ref:** TRACKING_TOKEN_SECURITY_DESIGN.md
 
 > **Estado verificado del árbol:** existen `track-public`, `driver-view` y
@@ -7,13 +7,11 @@
 > fuera del alcance de SEC.4. Los fragmentos extensos conservados abajo son
 > referencias históricas; el código fuente es la autoridad final.
 
-> **Reconciliación M4.1A (local, no desplegada):** los RPC internos se endurecen
-> en una migración nueva, sin modificar estas Edge Functions. `track-driver`
-> conserva `400` para acción inválida; la definición SQL final solo aplica
-> cooldown a `in_transit` (30 min) e `incident` (10 min), ambos con `200` y
-> `accepted:false`. No hay idempotencia general por `clientTimestamp` ni contrato
-> `422` vigente. El fallback legacy continúa activo y la revocación de
-> credenciales no está autorizada.
+> **Reconciliación vigente:** los RPC internos conservan el contrato cerrado en
+> M4. `track-driver` mantiene `400` para acción inválida; la definición SQL final
+> aplica cooldown a `in_transit` (30 min) e `incident` (10 min), ambos con `200`
+> y `accepted:false`. SEC.4B retiró del runtime los fallbacks singular y
+> `service_role`; no deshabilitó ni revocó llaves del proyecto.
 
 ---
 
@@ -452,10 +450,15 @@ supabase functions deploy track-driver  --no-verify-jwt
 
 ### Estado de credenciales
 
-El código vigente usa el helper compartido `createSupabaseAdminClient()`. La
-resolución prioriza `modern_named`, después `modern_local`, y conserva
-`legacy_fallback` como compatibilidad temporal. La evidencia previa de staging
-registró `modern_named`; M4.1A no despliega funciones ni retira el fallback.
+SEC.4B conserva el helper compartido `createSupabaseAdminClient()` y acepta
+únicamente la entrada `trackingedge` del mapa hospedado
+`SUPABASE_SECRET_KEYS`. Se retiraron tanto la variable singular de
+compatibilidad como el fallback al proyecto `service_role`. Si la credencial
+dedicada falta o es inválida, las tres funciones fallan de forma controlada con
+HTTP `503` y `tracking_service_unavailable`.
+
+El contrato y su matriz están documentados en
+`docs/sec4b-tracking-credential-hardening.md`.
 
 ### Matriz `verify_jwt`
 
@@ -475,16 +478,11 @@ No debe crearse ni desplegarse como parte de este plan.
 - Las tres funciones remotas se verificaron con `verify_jwt=false`; la
   reconciliación de configuración versionada queda fuera de M4.1A.
 
-### Plan de migración vigente
+### Estado de migración
 
-1. **SEC.4C:** soporte dual de secret moderna con fallback legacy temporal,
-   configuración explícita de `verify_jwt=false`, CORS staging y hardening del log.
-2. **SEC.4D:** alta manual de la secret `trackingedge`.
-3. **SEC.4E:** canary de `driver-view`.
-4. **SEC.4F:** migración de `track-public` y `track-driver`.
-5. **SEC.4G:** QA integral de tracking.
-6. **SEC.4H:** retirar el fallback y revocar la credencial legacy cuando no
-   existan consumidores pendientes.
+La entrada nombrada `trackingedge`, `verify_jwt=false` y las tres funciones
+forman el contrato versionado. La deshabilitación futura de llaves legacy queda
+separada y bloqueada hasta completar el inventario de consumidores externos.
 
 ---
 

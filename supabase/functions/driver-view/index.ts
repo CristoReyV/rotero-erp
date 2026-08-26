@@ -13,6 +13,7 @@ import { CACHE } from "../_shared/security-headers.ts";
 import { checkRateLimit, LIMITS } from "../_shared/rate-limit.ts";
 import { jsonResponse, errorResponse } from "../_shared/response.ts";
 import { createSupabaseAdminClient } from "../_shared/supabase-admin.ts";
+import { isTrackingCredentialError } from "../_shared/tracking-credential.ts";
 
 Deno.serve(async (req: Request) => {
     // ── CORS preflight ──
@@ -52,9 +53,16 @@ Deno.serve(async (req: Request) => {
     let supabase: ReturnType<typeof createSupabaseAdminClient>;
     try {
         supabase = createSupabaseAdminClient();
-    } catch {
-        console.error("[driver-view] Admin client configuration error");
-        return errorResponse(500, "internal_error", {
+    } catch (error) {
+        if (!isTrackingCredentialError(error)) {
+            console.error("[driver-view] Admin client initialization error");
+            return errorResponse(500, "internal_error", {
+                ...corsHeaders,
+                "Cache-Control": CACHE.NO_STORE,
+            });
+        }
+        console.error("[driver-view] Tracking credential unavailable");
+        return errorResponse(503, "tracking_service_unavailable", {
             ...corsHeaders,
             "Cache-Control": CACHE.NO_STORE,
         });
@@ -65,7 +73,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (error) {
-        console.error("[driver-view] RPC error:", error.message);
+        console.error("[driver-view] RPC error");
         return errorResponse(500, "internal_error", {
             ...corsHeaders,
             "Cache-Control": CACHE.NO_STORE,
