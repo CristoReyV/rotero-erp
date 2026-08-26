@@ -21,8 +21,8 @@ BEGIN
   END LOOP;
   FOREACH s IN ARRAY ARRAY[
     'private.fiscal0_status_transition_allowed(text,text)','private.fiscal0_guard_cfdi()',
-    'private.fiscal0_attempts_immutable()','private.fiscal0_validate(public.billing_cfdis)',
-    'private.fiscal0_snapshot(public.billing_cfdis)','private.fiscal0_claim_requests(integer)',
+    'private.fiscal0_attempts_immutable()','private.fiscal0_validate(uuid)',
+    'private.fiscal0_snapshot(uuid)','private.fiscal0_claim_requests(integer)',
     'private.fiscal0_apply_provider_result(uuid,jsonb,timestamptz)','private.fiscal0_link_artifact(uuid,text,uuid)'
   ] LOOP
     o:=to_regprocedure(s); IF o IS NULL OR has_function_privilege('authenticated',o,'EXECUTE') OR has_function_privilege('anon',o,'EXECUTE') OR has_function_privilege('service_role',o,'EXECUTE') THEN RAISE EXCEPTION 'FISCAL0 private ACL %',s; END IF;
@@ -48,12 +48,15 @@ BEGIN
   INSERT INTO public.customers(tenant_id,display_name) VALUES(tenant,'Cliente Fiscal0') RETURNING id INTO customer;
   INSERT INTO public.operations(tenant_id,reference_code,customer_id,status,execution_type,customer_price_amount,provider_cost_amount,pricing_currency)
     VALUES(tenant,'OP-FISCAL0',customer,'planned','third_party',1160,700,'MXN') RETURNING id INTO operation_id;
-  INSERT INTO public.billing_cfdis(tenant_id,operation_id,serie,folio,rfc_emisor,rfc_receptor,receptor_name,subtotal,total,currency)
-    SELECT tenant,operation_id,'F0',n::text,'AAA010101AAA','BBB010101BBB','Cliente Fiscal0',1000,1160,'MXN' FROM generate_series(1,4)n ORDER BY n;
+  INSERT INTO public.billing_cfdis(tenant_id,uuid,serie,folio,rfc_emisor,rfc_receptor,receptor_name,subtotal,total,currency)
+    SELECT tenant,gen_random_uuid()::text,'F0',n::text,'AAA010101AAA','BBB010101BBB','Cliente Fiscal0',1000,1160,'MXN' FROM generate_series(1,4)n ORDER BY n;
   SELECT id INTO cfdi1 FROM public.billing_cfdis WHERE tenant_id=tenant AND folio='1';
   SELECT id INTO cfdi2 FROM public.billing_cfdis WHERE tenant_id=tenant AND folio='2';
   SELECT id INTO cfdi3 FROM public.billing_cfdis WHERE tenant_id=tenant AND folio='3';
   SELECT id INTO cfdi4 FROM public.billing_cfdis WHERE tenant_id=tenant AND folio='4';
+  INSERT INTO public.billing_documents(tenant_id,operation_id,linked_cfdi_id,status)
+    VALUES(tenant,operation_id,cfdi1,'stamped'),(tenant,operation_id,cfdi2,'stamped'),
+          (tenant,operation_id,cfdi3,'stamped'),(tenant,operation_id,cfdi4,'stamped');
   PERFORM set_config('fiscal0.tenant',tenant::text,true); PERFORM set_config('fiscal0.other',other::text,true);
   PERFORM set_config('fiscal0.admin',admin_id::text,true); PERFORM set_config('fiscal0.finance',finance_id::text,true); PERFORM set_config('fiscal0.operator',operator_id::text,true);
   PERFORM set_config('fiscal0.operation',operation_id::text,true); PERFORM set_config('fiscal0.cfdi1',cfdi1::text,true); PERFORM set_config('fiscal0.cfdi2',cfdi2::text,true); PERFORM set_config('fiscal0.cfdi3',cfdi3::text,true); PERFORM set_config('fiscal0.cfdi4',cfdi4::text,true);
