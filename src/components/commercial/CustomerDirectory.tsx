@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Building2, Edit3, Inbox, Loader2, Mail, Phone, Plus, Search, X } from 'lucide-react';
 import { getCommercialErrorMessage, getCustomer360, listCustomers, upsertCustomer } from '@/services/commercial.service';
 import type { CommercialCurrency, Customer, Customer360, CustomerPayload } from '@/types/commercial';
 import { formatCommercialCurrency } from '@/utils/commercialCalculations';
 import { EntityDocumentsPanel } from '@/components/documents/EntityDocumentsPanel';
 import { Partner360Panel } from '@/components/commercial/Partner360Panel';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const EMPTY_FORM: CustomerPayload = {
     display_name: '',
@@ -24,6 +25,7 @@ export function CustomerDirectory({ tenantId, requestedCustomerId, createRequest
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebouncedValue(search.trim());
     const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [selected, setSelected] = useState<Customer360 | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -31,21 +33,24 @@ export function CustomerDirectory({ tenantId, requestedCustomerId, createRequest
     const [form, setForm] = useState<CustomerPayload>(EMPTY_FORM);
     const [modalOpen, setModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const requestId=useRef(0);
 
     const load = useCallback(async () => {
+        const current=++requestId.current;
         setLoading(true);
         setError(null);
         try {
-            setItems(await listCustomers(tenantId, {
-                searchText: search.trim() || undefined,
+            const data=await listCustomers(tenantId, {
+                searchText: debouncedSearch || undefined,
                 active: activeFilter === 'all' ? undefined : activeFilter === 'active',
-            }));
+            });
+            if(current===requestId.current)setItems(data);
         } catch (loadError) {
-            setError(getCommercialErrorMessage(loadError));
+            if(current===requestId.current)setError(getCommercialErrorMessage(loadError));
         } finally {
-            setLoading(false);
+            if(current===requestId.current)setLoading(false);
         }
-    }, [activeFilter, search, tenantId]);
+    }, [activeFilter, debouncedSearch, tenantId]);
 
     useEffect(() => { void load(); }, [load]);
 

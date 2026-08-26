@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowRight, CheckCircle2, Copy, Edit3, FileText, Inbox, Loader2, Plus, Printer, Search, Send, Truck, X, XCircle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -14,6 +14,7 @@ import { recordDataAction } from '@/services/dataOperations.service';
 import { downloadCsvContent, serializeCsv } from '@/utils/csv';
 import { QuoteRateComparison } from '@/components/commercial/QuoteRateComparison';
 import { MarginTargetCalculator } from '@/components/commercial/MarginTargetCalculator';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const STATUS_META: Record<QuoteStatus, { label: string; className: string }> = {
     draft: { label: 'Borrador', className: 'bg-slate-100 text-slate-600' },
@@ -53,31 +54,35 @@ export function QuoteWorkspace({ tenantId, requestedCustomerId }: { tenantId: st
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebouncedValue(search.trim());
     const [status, setStatus] = useState<QuoteStatus | 'all'>('all');
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState<QuoteFormState>(EMPTY_QUOTE);
     const [bulkIds, setBulkIds] = useState<Set<string>>(new Set());
+    const requestId=useRef(0);
 
     const selected = quotes.find((quote) => quote.id === selectedId) ?? quotes[0] ?? null;
     const formMargin = calculateMargin(Number(form.provider_cost_amount), Number(form.customer_price_amount));
 
     const load = useCallback(async () => {
+        const current=++requestId.current;
         setLoading(true); setError(null);
         try {
             const [quoteData, customerData, providerData, dealData] = await Promise.all([
-                listQuotes(tenantId, { searchText: search.trim() || undefined, status: status === 'all' ? undefined : status }),
+                listQuotes(tenantId, { searchText: debouncedSearch || undefined, status: status === 'all' ? undefined : status }),
                 listCustomers(tenantId, { active: true }),
                 listProviders(tenantId, { active: true }),
                 listCommercialDeals(tenantId),
             ]);
+            if(current!==requestId.current)return;
             setQuotes(quoteData); setCustomers(customerData); setProviders(providerData);
             setOpportunities(dealData.filter((deal) => !deal.quote_reference));
             setSelectedId((current) => quoteData.some((quote) => quote.id === requestedQuoteId) ? requestedQuoteId : quoteData.some((quote) => quote.id === current) ? current : quoteData[0]?.id ?? null);
-        } catch (loadError) { setError(getCommercialErrorMessage(loadError)); }
-        finally { setLoading(false); }
-    }, [search, status, tenantId, requestedQuoteId]);
+        } catch (loadError) { if(current===requestId.current)setError(getCommercialErrorMessage(loadError)); }
+        finally { if(current===requestId.current)setLoading(false); }
+    }, [debouncedSearch, status, tenantId, requestedQuoteId]);
 
     useEffect(() => { void load(); }, [load]);
     useEffect(() => { if (params.get('action') === 'new-quote') { openCreate(requestedCustomerId); const next=new URLSearchParams(params);next.delete('action');setParams(next,{replace:true}); } }, [params, requestedCustomerId, setParams]);
