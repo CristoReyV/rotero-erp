@@ -229,19 +229,19 @@ CREATE OR REPLACE FUNCTION private.fiscal0_snapshot(p_cfdi public.billing_cfdis)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO pg_catalog, public
 AS $function$
     SELECT jsonb_strip_nulls(jsonb_build_object(
-        'schema','rotero.fiscal-input','schema_version',1,'cfdi_version',p_cfdi.cfdi_version,
-        'billing_cfdi_id',p_cfdi.id,'tenant_id',p_cfdi.tenant_id,'operation_id',p_cfdi.operation_id,
-        'issuer',COALESCE(p_cfdi.fiscal_input->'issuer',jsonb_build_object('rfc',p_cfdi.rfc_emisor)),
-        'receiver',COALESCE(p_cfdi.fiscal_input->'receiver',jsonb_build_object('rfc',p_cfdi.rfc_receptor,'name',p_cfdi.receptor_name)),
-        'concepts',p_cfdi.fiscal_input->'concepts','taxes',p_cfdi.fiscal_input->'taxes',
-        'payment',p_cfdi.fiscal_input->'payment','related_cfdis',p_cfdi.fiscal_input->'related_cfdis',
-        'currency',p_cfdi.currency,'subtotal',p_cfdi.subtotal,'total',p_cfdi.total,
-        'exchange_rate',p_cfdi.exchange_rate,
-        'carta_porte',CASE WHEN p_cfdi.has_carta_porte THEN (
+        'schema','rotero.fiscal-input','schema_version',1,'cfdi_version',(p_cfdi).cfdi_version,
+        'billing_cfdi_id',(p_cfdi).id,'tenant_id',(p_cfdi).tenant_id,'operation_id',(p_cfdi).operation_id,
+        'issuer',COALESCE((p_cfdi).fiscal_input->'issuer',jsonb_build_object('rfc',(p_cfdi).rfc_emisor)),
+        'receiver',COALESCE((p_cfdi).fiscal_input->'receiver',jsonb_build_object('rfc',(p_cfdi).rfc_receptor,'name',(p_cfdi).receptor_name)),
+        'concepts',(p_cfdi).fiscal_input->'concepts','taxes',(p_cfdi).fiscal_input->'taxes',
+        'payment',(p_cfdi).fiscal_input->'payment','related_cfdis',(p_cfdi).fiscal_input->'related_cfdis',
+        'currency',(p_cfdi).currency,'subtotal',(p_cfdi).subtotal,'total',(p_cfdi).total,
+        'exchange_rate',(p_cfdi).exchange_rate,
+        'carta_porte',CASE WHEN (p_cfdi).has_carta_porte THEN (
             SELECT jsonb_strip_nulls(jsonb_build_object(
                 'carta_porte_id',cp.id,'transport_type',cp.trans_type,'carrier_name',cp.carrier_name,
                 'vehicle_plate',cp.vehicle_plate,'origin',cp.origin,'destination',cp.destination,'goods_description',cp.goods_desc
-            )) FROM public.billing_carta_porte cp WHERE cp.cfdi_id=p_cfdi.id
+            )) FROM public.billing_carta_porte cp WHERE cp.cfdi_id=(p_cfdi).id
         ) ELSE NULL END
     ));
 $function$;
