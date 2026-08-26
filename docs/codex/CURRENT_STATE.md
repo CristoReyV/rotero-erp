@@ -42,8 +42,11 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 - R3: completado con backup lógico PRE_F8_F10 restaurable y verificado; rollout DB, deploy staging y smoke HTTP aprobados.
 - R4.1: completado con backup lógico POST_BH1_PRE_INVITE_FIX restaurable y verificado; rollout DB, lint remoto, seguridad, deploy staging y smoke HTTP aprobados.
 - R5: completado con backup lógico PRE_BH2 restaurable y verificado; rollout BH2, seguridad, integridad, deploy staging y smoke HTTP aprobados.
+- R6.2: FISCAL.0 provider-neutral activo en Supabase staging con 38 migraciones y `20260903000000_fiscal0_provider_neutral_readiness` como última versión. La migración aún no aplicada se reconcilió con la forma Billing real: el contexto operativo se deriva por `billing_documents.linked_cfdi_id` + `billing_documents.operation_id`, sin duplicar `operation_id` en `billing_cfdis`.
+- FISCAL.0 permanece fail-closed: adaptador Soft Management `NOT_CONFIGURED`, configuraciones/solicitudes/intentos persistentes en cero, llamadas al proveedor `0` y ningún secreto fiscal agregado. DB lint remoto: 0 errores.
+- R6.2 desplegó el merge verificado a Netlify staging; smoke HTTP aprobado en rutas ERP, públicas y de operador. Bundle inicial `361.71 kB / 114.96 kB gzip`.
 - QA visual/manual de F1–F10/BH1/BH2: pendiente; el smoke HTTP de staging está aprobado.
-- Integración real con proveedor Fiscal API: pendiente.
+- Integración real con proveedor Fiscal API y documentación oficial de Soft Management: pendientes.
 
 ## Límites vigentes
 
@@ -52,5 +55,6 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 - Runtime Finance: sigue pendiente de una credencial legítima.
 - Tracking M4: permanece CLOSED / PASS, sin cambios de capacidades durante R4.1.
 - SEC.4: no fue modificado por R5; conserva su carril activo.
+- R6.2 no modificó producción, Auth, Edge Functions, Tracking ni SEC.4.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
