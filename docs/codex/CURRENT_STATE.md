@@ -32,24 +32,25 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 
 ## Producto
 
-- F1–F10: merged en `main`; migraciones aplicadas y verificadas en Supabase staging.
-- BH1 y R4.1: merged y aplicados en staging. R4.1 reconcilió el esquema histórico de invitaciones; DB lint remoto quedó en 0 errores.
-- F3–F10 y el hardening BH1/R4.1: activos en Netlify staging con lazy routing verificado.
+- F1–F10, BH1, R4.1 y BH2: merged en `main`, con migraciones aplicadas y verificadas en Supabase staging.
+- R5 desplegó BH2 en staging con DB lint remoto en 0 errores, historiales Partner360 paginados, precedencia `business_contacts` → `contact_*` → fallback legacy y fechas de negocio tenant-aware activas.
+- F3–F10 y los hardenings BH1/R4.1/BH2: activos en Netlify staging con lazy routing saludable; bundle inicial BH2 `361.56 kB / 114.86 kB gzip`.
 - F8 Rates/Partner360, F9 Compliance/Contracts y F10 Claims/Customer Service: staging PASS mediante el release acumulado R3.
 - F7: `pg_cron` instalado y saludable; conserva exactamente los jobs hourly y daily digest con sus schedules canónicos.
 - El onboarding por invitación permanece deshabilitado: `/invite/:token` redirige a login, los overloads legacy están fail-closed y el aprovisionamiento beta sigue siendo manual.
 - R2.2: completado con backup lógico POST_F4_PRE_F5 restaurable y verificado.
 - R3: completado con backup lógico PRE_F8_F10 restaurable y verificado; rollout DB, deploy staging y smoke HTTP aprobados.
 - R4.1: completado con backup lógico POST_BH1_PRE_INVITE_FIX restaurable y verificado; rollout DB, lint remoto, seguridad, deploy staging y smoke HTTP aprobados.
-- QA visual/manual de F1–F10/BH1: pendiente; el smoke HTTP de staging está aprobado.
+- R5: completado con backup lógico PRE_BH2 restaurable y verificado; rollout BH2, seguridad, integridad, deploy staging y smoke HTTP aprobados.
+- QA visual/manual de F1–F10/BH1/BH2: pendiente; el smoke HTTP de staging está aprobado.
 - Integración real con proveedor Fiscal API: pendiente.
 
 ## Límites vigentes
 
-- Producción: sin cambios durante R4.1.
-- Auth, Edge Functions y llaves: sin cambios durante R4.1.
+- Producción: sin cambios durante R5.
+- Auth, Edge Functions y llaves: sin cambios durante R5.
 - Runtime Finance: sigue pendiente de una credencial legítima.
 - Tracking M4: permanece CLOSED / PASS, sin cambios de capacidades durante R4.1.
-- SEC.4: no fue modificado por R4.1; conserva su carril activo.
+- SEC.4: no fue modificado por R5; conserva su carril activo.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
