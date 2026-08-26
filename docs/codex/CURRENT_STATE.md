@@ -22,6 +22,14 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 - QA final: events `4 → 5`; route points `2 → 2`; active capabilities `0/0`.
 - Evidencia canónica: `docs/TRACKING_CLOSURE.md`.
 - Pendientes adyacentes de SEC.4 y fases posteriores no reabren M4.
+- SEC.4B: CLOSED / STAGING PASS. `driver-view` v5, `track-public` v5 y
+  `track-driver` v7 ejecutan el merge `b64c202` con `verify_jwt=false`.
+- El resolver Tracking acepta únicamente la secret moderna nombrada
+  `trackingedge`; la ausencia o forma inválida falla con
+  `503 tracking_service_unavailable` y no usa `service_role`.
+- Canary staging: customer/driver positivos, scope/invalid/revoked denegados,
+  eventos `5 → 5`, route points `2 → 2`, residue activo `0/0` y artefactos de
+  capability `0`.
 
 ## Acceso y seguridad
 
@@ -29,6 +37,10 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 - RBAC.3A, RBAC.3B y RBAC.3C: merged/deployed.
 - Runtime Finance: pendiente de una credencial legítima; no usar credenciales sustitutas.
 - SEC.4: carril de remediación de credenciales activo.
+- SEC.4B retiró del runtime Tracking los fallbacks singular y `service_role`.
+  Las llaves legacy del proyecto NO fueron deshabilitadas: Netlify/frontend aún
+  declaran consumidores anon legacy y los consumidores externos siguen sin un
+  inventario autoritativo completo.
 
 ## Producto
 
@@ -56,5 +68,8 @@ Leer este archivo solo cuando la tarea dependa de la fase o de targets actuales.
 - Tracking M4: permanece CLOSED / PASS, sin cambios de capacidades durante R4.1.
 - SEC.4: no fue modificado por R5; conserva su carril activo.
 - R6.2 no modificó producción, Auth, Edge Functions, Tracking ni SEC.4.
+- SEC.4B modificó y desplegó únicamente las tres Edge Functions de capability
+  Tracking en staging. Producción, Auth users, Finance y Fiscal permanecieron
+  sin cambios; ninguna llave legacy fue deshabilitada.
 
 Actualizar este archivo solo con estado verificado y aprobado. El código, los contratos y el target observado prevalecen si existe drift.
