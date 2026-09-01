@@ -48,7 +48,7 @@ export function OperationsTable({ operations, selectedId, onSelect, selectedBulk
                                 <tr
                                     key={operation.id}
                                     onClick={() => onSelect(operation)}
-                                    className={`cursor-pointer transition-colors ${selected ? 'bg-primary-50/60' : 'hover:bg-slate-50/70'}`}
+                                    className={`cursor-pointer transition-colors ${selected ? 'bg-primary-50/60' : 'hover:bg-semantic-neutral-soft'}`}
                                 >
                                     {onToggleBulk && <td className="px-3 py-4"><input aria-label={`Seleccionar ${operation.id}`} type="checkbox" checked={selectedBulkIds?.has(operation.db_id ?? operation.id) ?? false} onClick={(event) => event.stopPropagation()} onChange={() => onToggleBulk(operation)} /></td>}
                                     <td className={`border-l-3 px-5 py-4 ${selected ? 'border-l-primary' : 'border-l-transparent'}`}>
@@ -79,11 +79,12 @@ export function OperationsTable({ operations, selectedId, onSelect, selectedBulk
                     const status = getOperationStatus(operation.status);
                     const selected = selectedId === operation.id;
                     return (
-                        <div
+                        <button
                             key={operation.id}
                             type="button"
                             onClick={() => onSelect(operation)}
-                            className={`w-full min-w-0 p-3 text-left transition-colors min-[390px]:p-4 ${selected ? 'bg-primary-50' : 'bg-surface-card active:bg-slate-50'}`}
+                            aria-pressed={selected}
+                            className={`w-full min-w-0 max-w-full p-3 text-left transition-colors min-[390px]:p-4 ${selected ? 'bg-primary-50 ring-1 ring-inset ring-primary/25' : 'bg-surface-card active:bg-semantic-neutral-soft focus-visible:bg-semantic-neutral-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40 sm:hover:bg-semantic-neutral-soft'}`}
                         >
                             <div className="flex min-w-0 items-start justify-between gap-2"><div className="flex min-w-0 flex-1 gap-2">{onToggleBulk && <input aria-label={`Seleccionar ${operation.id}`} type="checkbox" checked={selectedBulkIds?.has(operation.db_id ?? operation.id) ?? false} onClick={(event) => event.stopPropagation()} onChange={() => onToggleBulk(operation)} />}
                                 <div className="min-w-0">
@@ -97,7 +98,7 @@ export function OperationsTable({ operations, selectedId, onSelect, selectedBulk
                                 <p className="flex min-w-0 items-center gap-2"><UserRound size={13} className="shrink-0" /><span className="min-w-0 truncate">{operation.provider_name || operation.driver_name || 'Proveedor por confirmar'}</span></p>
                                 <p className="flex items-center gap-2"><CalendarClock size={13} /> {formatOperationDate(operation.planned_departure)}</p>
                             </div>
-                        </div>
+                        </button>
                     );
                 })}
             </div>

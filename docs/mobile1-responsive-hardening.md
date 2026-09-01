@@ -63,3 +63,30 @@ Spot checks a 320 px:
 - Probar referencias, RFC, correos y nombres largos; deben truncarse o envolver sin ensanchar la página.
 
 La QA visual final corresponde a dispositivo real; MOBILE.1 no usa browser automation, Chromium, screenshots ni deploy de staging.
+
+## Hallazgos de QA en dispositivo real
+
+MOBILE.1A atiende escapes horizontales en Requiere atención, Actividad reciente y Registrar cobro; estados de toque que mostraban una superficie blanca en Operaciones; tarjetas semánticas con bajo contraste; demora visual al cambiar la etapa comercial; y valores internos que llegaban a etiquetas de Operaciones, Facturación, Finanzas, Reclamaciones y Documentos.
+
+## Correcciones MOBILE.1A
+
+- Los contenedores críticos usan `min-w-0`, `max-w-full`, wrapping y grids que colapsan a una columna. Drawers y formularios conservan scroll vertical interno y acciones alcanzables a 320 px.
+- Las filas de Operaciones tienen estados `active`, `focus`, `selected` y hover desktop basados en tema, sin destello blanco en dark mode.
+- El cambio de etapa comercial espera la mutación, actualiza el detalle visible tras el éxito y vuelve a consultar el estado canónico. Un fallo no adelanta el estado local.
+- Los títulos visibles se simplificaron a términos de negocio en español, sin renombrar rutas, componentes ni contratos.
+
+## Contrato de color semántico
+
+Los tonos compartidos son `neutral`, `info`, `success`, `warning` y `danger`. Cada tono define acento, fondo sutil y borde para light/dark. El panel ordinario conserva la superficie canónica; el significado se comunica con borde, icono, texto o badge. Un tinte semántico se reserva para elementos pequeños. Los paneles Carta Porte, Ejecución controlada, Sin integración, Detalle interno, Frontera fiscal y advertencias operativas siguen este contrato.
+
+## Contrato de etiquetas visibles
+
+Los valores persistidos y las llamadas internas no cambian. La presentación usa mapas pequeños por dominio para motivos de preparación, reclamaciones, documentos, fiscal y finanzas. Entre otros: `missing_planning_data` se muestra como Planeación incompleta; `missing_assignment`, como Proveedor sin asignar; `proof_of_delivery`, como Prueba de entrega (POD); `generated_pdf`, como PDF generado; y `active`, como Activo. Las rutas fiscales se convierten a una frase como “Faltan: Conceptos y método de pago”. Los valores desconocidos reciben una descripción segura y no exponen nombres de RPC o identificadores similares.
+
+## QA manual pendiente tras MOBILE.1A
+
+- Repetir en dispositivo real a 320 y 390 px, light/dark: Requiere atención, Actividad reciente, tarjetas y selección de Operaciones, detalle de Facturación, Registrar cobro, cambio de etapa comercial, Reclamaciones y Documentos.
+- Confirmar que nombres, referencias, correos y metadatos largos no crean scroll horizontal de página a 360, 375, 414 y 430 px.
+- Confirmar contraste de texto normal, secundario, badges, foco y estados deshabilitados en las superficies semánticas.
+- Confirmar que el cambio de etapa comercial converge en control, badge, detalle y lista sin recarga manual, y que un error conserva la etapa anterior.
+- Revisar que ninguna etiqueta visible muestre enums, `snake_case`, rutas JSON o nombres de funciones internas.

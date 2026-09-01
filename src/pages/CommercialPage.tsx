@@ -187,13 +187,13 @@ const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId:
             {/* Header */}
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-xl font-bold text-slate-800 sm:text-2xl">Pipeline CRM</h1>
+                    <h1 className="text-xl font-bold text-slate-800 sm:text-2xl">Pipeline comercial</h1>
                     <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">Gestión comercial y seguimiento de oportunidades</p>
                 </div>
                 <div className="flex w-full items-center gap-2 sm:w-auto">
                     {!isViewer && (
                         <button onClick={() => setShowNewModal(true)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold text-white shadow-md shadow-accent-red/20 transition-all gradient-accent hover:shadow-lg hover:shadow-accent-red/30 sm:flex-none">
-                            <Plus size={14} /> Nuevo Deal
+                            <Plus size={14} /> Nueva oportunidad
                         </button>
                     )}
                     <button onClick={() => setShowFilters(true)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-tech-border/60 bg-surface px-3.5 text-xs font-semibold text-slate-500 transition-all hover:border-primary/30 hover:text-primary sm:flex-none">
@@ -211,22 +211,22 @@ const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId:
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onKeyDown={handleSearch}
-                        placeholder="Buscar cliente, Título o Deal ID (Presiona Enter)..."
+                        placeholder="Buscar cliente, título o ID de oportunidad"
                         className="w-full pl-9 pr-4 py-2.5 bg-surface-card border border-tech-border/60 rounded-xl text-sm placeholder:text-slate-300 focus:ring-2 focus:ring-primary/15 focus:border-primary/30 focus:outline-none transition-all"
                     />
                 </div>
                 <div className="grid w-full grid-cols-3 gap-0.5 rounded-xl border border-tech-border/60 bg-surface-card p-0.5 sm:flex sm:w-auto">
                     <button onClick={() => { setViewModeTouched(true); setViewMode('board'); }} aria-pressed={viewMode === 'board'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition-all
               ${viewMode === 'board' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-primary-50'}`}>
-                        <LayoutGrid size={12} /> Board
+                        <LayoutGrid size={12} /> Tablero
                     </button>
                     <button onClick={() => { setViewModeTouched(true); setViewMode('list'); }} aria-pressed={viewMode === 'list'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition-all
               ${viewMode === 'list' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-primary-50'}`}>
-                        <List size={12} /> List
+                        <List size={12} /> Lista
                     </button>
                     <button onClick={() => { setViewModeTouched(true); setViewMode('map'); }} aria-pressed={viewMode === 'map'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition-all
               ${viewMode === 'map' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-primary-50'}`}>
-                        <Map size={12} /> Map
+                        <Map size={12} /> Mapa
                     </button>
                 </div>
             </div>
@@ -246,10 +246,10 @@ const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId:
                             <strong className="max-w-[42%] shrink-0 truncate text-sm text-primary">{deal.value} MXN</strong>
                         </button>;
                     })}</div>
-                    {columns.every((column) => column.deals.length === 0) && <p className="p-8 text-center text-sm text-slate-400">No hay deals para los filtros seleccionados.</p>}
+                    {columns.every((column) => column.deals.length === 0) && <p className="p-8 text-center text-sm text-slate-400">No hay oportunidades para los filtros seleccionados.</p>}
                 </section>
             ) : viewMode === 'map' ? (
-                <section className="rounded-2xl border border-dashed bg-surface-card p-8 text-center"><Map className="mx-auto text-slate-400" /><h2 className="mt-3 font-bold text-slate-700">Vista geográfica</h2><p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Los deals actuales no exponen ubicaciones canónicas. Usa Lista o Board sin inferir coordenadas.</p></section>
+                <section className="rounded-2xl border border-dashed bg-surface-card p-8 text-center"><Map className="mx-auto text-slate-400" /><h2 className="mt-3 font-bold text-slate-700">Vista geográfica</h2><p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Las oportunidades actuales no incluyen ubicaciones confirmadas. Usa Lista o Tablero.</p></section>
             ) : (
                 <div className="flex max-w-full snap-x gap-3 overflow-x-auto overscroll-x-contain pb-2 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible lg:grid-cols-4" data-commercial-board-container>
                     {columns.map((col) => {
@@ -282,7 +282,7 @@ const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId:
                                 <div className="space-y-2.5">
                                     {col.deals.length === 0 ? (
                                         <div className="rounded-xl border border-dashed border-tech-border/40 p-4 py-6 text-center text-xs text-slate-400 md:py-10">
-                                            Sin deals en esta fase
+                                            Sin oportunidades en esta fase
                                         </div>
                                     ) : col.deals.map((deal, i) => (
                                         <div
@@ -328,7 +328,7 @@ const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId:
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:p-4">
                     <motion.div role="dialog" aria-modal="true" aria-labelledby="new-deal-title" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="h-dvh w-full max-w-sm overflow-y-auto bg-surface-card shadow-xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                            <h2 id="new-deal-title" className="text-lg font-bold text-slate-800">Nuevo Deal</h2>
+                            <h2 id="new-deal-title" className="text-lg font-bold text-slate-800">Nueva oportunidad</h2>
                             <button onClick={() => setShowNewModal(false)} aria-label="Cerrar nuevo deal" className="flex h-11 w-11 items-center justify-center text-slate-400 hover:text-slate-600">✕</button>
                         </div>
                         <form onSubmit={handleCreate} className="p-6 space-y-4">
@@ -353,7 +353,7 @@ const PipelineWorkspace = ({ requestedDealId, onDealChange }: { requestedDealId:
                             <div className="pt-4 flex items-center justify-end gap-3">
                                 <button type="button" onClick={() => setShowNewModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700">Cancelar</button>
                                 <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg flex items-center gap-2">
-                                    {isSubmitting && <Loader2 size={14} className="animate-spin" />} Crear Deal
+                                    {isSubmitting && <Loader2 size={14} className="animate-spin" />} Crear oportunidad
                                 </button>
                             </div>
                         </form>
@@ -459,7 +459,7 @@ const CommercialPage = () => {
 
     return (
         <div className="min-w-0 max-w-full space-y-4 sm:space-y-5">
-            <PageHeader title="Commercial 360" subtitle="Cliente, oportunidad, proveedor, cotización y entrega a Operaciones" actions={<SavedViewsMenu tenantId={activeTenant} module="commercial" filters={{view:activeTab}} onApply={(filters)=>updateParams({view:typeof filters.view==='string'?filters.view:'pipeline',dealId:null,quoteId:null})}/>} />
+            <PageHeader title="Comercial" subtitle="Clientes, oportunidades, proveedores y cotizaciones" actions={<SavedViewsMenu tenantId={activeTenant} module="commercial" filters={{view:activeTab}} onApply={(filters)=>updateParams({view:typeof filters.view==='string'?filters.view:'pipeline',dealId:null,quoteId:null})}/>} />
             <nav aria-label="Secciones de Comercial" className="flex max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-2xl border bg-surface-card p-1.5">
                 {TABS.map((tab) => {
                     const Icon = tab.icon;

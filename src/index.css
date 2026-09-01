@@ -18,6 +18,23 @@
   --color-tech-border: #E2E8F0;
   --color-tech-border-light: #F1F5F9;
 
+  /* Semantic presentation: neutral surfaces + readable accents */
+  --color-semantic-neutral: #475569;
+  --color-semantic-neutral-soft: #F8FAFC;
+  --color-semantic-neutral-border: #CBD5E1;
+  --color-semantic-info: #1D4ED8;
+  --color-semantic-info-soft: #EFF6FF;
+  --color-semantic-info-border: #BFDBFE;
+  --color-semantic-success: #047857;
+  --color-semantic-success-soft: #ECFDF5;
+  --color-semantic-success-border: #A7F3D0;
+  --color-semantic-warning: #B45309;
+  --color-semantic-warning-soft: #FFFBEB;
+  --color-semantic-warning-border: #FDE68A;
+  --color-semantic-danger: #B91C1C;
+  --color-semantic-danger-soft: #FEF2F2;
+  --color-semantic-danger-border: #FECACA;
+
   /* Sidebar */
   --color-sidebar: #0B1F42;
   --color-sidebar-hover: #132D5A;
@@ -38,6 +55,22 @@
   --color-surface-elevated: #1E2A3A;
   --color-tech-border: #2A3A4E;
   --color-tech-border-light: #1E2D3F;
+
+  --color-semantic-neutral: #CBD5E1;
+  --color-semantic-neutral-soft: rgba(148, 163, 184, 0.10);
+  --color-semantic-neutral-border: #475569;
+  --color-semantic-info: #93C5FD;
+  --color-semantic-info-soft: rgba(59, 130, 246, 0.12);
+  --color-semantic-info-border: #1E4F88;
+  --color-semantic-success: #6EE7B7;
+  --color-semantic-success-soft: rgba(16, 185, 129, 0.12);
+  --color-semantic-success-border: #176B55;
+  --color-semantic-warning: #FCD34D;
+  --color-semantic-warning-soft: rgba(245, 158, 11, 0.12);
+  --color-semantic-warning-border: #7A5115;
+  --color-semantic-danger: #FCA5A5;
+  --color-semantic-danger-soft: rgba(239, 68, 68, 0.12);
+  --color-semantic-danger-border: #7F3030;
 
   --color-sidebar: #0A1220;
   --color-sidebar-hover: #11203A;

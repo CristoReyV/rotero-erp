@@ -235,7 +235,7 @@ const OperationsPage = () => {
     return (
         <div className="relative min-w-0 max-w-full space-y-4 sm:space-y-5">
             <PageHeader
-                title="Control Center"
+                title="Operaciones"
                 subtitle="Bandeja diaria de operaciones y ejecución logística contratada"
                 actions={(
                     <>
@@ -361,7 +361,7 @@ const OperationsPage = () => {
                         </div>
                         <form onSubmit={handleOverrideCancel} className="space-y-4 p-6">
                             <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                                La operación <b>{activeOp.id}</b> está en estado <b>{OPERATION_STATUS_META[activeOp.status]?.label ?? activeOp.status}</b>. El flujo actual requiere un motivo para usar el override existente.
+                                La operación <b>{activeOp.id}</b> está en estado <b>{OPERATION_STATUS_META[activeOp.status]?.label ?? 'Estado registrado'}</b>. El flujo actual requiere un motivo para usar la excepción disponible.
                             </p>
                             <div>
                                 <label htmlFor="override-reason" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Motivo (mínimo 10 caracteres)</label>
