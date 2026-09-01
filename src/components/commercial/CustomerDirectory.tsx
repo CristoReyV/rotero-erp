@@ -121,19 +121,19 @@ export function CustomerDirectory({ tenantId, requestedCustomerId, createRequest
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface-card p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
                 <form onSubmit={(event) => { event.preventDefault(); void load(); }} className="flex min-w-0 flex-1 gap-2">
                     <div className="relative min-w-0 flex-1">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nombre, RFC o contacto" className="w-full rounded-xl border bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/15" />
                     </div>
-                    <button className="rounded-xl border px-4 text-xs font-bold text-slate-600">Buscar</button>
+                    <button className="min-h-11 shrink-0 rounded-xl border px-3 text-xs font-bold text-slate-600 sm:px-4">Buscar</button>
                 </form>
-                <div className="flex gap-2">
-                    <select value={activeFilter} onChange={(event) => setActiveFilter(event.target.value as typeof activeFilter)} className="rounded-xl border bg-white px-3 py-2.5 text-xs font-semibold text-slate-600">
+                <div className="flex min-w-0 flex-wrap gap-2">
+                    <select value={activeFilter} onChange={(event) => setActiveFilter(event.target.value as typeof activeFilter)} className="min-h-11 min-w-0 flex-1 rounded-xl border bg-surface-card px-3 text-xs font-semibold text-slate-600">
                         <option value="all">Todos</option><option value="active">Activos</option><option value="inactive">Inactivos</option>
                     </select>
-                    <button onClick={() => openForm()} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white"><Plus size={15} /> Nuevo cliente</button>
+                    <button onClick={() => openForm()} className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white"><Plus size={15} /> Nuevo cliente</button>
                 </div>
             </div>
 
@@ -146,7 +146,7 @@ export function CustomerDirectory({ tenantId, requestedCustomerId, createRequest
                     ) : (
                         <div className="divide-y">
                             {items.map((customer) => (
-                                <button key={customer.id} onClick={() => void openDetail(customer)} className="grid w-full gap-3 p-4 text-left hover:bg-slate-50 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto] md:items-center">
+                                <button key={customer.id} onClick={() => void openDetail(customer)} className="grid min-h-[6rem] w-full min-w-0 gap-2 p-3 text-left hover:bg-slate-50 sm:p-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto] md:items-center md:gap-3">
                                     <div className="min-w-0"><div className="flex items-center gap-2"><Building2 size={16} className="text-primary" /><p className="truncate font-bold text-slate-800">{customer.display_name}</p></div><p className="mt-1 truncate text-xs text-slate-400">{customer.legal_name || customer.tax_id || 'Sin razón social capturada'}</p></div>
                                     <div className="text-xs text-slate-500"><p className="truncate">{customer.contact_name || 'Sin contacto'}</p><p className="truncate">{customer.contact_email || customer.contact_phone || 'Sin datos de contacto'}</p></div>
                                     <div className="flex items-center justify-between gap-3 md:block md:text-right"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${customer.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{customer.is_active ? 'Activo' : 'Inactivo'}</span><p className="mt-1 text-[11px] text-slate-400">{customer.quote_count} cot. · {customer.operation_count} op.</p></div>
@@ -173,9 +173,9 @@ export function CustomerDirectory({ tenantId, requestedCustomerId, createRequest
 
             {selected && <><Partner360Panel tenantId={tenantId} entityType="customer" entityId={selected.customer.id}/><EntityDocumentsPanel tenantId={tenantId} sourceModule="commercial" entityType="customer" entityId={selected.customer.id} title="Documentos del cliente" /></>}
             {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm">
-                    <form onSubmit={submit} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-                        <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-bold text-slate-800">{editing ? 'Editar cliente' : 'Nuevo cliente'}</h2><p className="text-xs text-slate-400">Directorio comercial canónico</p></div><button type="button" onClick={() => { setModalOpen(false); setEditing(null); setForm(EMPTY_FORM); }}><X size={18} /></button></div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-0 backdrop-blur-sm sm:p-4">
+                    <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="customer-form-title" className="h-dvh w-full max-w-2xl overflow-y-auto bg-surface-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:h-auto sm:max-h-[90dvh] sm:rounded-2xl sm:p-6">
+                        <div className="mb-5 flex items-center justify-between gap-3"><div className="min-w-0"><h2 id="customer-form-title" className="text-lg font-bold text-slate-800">{editing ? 'Editar cliente' : 'Nuevo cliente'}</h2><p className="text-xs text-slate-400">Directorio comercial canónico</p></div><button type="button" aria-label="Cerrar formulario de cliente" className="flex h-11 w-11 shrink-0 items-center justify-center" onClick={() => { setModalOpen(false); setEditing(null); setForm(EMPTY_FORM); }}><X size={18} /></button></div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Nombre comercial *" value={form.display_name} onChange={(value) => setForm({ ...form, display_name: value })} />
                             <Field label="Razón social" value={form.legal_name} onChange={(value) => setForm({ ...form, legal_name: value })} />
