@@ -9,7 +9,7 @@ assert.ok(migration.includes("settlement_currency IN ('MXN','USD')")&&migration.
 assert.ok(migration.includes('claim_first_response_overdue')&&migration.includes('claim_resolution_overdue')&&migration.includes('claim_action_overdue')&&migration.includes('critical_claim_open'),'F7 extensions missing');
 assert.ok(migration.includes('trg_automation_runs_f10_claims')&&!migration.includes('cron.schedule('),'F10 must reuse F7 scheduler without new cron');
 assert.ok(page.includes('SavedViewsMenu')&&page.includes('serializeCsv')&&!page.includes('bulk'),'claims list/saved view/safe export contract missing');
-for(const tab of ['Resumen','Timeline','Evidencia','Acciones','Finanzas','Comunicación','Resolución'])assert.ok(detail.includes(tab),`Claim360 tab ${tab} missing`);
+for(const tab of ['Resumen','Historial','Evidencia','Acciones','Finanzas','Comunicación','Resolución'])assert.ok(detail.includes(tab),`Claim detail tab ${tab} missing`);
 assert.ok(evidence.includes('DocumentUploader')&&evidence.includes('listClaimDocuments'),'F3 evidence composition missing');
 assert.ok(dashboard.includes('getClaimsDashboard')&&dashboard.includes('Exposición ${item.currency}'),'real per-currency KPI missing');
 assert.ok(palette.includes('Nueva reclamación')&&palette.includes('Reclamaciones críticas')&&partner.includes('PartnerClaimsPanel'),'productivity/Partner360 integration missing');

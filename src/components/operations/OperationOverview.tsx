@@ -1,5 +1,6 @@
 import { CalendarClock, MapPin, Package, Route, Truck, UserRound } from 'lucide-react';
 import { Badge } from '@/components/Badge';
+import { SemanticPanel, SEMANTIC_TONE_STYLES } from '@/components/SemanticPanel';
 import type { Operation } from '@/types/operations';
 import { formatOperationDate, getOperationStatus } from './operationsControl';
 import { getSnapshotText } from './operation360';
@@ -38,15 +39,15 @@ export function OperationOverview({ operation }: { operation: Operation }) {
                 <Field label="ETA" value={formatOperationDate(operation.eta ?? undefined)} />
                 <Field label="Cotización origen" value={operation.source_deal_id ? 'Vinculada a Comercial' : 'Alta operativa'} />
             </div>
-            <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-sky-700">Ejecución contratada</p>
+            <SemanticPanel tone="info" className="rounded-2xl p-4">
+                <p className={`text-xs font-bold uppercase tracking-wider ${SEMANTIC_TONE_STYLES.info.accent}`}>Ejecución contratada</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     <Field label="Proveedor" value={operation.provider_name} />
                     <Field label="Chofer del proveedor" value={operation.execution_type === 'third_party' ? externalDriver : operation.driver_name} />
                     <Field label="Contacto / unidad" value={operation.execution_type === 'third_party' ? `${externalPhone} · ${externalVehicle}` : operation.vehicle_ref} />
                 </div>
-                <p className="mt-3 text-[11px] text-sky-700">Para ejecución third-party, el chofer y la unidad son snapshots opcionales del proveedor; no requieren usuario ERP.</p>
-            </div>
+                <p className="mt-3 text-[11px] leading-relaxed text-slate-500">En ejecución contratada, el operador y la unidad son datos opcionales del proveedor; no requieren usuario ERP.</p>
+            </SemanticPanel>
         </div>
     );
 }

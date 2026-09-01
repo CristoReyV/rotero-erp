@@ -2,11 +2,11 @@ import React from 'react';
 import type { BadgeVariant } from '@/types/common';
 
 const BADGE_STYLES: Record<BadgeVariant, string> = {
-    default: 'bg-slate-50 text-slate-500 ring-1 ring-slate-200',
-    success: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60',
-    warning: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60',
-    danger: 'bg-red-50 text-red-700 ring-1 ring-red-200/60',
-    info: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/60',
+    default: 'bg-semantic-neutral-soft text-semantic-neutral ring-1 ring-semantic-neutral-border',
+    success: 'bg-semantic-success-soft text-semantic-success ring-1 ring-semantic-success-border',
+    warning: 'bg-semantic-warning-soft text-semantic-warning ring-1 ring-semantic-warning-border',
+    danger: 'bg-semantic-danger-soft text-semantic-danger ring-1 ring-semantic-danger-border',
+    info: 'bg-semantic-info-soft text-semantic-info ring-1 ring-semantic-info-border',
 };
 
 export const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: BadgeVariant }) => (

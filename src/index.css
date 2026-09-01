@@ -18,6 +18,23 @@
   --color-tech-border: #E2E8F0;
   --color-tech-border-light: #F1F5F9;
 
+  /* Semantic presentation: neutral surfaces + readable accents */
+  --color-semantic-neutral: #475569;
+  --color-semantic-neutral-soft: #F8FAFC;
+  --color-semantic-neutral-border: #CBD5E1;
+  --color-semantic-info: #1D4ED8;
+  --color-semantic-info-soft: #EFF6FF;
+  --color-semantic-info-border: #BFDBFE;
+  --color-semantic-success: #047857;
+  --color-semantic-success-soft: #ECFDF5;
+  --color-semantic-success-border: #A7F3D0;
+  --color-semantic-warning: #B45309;
+  --color-semantic-warning-soft: #FFFBEB;
+  --color-semantic-warning-border: #FDE68A;
+  --color-semantic-danger: #B91C1C;
+  --color-semantic-danger-soft: #FEF2F2;
+  --color-semantic-danger-border: #FECACA;
+
   /* Sidebar */
   --color-sidebar: #0B1F42;
   --color-sidebar-hover: #132D5A;
@@ -39,15 +56,46 @@
   --color-tech-border: #2A3A4E;
   --color-tech-border-light: #1E2D3F;
 
+  --color-semantic-neutral: #CBD5E1;
+  --color-semantic-neutral-soft: rgba(148, 163, 184, 0.10);
+  --color-semantic-neutral-border: #475569;
+  --color-semantic-info: #93C5FD;
+  --color-semantic-info-soft: rgba(59, 130, 246, 0.12);
+  --color-semantic-info-border: #1E4F88;
+  --color-semantic-success: #6EE7B7;
+  --color-semantic-success-soft: rgba(16, 185, 129, 0.12);
+  --color-semantic-success-border: #176B55;
+  --color-semantic-warning: #FCD34D;
+  --color-semantic-warning-soft: rgba(245, 158, 11, 0.12);
+  --color-semantic-warning-border: #7A5115;
+  --color-semantic-danger: #FCA5A5;
+  --color-semantic-danger-soft: rgba(239, 68, 68, 0.12);
+  --color-semantic-danger-border: #7F3030;
+
   --color-sidebar: #0A1220;
   --color-sidebar-hover: #11203A;
   --color-sidebar-active: #162B4D;
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   body {
     @apply bg-surface text-slate-900 font-sans antialiased;
     transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
   }
   
   .dark body,
@@ -74,14 +122,31 @@
 .dark .text-slate-800 { color: #e2e8f0; }
 .dark .text-slate-700 { color: #cbd5e1; }
 .dark .text-slate-600 { color: #94a3b8; }
-.dark .text-slate-500 { color: #64748b; }
-.dark .text-slate-400 { color: #64748b; }
-.dark .text-slate-300 { color: #475569; }
+.dark .text-slate-500 { color: #a8b5c7; }
+.dark .text-slate-400 { color: #94a3b8; }
+.dark .text-slate-300 { color: #718096; }
 
 /* Background overrides */
 .dark .bg-white { background-color: var(--color-surface-card); }
 .dark .bg-slate-50 { background-color: var(--color-surface); }
 .dark .bg-slate-100 { background-color: var(--color-tech-border-light); }
+.dark .bg-slate-50\/40,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/60,
+.dark .bg-slate-50\/70 { background-color: rgba(15, 23, 41, 0.72); }
+
+/* Tinted surfaces stay part of the dark surface system instead of becoming light islands. */
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.12); }
+.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.12); }
+.dark .bg-sky-50 { background-color: rgba(14, 165, 233, 0.12); }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
+.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.12); }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12); }
+.dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.12); }
+.dark .bg-blue-50\/40 { background-color: rgba(59, 130, 246, 0.1); }
+.dark .bg-red-50\/50 { background-color: rgba(239, 68, 68, 0.1); }
+.dark .bg-amber-50\/50 { background-color: rgba(245, 158, 11, 0.1); }
 
 /* Border overrides */
 .dark .border-slate-100,
@@ -91,6 +156,7 @@
 /* Hover states */
 .dark .hover\:bg-slate-50:hover { background-color: rgba(255,255,255,0.04); }
 .dark .hover\:bg-slate-100:hover { background-color: rgba(255,255,255,0.06); }
+.dark .hover\:bg-slate-50\/70:hover { background-color: rgba(255,255,255,0.04); }
 
 /* Glassmorphism card — dark variant */
 .glass-card {
