@@ -1,5 +1,6 @@
 import { ArrowRight, Banknote, FilePlus2, Search, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
+import { MOBILE_MEDIA_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import type { FinanceCurrency, FinanceInvoice, InvoiceDirection, InvoiceStatus } from '@/types/finance';
 import { money, shortDate, STATUS_LABEL, STATUS_STYLE } from './financeUi';
 
@@ -12,6 +13,7 @@ export interface AccountsWorkspaceProps {
 
 export function AccountsWorkspace({ direction, invoices, search, status, currency, onSearch, onStatus, onCurrency, onOpen, onPay, onCreate, selectedIds, onToggleSelected, onToggleAll }: AccountsWorkspaceProps) {
     const ar = direction === 'ar';
+    const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const activeFilterCount = Number(Boolean(status)) + Number(Boolean(currency));
     const filterFields = <>
@@ -26,19 +28,17 @@ export function AccountsWorkspace({ direction, invoices, search, status, currenc
         </header>
 
         <div className="border-b bg-surface p-3 sm:p-4">
-            <div className="flex min-w-0 gap-2 md:hidden">
+            {isMobile ? <><div className="flex min-w-0 gap-2">
                 <label className="relative min-w-0 flex-1"><span className="sr-only">Buscar cuentas</span><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Buscar cuenta" className="min-h-11 w-full rounded-xl border bg-surface-card pl-9 pr-3 text-xs" /></label>
                 <button type="button" aria-expanded={mobileFiltersOpen} onClick={() => setMobileFiltersOpen((value) => !value)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border bg-surface-card px-3 text-xs font-bold text-slate-600"><SlidersHorizontal size={15} />Filtros{activeFilterCount > 0 && <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-white">{activeFilterCount}</span>}</button>
             </div>
-            {mobileFiltersOpen && <div className="mt-2 grid gap-2 md:hidden">{filterFields}</div>}
-            <div className="hidden gap-3 md:grid md:grid-cols-[minmax(0,1fr)_170px_120px]">
+            {mobileFiltersOpen && <div className="mt-2 grid gap-2">{filterFields}</div>}</> : <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_170px_120px]">
                 <label className="relative min-w-0"><span className="sr-only">Buscar cuentas</span><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Contraparte, referencia, operación o UUID fiscal" className="min-h-11 w-full rounded-xl border bg-surface-card pl-9 pr-3 text-xs" /></label>
                 {filterFields}
-            </div>
+            </div>}
         </div>
 
-        {invoices.length === 0 ? <div className="p-6 text-center text-sm text-slate-400 sm:p-12">No hay cuentas para los filtros seleccionados.</div> : <>
-            <div className="divide-y md:hidden" data-finance-mobile-cards>
+        {invoices.length === 0 ? <div className="p-6 text-center text-sm text-slate-400 sm:p-12">No hay cuentas para los filtros seleccionados.</div> : isMobile ? <div className="divide-y" data-finance-mobile-cards>
                 {invoices.map((invoice) => {
                     const current = invoice.effective_status ?? invoice.status;
                     const payable = ['open', 'overdue'].includes(current) && Number(invoice.balance_amount ?? invoice.amount) > 0;
@@ -56,9 +56,7 @@ export function AccountsWorkspace({ direction, invoices, search, status, currenc
                         </div>
                     </article>;
                 })}
-            </div>
-
-            <div className="hidden overflow-x-auto md:block" data-finance-desktop-table><table className="w-full min-w-[960px] text-left text-xs">
+            </div> : <div className="overflow-x-auto" data-finance-desktop-table><table className="w-full min-w-[960px] text-left text-xs">
                 <thead className="bg-surface text-[10px] font-bold uppercase tracking-wider text-slate-400"><tr>{onToggleSelected && <th className="px-3 py-3"><input type="checkbox" aria-label="Seleccionar todas las cuentas" checked={invoices.every((item) => selectedIds?.has(item.id))} onChange={onToggleAll} /></th>}<th className="px-5 py-3">Contraparte</th><th className="px-5 py-3">Operación / referencia</th><th className="px-5 py-3">Vence</th><th className="px-5 py-3">Importe</th><th className="px-5 py-3">Pagado</th><th className="px-5 py-3">Saldo</th><th className="px-5 py-3">Estado</th><th className="px-5 py-3"></th></tr></thead>
                 <tbody className="divide-y">{invoices.map((invoice) => { const current = invoice.effective_status ?? invoice.status; const payable = ['open', 'overdue'].includes(current) && Number(invoice.balance_amount ?? invoice.amount) > 0; return <tr key={invoice.id} className="hover:bg-slate-50">
                     {onToggleSelected && <td className="px-3 py-4"><input type="checkbox" aria-label={`Seleccionar ${invoice.counterparty_name}`} checked={selectedIds?.has(invoice.id) ?? false} onChange={() => onToggleSelected(invoice.id)} /></td>}
@@ -68,7 +66,6 @@ export function AccountsWorkspace({ direction, invoices, search, status, currenc
                     <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${STATUS_STYLE[current]}`}>{STATUS_LABEL[current]}</span></td>
                     <td className="px-5 py-4"><div className="flex justify-end gap-1">{payable && <button type="button" aria-label={`Registrar pago de ${invoice.counterparty_name}`} onClick={() => onPay(invoice)} className="flex h-11 w-11 items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50"><Banknote size={16} /></button>}<button type="button" aria-label={`Ver expediente de ${invoice.counterparty_name}`} onClick={() => onOpen(invoice)} className="flex h-11 w-11 items-center justify-center rounded-lg text-primary hover:bg-primary-50"><ArrowRight size={16} /></button></div></td>
                 </tr>; })}</tbody>
-            </table></div>
-        </>}
+            </table></div>}
     </section>;
 }

@@ -20,8 +20,8 @@ assert.match(styles, /\.dark \.text-slate-500 \{ color: #a8b5c7; \}/);
 
 assert.match(accounts, /data-finance-mobile-cards/);
 assert.match(accounts, /data-finance-desktop-table/);
-assert.match(accounts, /md:hidden/);
-assert.match(accounts, /hidden overflow-x-auto md:block/);
+assert.match(accounts, /isMobile \? <div className="divide-y" data-finance-mobile-cards>/);
+assert.match(accounts, /: <div className="overflow-x-auto" data-finance-desktop-table>/);
 assert.match(accounts, /bg-surface p-3/);
 assert.match(accounts, /onToggleSelected\(invoice\.id\)/, 'Mobile finance cards must preserve bulk selection');
 
