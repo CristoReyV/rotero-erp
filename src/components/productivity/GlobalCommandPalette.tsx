@@ -1,6 +1,7 @@
 import { BadgeDollarSign, Building2, Database, FilePlus2, FileSearch, Landmark, Search, Truck, Upload, Wallet, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import type { ProductRole } from '@/constants/roles';
 import { globalSearch } from '@/services/executive.service';
 import { searchCompliance } from '@/services/compliance.service';
@@ -41,13 +42,65 @@ export function GlobalCommandPalette({tenantId,role}:{tenantId:string|null;role:
     const navigate=useNavigate(); const [open,setOpen]=useState(false); const [query,setQuery]=useState(''); const [results,setResults]=useState<Array<{type:string;id:string;primary_label:string;secondary_label?:string;status?:string;route:string}>>([]); const [active,setActive]=useState(0); const [loading,setLoading]=useState(false); const input=useRef<HTMLInputElement>(null);const searchRequest=useRef(0);
     const actions=role==='admin'?adminActions:role==='finance'?financeActions:[];
     useEffect(()=>{const key=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setOpen(true);}if(event.key==='Escape')setOpen(false);};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key);},[]);
-    useEffect(()=>{if(open)window.setTimeout(()=>input.current?.focus(),0);else{setQuery('');setResults([]);setActive(0);}},[open]);
+    const trigger = useRef<HTMLButtonElement>(null);
+    const dialog = useRef<HTMLDivElement>(null);
+    const list = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) { setQuery(''); setResults([]); setActive(0); return; }
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        input.current?.focus();
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            trigger.current?.focus({ preventScroll: true });
+        };
+    }, [open]);
     useEffect(()=>{const request=++searchRequest.current;if(!open||!tenantId||query.trim().length<2){setResults([]);setLoading(false);return;}const timer=window.setTimeout(async()=>{setLoading(true);try{const[base,compliance,claims]=await Promise.all([globalSearch(tenantId,query.trim()),role==='admin'?searchCompliance(tenantId,query.trim()):Promise.resolve([]),role==='admin'?searchClaims(tenantId,query.trim()):Promise.resolve([])]);if(request!==searchRequest.current)return;setResults([...base,...compliance,...claims.map(item=>({type:'claim',id:item.id,primary_label:item.claim_number,secondary_label:item.subject,status:item.status,route:item.route}))]);setActive(0);}finally{if(request===searchRequest.current)setLoading(false);}},250);return()=>window.clearTimeout(timer);},[open,query,tenantId,role]);
     const choices=useMemo(()=>[
         ...actions.map(action=>({key:`action-${action.id}`,label:action.label,subtitle:action.subtitle,route:action.route,kind:'Acción'})),
         ...results.map(result=>({key:`result-${result.type}-${result.id}`,label:result.primary_label,subtitle:result.secondary_label||result.status,route:result.route,kind:result.type})),
     ],[actions,results]);
     const go=(route:string)=>{setOpen(false);navigate(route);};
-    const onKey=(event:ReactKeyboardEvent)=>{if(event.key==='ArrowDown'){event.preventDefault();setActive(v=>Math.min(v+1,choices.length-1));}if(event.key==='ArrowUp'){event.preventDefault();setActive(v=>Math.max(v-1,0));}if(event.key==='Enter'&&choices[active]){event.preventDefault();go(choices[active].route);}if(event.key==='Escape')setOpen(false);};
-    return <><button onClick={()=>setOpen(true)} className="flex w-10 items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-left text-sm text-slate-400 md:w-full md:max-w-sm"><Search size={15}/><span className="hidden flex-1 md:block">Buscar o ejecutar una acción…</span><kbd className="hidden rounded border bg-white px-1.5 py-0.5 text-[9px] font-black md:block">Ctrl K</kbd></button>{open&&<div className="fixed inset-0 z-[100] flex items-start justify-center bg-slate-950/55 p-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event)=>{if(event.currentTarget===event.target)setOpen(false);}}><div className="w-full max-w-2xl overflow-hidden rounded-2xl border bg-white shadow-2xl"><div className="flex items-center gap-3 border-b px-4"><Search size={19} className="text-slate-400"/><input ref={input} value={query} onChange={event=>setQuery(event.target.value)} onKeyDown={onKey} placeholder="Busca operaciones, documentos, AR/AP…" className="h-14 flex-1 bg-transparent text-sm outline-none"/><button onClick={()=>setOpen(false)} className="p-2 text-slate-400"><X size={17}/></button></div><div className="max-h-[60vh] overflow-y-auto p-2">{loading&&<p className="p-3 text-xs text-slate-400">Buscando…</p>}{choices.map((choice,index)=><button key={choice.key} onMouseEnter={()=>setActive(index)} onClick={()=>go(choice.route)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ${active===index?'bg-primary text-white':'hover:bg-slate-50'}`}><span className={`rounded-lg px-2 py-1 text-[9px] font-black uppercase ${active===index?'bg-white/15':'bg-slate-100 text-slate-500'}`}>{choice.kind}</span><span className="min-w-0"><b className="block truncate text-sm">{choice.label}</b><span className={`block truncate text-[11px] ${active===index?'text-white/70':'text-slate-400'}`}>{choice.subtitle}</span></span></button>)}{!loading&&choices.length===0&&<p className="p-8 text-center text-sm text-slate-400">Escribe al menos dos caracteres.</p>}</div><footer className="flex gap-4 border-t bg-slate-50 px-4 py-2 text-[10px] font-bold text-slate-400"><span>↑↓ navegar</span><span>Enter abrir</span><span>Esc cerrar</span></footer></div></div>}</>;
+    useEffect(() => {
+        if (open) list.current?.querySelector<HTMLElement>(`[data-choice-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
+    }, [open, active, choices.length]);
+    const onKey=(event:ReactKeyboardEvent)=>{if(event.key==='ArrowDown'){event.preventDefault();setActive(v=>Math.max(0,Math.min(v+1,choices.length-1)));}if(event.key==='ArrowUp'){event.preventDefault();setActive(v=>Math.max(v-1,0));}if(event.key==='Enter'&&choices[active]){event.preventDefault();go(choices[active].route);}if(event.key==='Escape')setOpen(false);};
+    const trapFocus = (event: ReactKeyboardEvent) => {
+        if (event.key !== 'Tab') return;
+        const controls = dialog.current?.querySelectorAll<HTMLElement>('input, button');
+        if (!controls?.length) return;
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    return <>
+        <button ref={trigger} type="button" aria-label="Buscar o ejecutar una acción" aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(true)} className="flex w-10 items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-left text-sm text-slate-400 md:w-full md:max-w-sm">
+            <Search size={15}/><span className="hidden flex-1 md:block">Buscar o ejecutar una acción…</span><kbd className="hidden rounded border bg-white px-1.5 py-0.5 text-[9px] font-black md:block">Ctrl K</kbd>
+        </button>
+        {open && createPortal(
+            <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-hidden bg-slate-950/55 backdrop-blur-sm"
+                style={{ paddingTop: 'max(env(safe-area-inset-top), min(10dvh, 4rem))', paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)', paddingLeft: 'max(env(safe-area-inset-left), 1rem)', paddingRight: 'max(env(safe-area-inset-right), 1rem)' }}
+                onMouseDown={(event)=>{if(event.currentTarget===event.target){event.preventDefault();setOpen(false);}}}>
+                <div ref={dialog} role="dialog" aria-modal="true" aria-label="Búsqueda global y acciones" onKeyDown={trapFocus}
+                    className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
+                    <span className="sr-only" role="status" aria-live="polite">{choices[active]?.label}</span>
+                    <div className="flex shrink-0 items-center gap-3 border-b px-4">
+                        <Search size={19} className="shrink-0 text-slate-400"/>
+                        <input ref={input} aria-label="Buscar operaciones, documentos o cuentas" value={query} onChange={event=>setQuery(event.target.value)} onKeyDown={onKey} placeholder="Busca operaciones, documentos, AR/AP…" className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none"/>
+                        <button type="button" aria-label="Cerrar búsqueda" onClick={()=>setOpen(false)} className="shrink-0 p-2 text-slate-400"><X size={17}/></button>
+                    </div>
+                    <div ref={list} className="min-h-0 max-h-[60dvh] overflow-y-auto overscroll-contain p-2">
+                        {loading&&<p role="status" className="p-3 text-xs text-slate-400">Buscando…</p>}
+                        {choices.map((choice,index)=><button type="button" key={choice.key} data-choice-index={index} onMouseEnter={()=>setActive(index)} onClick={()=>go(choice.route)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ${active===index?'bg-primary text-white':'hover:bg-slate-50'}`}>
+                            <span className={`rounded-lg px-2 py-1 text-[9px] font-black uppercase ${active===index?'bg-white/15':'bg-slate-100 text-slate-500'}`}>{choice.kind}</span>
+                            <span className="min-w-0"><b className="block truncate text-sm">{choice.label}</b><span className={`block truncate text-[11px] ${active===index?'text-white/70':'text-slate-400'}`}>{choice.subtitle}</span></span>
+                        </button>)}
+                        {!loading&&choices.length===0&&<p className="p-8 text-center text-sm text-slate-400">Escribe al menos dos caracteres.</p>}
+                    </div>
+                    <footer className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 border-t bg-slate-50 px-4 py-2 text-[10px] font-bold text-slate-400"><span>↑↓ navegar</span><span>Enter abrir</span><span>Esc cerrar</span></footer>
+                </div>
+            </div>, document.body
+        )}
+    </>;
 }
