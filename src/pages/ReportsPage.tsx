@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatAverageHours } from '@/utils/numberFormat';
 import { BarChart3, Download, FileText, PieChart, TrendingUp, Calendar, ChevronDown, Package, Code } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -183,7 +184,7 @@ const ReportsPage = () => {
                         <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-100 text-center">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rutas Activas</p>
                             <p className="text-lg font-bold text-slate-800 mt-1">{ops.active_routes_count}</p>
-                            <p className="text-[10px] text-blue-600 font-semibold mt-1">Avg {ops.avg_delivery_time} hrs</p>
+                            <p className="text-[10px] text-blue-600 font-semibold mt-1">{formatAverageHours(ops.avg_delivery_time)}</p>
                         </div>
                         <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-100 text-center">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Inv. Valorizado</p>
