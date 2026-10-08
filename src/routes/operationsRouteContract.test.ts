@@ -11,7 +11,7 @@ assert.match(router, /path: 'operations', element: page\(<OperationsPage/);
 assert.match(page, /<OperationsTable/);
 assert.match(page, /<Operation360Panel/);
 assert.match(page, /canManage=\{canManageOperations\}/);
-for (const tab of ['Resumen', 'Ejecución', 'Timeline', 'Incidencias', 'Documentos', 'Evidencias', 'Economía']) {
+for (const tab of ['Resumen', 'Ejecución', 'Historial', 'Incidencias', 'Documentos', 'Evidencias', 'Economía']) {
     assert.match(panel, new RegExp(`label: '${tab}'`));
 }
 assert.match(panel, /operation\.operation_scope === 'international'/);

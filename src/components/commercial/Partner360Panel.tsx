@@ -94,7 +94,7 @@ export function Partner360Panel({
       setError("");
     } catch (e) {
       if(current===requestId.current)setError(
-        e instanceof Error ? e.message : "No fue posible cargar Partner 360",
+        e instanceof Error ? e.message : "No fue posible cargar la relación comercial",
       );
     } finally {
       if(current===requestId.current)setBusy(false);
@@ -128,13 +128,13 @@ export function Partner360Panel({
   const days = Number(entity.payment_terms_days ?? 0);
   const partnerName = encodeURIComponent(String(entity.display_name ?? ""));
   return (
-    <section className="space-y-4 rounded-2xl border bg-white p-5">
+    <section className="space-y-4 rounded-2xl border bg-surface-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-[10px] font-black uppercase text-primary">
-            {entityType === "customer" ? "Customer" : "Provider"} 360
+            {entityType === "customer" ? "Cliente" : "Proveedor"}
           </p>
-          <h3 className="font-black">Relación comercial completa</h3>
+          <h3 className="font-black">Relación comercial</h3>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link

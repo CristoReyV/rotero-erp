@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { AlertCircle, Ban, Download, FileCheck2, FileText, Loader2, RotateCw, Search, Send, ShieldAlert, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/Badge';
+import { SemanticPanel, SEMANTIC_TONE_STYLES } from '@/components/SemanticPanel';
 import { PageHeader } from '@/components/PageHeader';
 import {
     getCFDIDetail, getFiscalReadiness, listCFDIs, queueFiscalStamp, queueFiscalStatusCheck,
@@ -13,6 +14,7 @@ import { useAuthStore } from '@/store/authStore';
 import { canAccessRoteroModule } from '@/constants/roles';
 import type { CFDIFilters, CFDIListRow, CFDIStatus, CFDIWithDetail, FiscalReadiness } from '@/types/billing';
 import type { BadgeVariant } from '@/types/common';
+import { FISCAL_ERROR_LABELS, FISCAL_STATUS_LABELS, formatFiscalMissingFields, getFiscalAttemptLabel, getFiscalProviderLabel } from '@/utils/presentationLabels';
 
 type BillingView = 'all' | 'draft' | 'registered' | 'error' | 'cancelled';
 
@@ -233,16 +235,16 @@ const BillingPage = () => {
         return (
             <div className="space-y-6">
                 <PageHeader
-                    title="Billing operativo y control fiscal interno"
+                    title="Facturación y control fiscal"
                     subtitle="Control interno de comprobantes · Registro fiscal interno"
                 />
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
-                    <ShieldAlert className="mx-auto mb-4 text-amber-600" size={32} />
+                <SemanticPanel tone="warning" className="rounded-2xl p-8 text-center">
+                    <ShieldAlert className={`mx-auto mb-4 ${SEMANTIC_TONE_STYLES.warning.accent}`} size={32} />
                     <h2 className="text-lg font-bold text-slate-800">Acceso limitado temporalmente</h2>
                     <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
                         Tu rol no tiene acceso a la superficie de facturación de ROTERO.
                     </p>
-                </div>
+                </SemanticPanel>
             </div>
         );
     }
@@ -250,13 +252,13 @@ const BillingPage = () => {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Billing operativo y control fiscal interno"
+                title="Facturación y control fiscal"
                 subtitle="Control interno de comprobantes · Registro fiscal interno"
             />
 
-            <div className="rounded-2xl border border-blue-200/70 bg-blue-50/70 px-5 py-4">
+            <SemanticPanel tone="info" className="rounded-2xl px-5 py-4">
                 <div className="flex items-start gap-3">
-                    <FileText className="mt-0.5 shrink-0 text-blue-600" size={20} />
+                    <FileText className={`mt-0.5 shrink-0 ${SEMANTIC_TONE_STYLES.info.accent}`} size={20} />
                     <div>
                         <p className="text-sm font-bold text-slate-800">Sin integración SAT/PAC confirmada</p>
                         <p className="mt-1 text-xs leading-relaxed text-slate-600">
@@ -268,7 +270,7 @@ const BillingPage = () => {
                         </p>
                     </div>
                 </div>
-            </div>
+            </SemanticPanel>
 
             <div className="flex flex-col gap-4 rounded-2xl border border-tech-border/60 bg-surface-card p-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap gap-2">
@@ -373,11 +375,11 @@ const BillingPage = () => {
             {selectedCfdiId && (
                 <div className="fixed inset-0 z-50">
                     <button type="button" aria-label="Cerrar detalle" onClick={closeDetail} className="absolute inset-0 bg-slate-900/35 backdrop-blur-sm" />
-                    <aside className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white shadow-2xl">
-                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-6 py-4 backdrop-blur">
+                    <aside className="absolute inset-y-0 right-0 w-full min-w-0 max-w-md overflow-y-auto bg-surface-card shadow-2xl">
+                        <div className="sticky top-0 z-10 flex min-w-0 items-center justify-between gap-3 border-b border-slate-100 bg-surface-card px-4 py-4 sm:px-6">
                             <div>
                                 <h2 className="text-lg font-bold text-slate-800">Detalle interno</h2>
-                                <p className="text-[11px] text-slate-400">Consulta read-only del comprobante</p>
+                                <p className="text-[11px] text-slate-400">Consulta de solo lectura del comprobante</p>
                             </div>
                             <button type="button" onClick={closeDetail} aria-label="Cerrar" className="rounded-lg bg-slate-50 p-2 text-slate-400 hover:text-slate-600">
                                 <X size={18} />
@@ -400,9 +402,7 @@ const BillingPage = () => {
                                 </div>
                             ) : selectedDetail ? (
                                 <div className="space-y-5">
-                                    <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs leading-relaxed text-slate-600">
-                                        Preparación fiscal provider-neutral. Ninguna acción simula timbrado ni confirma comunicación con SAT/PAC.
-                                    </div>
+                                    <SemanticPanel tone="info" className="p-4 text-xs leading-relaxed text-slate-600">Preparación fiscal independiente del proveedor. Ninguna acción simula timbrado ni confirma comunicación con SAT/PAC.</SemanticPanel>
                                     <dl className="divide-y divide-slate-100 rounded-xl border border-slate-100 px-4">
                                         {[
                                             ['Estado del registro', getStatusPresentation(selectedDetail.status).label],
@@ -415,12 +415,12 @@ const BillingPage = () => {
                                             ['Total', formatCurrency(selectedDetail.total || 0, selectedDetail.currency)],
                                             ['Moneda', selectedDetail.currency || 'No registrada'],
                                             ['Operación', selectedDetail.operation_id || 'Sin relación'],
-                                            ['Estado fiscal', fiscalReadiness?.fiscal_status || 'No disponible'],
+                                            ['Estado fiscal', fiscalReadiness ? FISCAL_STATUS_LABELS[fiscalReadiness.fiscal_status] : 'No disponible'],
                                             ['CFDI', fiscalReadiness?.validation.cfdi_version || selectedDetail.cfdi_version || 'No registrado'],
-                                            ['Proveedor', fiscalReadiness?.provider.code || 'No configurado'],
-                                            ['Entorno', fiscalReadiness?.provider.environment || 'sandbox'],
-                                            ['Último intento', fiscalReadiness?.last_attempt ? `${fiscalReadiness.last_attempt.status} · ${formatDate(fiscalReadiness.last_attempt.updated_at)}` : 'Sin intentos'],
-                                            ['Error seguro', fiscalReadiness?.safe_error_message || fiscalReadiness?.safe_error_code || 'Sin error'],
+                                            ['Proveedor', getFiscalProviderLabel(fiscalReadiness?.provider.code)],
+                                            ['Entorno fiscal', fiscalReadiness?.provider.environment === 'production' ? 'Producción' : 'Pruebas'],
+                                            ['Último intento', fiscalReadiness?.last_attempt ? `${getFiscalAttemptLabel(fiscalReadiness.last_attempt.status)} · ${formatDate(fiscalReadiness.last_attempt.updated_at)}` : 'Sin intentos'],
+                                            ['Error', fiscalReadiness?.safe_error_message || (fiscalReadiness?.safe_error_code ? FISCAL_ERROR_LABELS[fiscalReadiness.safe_error_code] : 'Sin error')],
                                             ['Emisión registrada', formatDate(selectedDetail.issued_at)],
                                             ['Alta interna', formatDate(selectedDetail.created_at)],
                                         ].map(([label, value]) => (
@@ -440,9 +440,7 @@ const BillingPage = () => {
                                                 </p>
                                             </div>
                                             {!fiscalReadiness.validation.valid && fiscalReadiness.validation.missing_fields.length > 0 && (
-                                                <p className="rounded-lg bg-amber-50 p-3 text-[11px] text-amber-800">
-                                                    Faltantes: {fiscalReadiness.validation.missing_fields.join(', ')}
-                                                </p>
+                                                <SemanticPanel tone="warning" className="p-3 text-[11px] text-slate-600">{formatFiscalMissingFields(fiscalReadiness.validation.missing_fields)}</SemanticPanel>
                                             )}
                                             {fiscalError && <p className="rounded-lg bg-red-50 p-3 text-[11px] text-red-700">{fiscalError}</p>}
                                             <div className="grid grid-cols-2 gap-2">

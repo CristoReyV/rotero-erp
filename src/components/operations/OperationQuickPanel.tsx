@@ -341,7 +341,7 @@ export function OperationQuickPanel({
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
                         <TokenRow label="Vista pública" path="/t/" token={publicToken} exists={dbHasPublicToken} isChecking={isCheckingTokens} copied={copiedStatus === 'public'} onCopy={() => onCopyToken('public')} />
-                        <TokenRow label="Vista driver" path="/driver/" token={driverToken} exists={dbHasDriverToken} isChecking={isCheckingTokens} copied={copiedStatus === 'driver'} onCopy={() => onCopyToken('driver')} />
+                        <TokenRow label="Vista del operador" path="/driver/" token={driverToken} exists={dbHasDriverToken} isChecking={isCheckingTokens} copied={copiedStatus === 'driver'} onCopy={() => onCopyToken('driver')} />
                     </div>
                     {canManageTracking ? (
                         <button

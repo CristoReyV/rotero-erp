@@ -18,15 +18,15 @@ export function OperationsKpiStrip({ operations }: OperationsKpiStripProps) {
     ];
 
     return (
-        <section aria-label="Resumen operativo" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <section aria-label="Resumen operativo" className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
             {items.map(({ label, value, icon: Icon, tone }) => (
-                <div key={label} className="rounded-2xl border border-tech-border/60 bg-surface-card p-4 shadow-sm shadow-slate-200/20">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
+                <div key={label} className="min-w-0 rounded-2xl border border-tech-border/60 bg-surface-card p-3 shadow-sm shadow-slate-200/20 sm:p-4">
+                    <div className="flex min-w-0 items-center justify-between gap-2 sm:gap-3">
+                        <div className="min-w-0">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
-                            <p className="mt-1 text-2xl font-bold text-slate-800">{value}</p>
+                            <p className="mt-0.5 text-xl font-bold text-slate-800 sm:mt-1 sm:text-2xl">{value}</p>
                         </div>
-                        <span className={`rounded-xl p-2.5 ${tone}`}><Icon size={18} /></span>
+                        <span className={`shrink-0 rounded-xl p-2 sm:p-2.5 ${tone}`}><Icon size={17} /></span>
                     </div>
                 </div>
             ))}
