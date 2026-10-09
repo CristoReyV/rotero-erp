@@ -51,3 +51,43 @@ export interface ReportModuleDef {
     count: number;
     color: string;
 }
+export interface ReportsTanda1Volume {
+    operations: number;
+    pieces: number;
+    weight_kg: number;
+}
+
+export interface ReportsTanda1Week {
+    week_start: string;
+    operations_created: number;
+    /** Includes operations with status delivered or closed. */
+    delivered: number;
+    closed: number;
+    /** Count of operations with an issued billing record, never an amount. */
+    billed: number;
+}
+
+export interface ReportsTanda1Service extends ReportsTanda1Volume {
+    service_type: string;
+    service_class: string;
+}
+
+export interface ReportsTanda1Zone extends ReportsTanda1Volume {
+    zone: string;
+    country_code: string;
+    state: string;
+}
+
+export interface ReportsTanda1Scope extends ReportsTanda1Volume {
+    scope: string;
+}
+
+export interface ReportsTanda1 {
+    date_from: string;
+    date_to: string;
+    weekly: ReportsTanda1Week[];
+    volume: ReportsTanda1Volume;
+    by_service_type: ReportsTanda1Service[];
+    by_zone: ReportsTanda1Zone[];
+    by_scope: ReportsTanda1Scope[];
+}
