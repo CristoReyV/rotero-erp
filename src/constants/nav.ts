@@ -23,7 +23,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
+    { path: '/dashboard', icon: LayoutDashboard, label: 'Panel', module: 'dashboard' },
     { path: '/operations', icon: Truck, label: 'Operaciones', module: 'operations' },
     { path: '/inventory', icon: Package, label: 'Inventarios', module: 'inventory' },
     { path: '/customs', icon: Gavel, label: 'Aduanas', module: 'customs' },
@@ -39,16 +39,16 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export const ROUTE_TITLES: Record<string, string> = {
-    '/dashboard': 'Dashboard Operativo',
+    '/dashboard': 'Panel operativo',
     '/operations': 'Operaciones y Logística',
     '/inventory': 'Inventarios y Almacén',
     '/customs': 'Aduanas y Anexo 24',
     '/billing': 'Facturación y CFDI 4.0',
     '/finance': 'Finanzas operativas',
     '/commercial': 'Comercial y CRM',
-    '/claims': 'Claims & Customer Service 360',
-    '/documents': 'Documents 360',
-    '/data': 'Data Operations 360',
+    '/claims': 'Reclamaciones',
+    '/documents': 'Documentos',
+    '/data': 'Datos e importación',
     '/tracking': 'Tracking y GPS',
     '/reports': 'Reportes y BI',
     '/security': 'Seguridad y Configuración',

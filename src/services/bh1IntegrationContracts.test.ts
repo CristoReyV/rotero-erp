@@ -28,7 +28,7 @@ assert.match(commercial,/requestedCustomerId=\{params\.get\('customerId'\)\}/);a
 assert.match(quote,/customer_id:typeof customerId==='string'/);assert.match(rate,/provider_id:requestedProviderId/);
 assert.match(finance,/customer_id:tab==='ar'/);assert.match(finance,/provider_id:tab==='ap'/);assert.match(finance,/suggestedTerms/);
 assert.match(invoice,/operations\?operationId=/);assert.match(invoice,/billing\?cfdiId=/);assert.match(billing,/searchParams\.get\('cfdiId'\)/);
-assert.match(claims,/source_incident_id:incidentId\|\|null/);assert.match(claims,/defaultValue=\{operationId/);
+assert.match(claims,/source_incident_id:\s*incidentId\s*\|\|\s*null/);assert.match(claims,/defaultValue=\{operationId/);
 assert.ok(!read('src/services/claims.service.ts').includes('window.location'),'Services must receive route context explicitly');
 assert.match(router,/lazy\(\(\)=>import/);assert.match(router,/Suspense/);
 

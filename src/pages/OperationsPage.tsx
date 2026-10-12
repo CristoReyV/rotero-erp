@@ -233,31 +233,32 @@ const OperationsPage = () => {
     const updateSelected = async (action: 'set_priority' | 'add_note') => { if (!activeTenant || !bulkIds.size) return; const value = action === 'set_priority' ? window.prompt('Prioridad: low, normal o high', 'high') : window.prompt('Nota para agregar (máximo 240 caracteres)'); if (!value) return; setBulkBusy(true); setTransitionError(null); try { await bulkUpdateOperations(activeTenant, [...bulkIds], action, action === 'set_priority' ? { priority: value } : { note: value }); setBulkIds(new Set()); await fetchOps(); } catch (cause) { setTransitionError(cause instanceof Error ? cause.message : 'No se pudo aplicar la acción masiva.'); } finally { setBulkBusy(false); } };
 
     return (
-        <div className="relative space-y-5">
+        <div className="relative min-w-0 max-w-full space-y-4 sm:space-y-5">
             <PageHeader
-                title="Control Center"
+                title="Operaciones"
                 subtitle="Bandeja diaria de operaciones y ejecución logística contratada"
                 actions={(
                     <>
+                        {canManageOperations && (
+                            <button
+                                type="button"
+                                onClick={() => { setCreateError(null); setShowNewModal(true); }}
+                                className="order-first flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-md shadow-primary/20 transition hover:bg-primary-dark sm:order-none"
+                            >
+                                <Plus size={15} /> Nueva operación
+                            </button>
+                        )}
                         <SavedViewsMenu tenantId={activeTenant} module="operations" filters={{ view,status,q:query }} onApply={(filters)=>updateParams({view:typeof filters.view==='string'?filters.view:'active',status:typeof filters.status==='string'?filters.status:null,q:typeof filters.q==='string'?filters.q:null,operation:null,operationId:null,tab:null})}/>
                         <button
                             type="button"
                             onClick={() => void fetchOps()}
                             disabled={loading}
-                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                            aria-label="Actualizar operaciones"
+                            className="flex h-11 w-11 items-center justify-center rounded-xl border bg-surface-card text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 sm:w-auto sm:px-3.5"
                         >
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                             <span className="hidden sm:inline">Actualizar</span>
                         </button>
-                        {canManageOperations && (
-                            <button
-                                type="button"
-                                onClick={() => { setCreateError(null); setShowNewModal(true); }}
-                                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-primary/20 transition hover:bg-primary-dark"
-                            >
-                                <Plus size={15} /> Nueva operación
-                            </button>
-                        )}
                     </>
                 )}
             />
@@ -296,7 +297,7 @@ const OperationsPage = () => {
                     {isAdmin && <BulkActionBar count={bulkIds.size} onClear={() => setBulkIds(new Set())}><button disabled={bulkBusy} onClick={() => void exportSelected()} className="rounded-xl border px-3 py-2 text-xs font-bold">Exportar selección</button><button disabled={bulkBusy} onClick={() => void updateSelected('set_priority')} className="rounded-xl border px-3 py-2 text-xs font-bold">Cambiar prioridad</button><button disabled={bulkBusy} onClick={() => void updateSelected('add_note')} className="rounded-xl border px-3 py-2 text-xs font-bold">Agregar nota</button></BulkActionBar>}
 
                     {filteredOperations.length === 0 ? (
-                        <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+                        <section className="rounded-2xl border border-dashed border-slate-300 bg-surface-card p-6 text-center sm:p-10">
                             <Inbox className="mx-auto text-slate-300" size={34} />
                             <h2 className="mt-3 font-bold text-slate-700">{operations.length === 0 ? 'Aún no hay operaciones' : 'No hay coincidencias'}</h2>
                             <p className="mx-auto mt-1 max-w-md text-sm text-slate-400">
@@ -352,15 +353,15 @@ const OperationsPage = () => {
             )}
 
             {showOverrideModal && activeOp && isAdmin && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:p-4">
+                    <motion.div role="dialog" aria-modal="true" aria-labelledby="new-operation-title" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="h-dvh w-full max-w-md overflow-y-auto bg-surface-card shadow-xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl">
                         <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-6 py-4">
                             <h2 className="flex items-center gap-2 text-lg font-bold text-red-800"><AlertTriangle size={18} /> Cancelación administrativa</h2>
                             <button type="button" onClick={() => setShowOverrideModal(false)} className="rounded-lg p-1 text-red-400 hover:bg-red-100 hover:text-red-600"><X size={17} /></button>
                         </div>
                         <form onSubmit={handleOverrideCancel} className="space-y-4 p-6">
                             <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                                La operación <b>{activeOp.id}</b> está en estado <b>{OPERATION_STATUS_META[activeOp.status]?.label ?? activeOp.status}</b>. El flujo actual requiere un motivo para usar el override existente.
+                                La operación <b>{activeOp.id}</b> está en estado <b>{OPERATION_STATUS_META[activeOp.status]?.label ?? 'Estado registrado'}</b>. El flujo actual requiere un motivo para usar la excepción disponible.
                             </p>
                             <div>
                                 <label htmlFor="override-reason" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Motivo (mínimo 10 caracteres)</label>
@@ -383,10 +384,10 @@ const OperationsPage = () => {
                     <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
                         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                             <div>
-                                <h2 className="text-lg font-bold text-slate-800">Nueva operación</h2>
+                                <h2 id="new-operation-title" className="text-lg font-bold text-slate-800">Nueva operación</h2>
                                 <p className="mt-0.5 text-xs text-slate-400">Alta básica con el contrato frontend vigente.</p>
                             </div>
-                            <button type="button" onClick={() => setShowNewModal(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X size={17} /></button>
+                            <button type="button" aria-label="Cerrar nueva operación" onClick={() => setShowNewModal(false)} className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X size={17} /></button>
                         </div>
                         <form onSubmit={handleCreate} className="space-y-4 p-6">
                             <div>

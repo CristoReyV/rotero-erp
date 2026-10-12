@@ -19,7 +19,7 @@ interface DealDetailDrawerProps {
     dealId: string | null;
     isOpen: boolean;
     onClose: () => void;
-    onChanged: () => void; // call when state changes or need to refresh parent
+    onChanged: () => Promise<void> | void;
 }
 
 const STAGES: Record<DealStage, string> = {
@@ -46,6 +46,7 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
     const [deal, setDeal] = useState<DealDetail | null>(null);
     const [activities, setActivities] = useState<DealActivity[]>([]);
     const [loading, setLoading] = useState(false);
+    const [stageBusy, setStageBusy] = useState(false);
     const [error, setError] = useState('');
 
     // CRM Advancement State
@@ -83,7 +84,7 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
                     setChecklist(cData);
                 }
             } catch (err: any) {
-                if (isMounted) setError(err.message || 'Error loading deal');
+                if (isMounted) setError(err.message || 'No fue posible cargar la oportunidad.');
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -107,7 +108,7 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
             setCrmNotes(nData);
             onChanged();
         } catch (err: any) {
-            setError(err.message || 'Error adding note');
+            setError(err.message || 'No fue posible agregar la nota.');
         } finally {
             setIsSubmittingNote(false);
         }
@@ -118,21 +119,31 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
         const newStage = e.target.value as DealStage;
         if (!dealId || !activeTenant || !deal || deal.stage === newStage) return;
 
+        setStageBusy(true);
+        setError('');
         try {
             await moveDeal(dealId, newStage);
-            // optimistic 
-            setDeal({ ...deal, stage: newStage });
+        } catch (err: any) {
+            setError(err.message || 'No fue posible cambiar la etapa.');
+            setStageBusy(false);
+            return;
+        }
 
-            // refresh all
-            const [aData, cData] = await Promise.all([
+        setDeal((current) => current ? { ...current, stage: newStage } : current);
+        try {
+            const [dData, aData, cData] = await Promise.all([
+                getDealDetail(activeTenant, dealId),
                 getDealActivities(activeTenant, dealId),
                 listDealChecklist(dealId)
             ]);
+            setDeal(dData);
             setActivities(aData);
             setChecklist(cData);
-            onChanged();
+            await onChanged();
         } catch (err: any) {
-            setError(err.message || 'Error changing stage');
+            setError(err.message || 'La etapa se guardó, pero no fue posible actualizar todos los datos relacionados.');
+        } finally {
+            setStageBusy(false);
         }
     };
 
@@ -144,7 +155,7 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
             setChecklist(prev => prev.map(item => item.id === itemId ? { ...item, is_done: !current } : item));
             onChanged();
         } catch (err: any) {
-            setError(err.message || 'Error updating checklist');
+            setError(err.message || 'No fue posible actualizar la lista de avance.');
         }
     };
 
@@ -156,7 +167,7 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
     return (
         <AnimatePresence>
             {isOpen && dealId && (
-                <div className="fixed inset-y-0 right-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm w-full font-sans">
+                <div className="fixed inset-0 z-50 flex w-full items-center justify-center bg-slate-900/40 font-sans backdrop-blur-sm">
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -168,7 +179,10 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 100 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="bg-white h-full shadow-2xl overflow-hidden w-full max-w-lg absolute right-0 flex flex-col"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="deal-detail-title"
+                        className="absolute right-0 flex h-dvh w-full min-w-0 max-w-lg flex-col overflow-hidden bg-surface-card shadow-2xl"
                     >
                         {loading && !deal ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
@@ -184,33 +198,34 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
                         ) : deal && (
                             <>
                                 {/* Global Header */}
-                                <div className="bg-white px-6 py-4 flex items-start justify-between z-10 border-b border-slate-100">
-                                    <div className="flex-1 pr-4">
+                                <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b bg-surface-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:py-4">
+                                    <div className="min-w-0 flex-1 sm:pr-4">
                                         <div className="flex items-center gap-2 mb-1.5">
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${STAGE_COLORS[deal.stage] || STAGE_COLORS['lead']}`}>
                                                 {STAGES[deal.stage]}
                                             </span>
                                             {deal.priority === 'high' && <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider bg-red-50 text-red-700 border-red-200">Alta Prioridad</span>}
                                         </div>
-                                        <h2 className="text-xl font-bold text-slate-800 leading-tight">{deal.title}</h2>
+                                        <h2 id="deal-detail-title" className="break-words text-lg font-bold leading-tight text-slate-800 sm:text-xl">{deal.title}</h2>
                                         <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
                                             <Building2 size={13} className="text-slate-400" />
                                             {deal.company || 'Sin Empresa Definida'}
                                         </p>
                                     </div>
-                                    <button onClick={onClose} className="p-2 -mr-2 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors">
+                                    <button onClick={onClose} aria-label="Cerrar detalle del deal" className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
                                         <X size={18} />
                                     </button>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto bg-slate-50/50 flex flex-col">
+                                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-surface">
                                     {/* Action Bar / Status Changer */}
-                                    <div className="px-6 py-3 bg-white border-b border-slate-100 flex items-center justify-between shadow-sm shadow-slate-100/50">
-                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mover Etapa</span>
-                                        <select
-                                            value={deal.stage}
-                                            onChange={handleStageChange}
-                                            className="text-sm font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    <div className="flex min-w-0 items-center justify-between gap-3 border-b bg-surface-card px-4 py-3 shadow-sm sm:px-6">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Cambiar etapa</span>
+                                            <select
+                                                value={deal.stage}
+                                                onChange={handleStageChange}
+                                                disabled={stageBusy}
+                                                className="min-w-0 max-w-[60%] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                                         >
                                             <option value="lead">Prospecto</option>
                                             <option value="qualified">Cotización</option>
@@ -221,24 +236,24 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
                                     </div>
 
                                     {/* Scrollable Content */}
-                                    <div className="p-6 space-y-6">
+                                    <div className="space-y-4 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:space-y-6 sm:p-6">
 
                                         {/* Meta Section */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Valor Estimado</p>
+                                        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4">
+                                            <div className="rounded-xl border border-slate-200 bg-surface-card p-4 shadow-sm">
+                                                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor estimado</p>
                                                 <p className="text-lg font-bold text-emerald-600">{formatCurrency(deal.value || 0, deal.currency)}</p>
                                             </div>
-                                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                                            <div className="flex flex-col justify-center rounded-xl border border-slate-200 bg-surface-card p-4 shadow-sm">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                                                    <User size={12} /> Owner
+                                                    <User size={12} /> Responsable
                                                 </p>
                                                 <p className="text-sm font-bold text-slate-700">{deal.owner_name || 'Sin asignar'}</p>
                                             </div>
                                         </div>
 
                                         {/* Contact Section */}
-                                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                        <div className="overflow-hidden rounded-xl border border-slate-200 bg-surface-card shadow-sm">
                                             <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
                                                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contacto</h3>
                                             </div>
@@ -268,7 +283,7 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
                                         {deal.notes && (
                                             <div>
                                                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Notas Originales</h3>
-                                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-sm text-slate-600 break-words">
+                                                <div className="break-words rounded-xl border border-slate-200 bg-surface-card p-4 text-sm text-slate-600 shadow-sm">
                                                     {deal.notes}
                                                 </div>
                                             </div>
@@ -362,12 +377,12 @@ export const DealDetailDrawer: React.FC<DealDetailDrawerProps> = ({
                                                         if (stageItems.length === 0 && deal.stage !== stageKey) return null;
 
                                                         return (
-                                                            <div key={stageKey} className={`rounded-xl border transition-all ${deal.stage === stageKey ? 'bg-white border-primary/20 shadow-md ring-1 ring-primary/5' : 'bg-slate-50 border-slate-200'}`}>
+                                                            <div key={stageKey} className={`rounded-xl border bg-surface-card transition-all ${deal.stage === stageKey ? 'border-primary/20 shadow-md ring-1 ring-primary/5' : 'border-slate-200'}`}>
                                                                 <div className="px-4 py-2 border-b border-inherit flex items-center justify-between">
                                                                     <span className={`text-[10px] font-bold uppercase tracking-wider ${deal.stage === stageKey ? 'text-primary' : 'text-slate-400'}`}>
                                                                         {STAGES[stageKey as DealStage]}
                                                                     </span>
-                                                                    {deal.stage === stageKey && <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Etapa Actual</span>}
+                                                                    {deal.stage === stageKey && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">Etapa actual</span>}
                                                                 </div>
                                                                 <div className="p-3 space-y-2.5">
                                                                     {stageItems.length === 0 ? (
