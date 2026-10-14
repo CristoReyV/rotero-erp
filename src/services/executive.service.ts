@@ -49,7 +49,7 @@ export async function listInternalNotifications(tenantId: string, unreadOnly = f
 export async function markInternalNotificationsRead(tenantId: string, ids: string[] | null): Promise<void> {
     const { data, error } = await supabase.rpc('rpc_mark_internal_notifications_read', {
         p_tenant_id: tenantId,
-        p_ids: ids,
+        p_notification_ids: ids,
     });
     assertResult(data, error);
 }

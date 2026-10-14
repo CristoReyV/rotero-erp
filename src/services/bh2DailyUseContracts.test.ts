@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createNotificationCenter } from './notificationCenter';
+import type { NotificationFeed } from '../types/executive';
 
 const read=(path:string)=>readFileSync(new URL(`../../${path}`,import.meta.url),'utf8');
 const migration=read('supabase/migrations/20260902000000_bh2_daily_use_hardening.sql');
@@ -20,7 +22,22 @@ assert.match(partner,/Cargar más/);
 assert.match(partner,/partnerTab/);
 assert.match(partner,/requestId/);
 assert.match(notifications,/rpc_list_internal_notifications_page|listInternalNotifications/);
-assert.match(notifications,/filter\(item=>!value\.some/);
+// Notification pagination now belongs to the controller; verify its behavior.
+let page = 0;
+const center = createNotificationCenter({
+    list: async () => ({
+        items: (page++ === 0 ? [{ id: 'one' }] : [{ id: 'one' }, { id: 'two' }]),
+        unread_count: 1, has_more: true,
+        next_cursor: { tenant_id: 'test-tenant', user_id: 'test-user', unread_only: false, first_seen_at: '2026-10-14T00:00:00Z', id: 'one' },
+    } as NotificationFeed),
+    markRead: async () => { throw new Error('Unexpected automatic write'); },
+    dismiss: async () => { throw new Error('Unexpected automatic write'); },
+});
+center.setScope({ tenantId: 'test-tenant', userId: 'test-user', role: 'admin' });
+await center.load();
+await center.load(true);
+assert.deepEqual(center.getSnapshot().items.map(item => item.id), ['one', 'two']);
+center.setScope(null);
 assert.match(palette,/searchRequest/);
 assert.match(saved,/filters/);
 assert.doesNotMatch(saved,/cursor|next_cursor/);
