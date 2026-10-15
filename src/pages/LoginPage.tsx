@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
 import { authService } from '@/services/auth.service';
-import { isRoteroEnabledRole } from '@/constants/roles';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthAccess } from '@/hooks/useAuthAccess';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 
 const checkRateLimit = (key: string) => {
@@ -33,61 +31,33 @@ const LoginPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const access = useAuthAccess();
+    const mounted = React.useRef(true);
     React.useEffect(() => {
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            if (session) {
-                const loaded = useAuthStore.getState().context ? true : await authService.loadContext();
-                if (loaded && isRoteroEnabledRole(useAuthStore.getState().getRole())) {
-                    navigate('/dashboard', { replace: true });
-                } else {
-                    setError('Tu rol no está habilitado para el despliegue actual de ROTERO.');
-                    await supabase.auth.signOut();
-                }
-            }
-        });
-    }, [navigate]);
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
+    React.useEffect(() => {
+        if (access.status === 'authorized') navigate('/dashboard', { replace: true });
+    }, [access.status, navigate]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-
-        if (!checkRateLimit(`login_attempts_${email}`)) {
-            setError('Demasiados intentos de inicio de sesión. Intenta nuevamente en 5 minutos.');
-            return;
-        }
-
-        setLoading(true);
-
         try {
-            const { data, error: signInError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            if (signInError) {
-                setError(signInError.message);
+            if (!checkRateLimit(`login_attempts_${email}`)) {
+                setError('Demasiados intentos de inicio de sesión. Intenta nuevamente en 5 minutos.');
                 return;
             }
-
-            if (data.session) {
-                const loaded = await authService.loadContext();
-                if (!loaded) {
-                    setError('Error cargando la cuenta del usuario. Contacta soporte.');
-                    await supabase.auth.signOut();
-                    return;
-                }
-                if (!isRoteroEnabledRole(useAuthStore.getState().getRole())) {
-                    setError('Tu rol no está habilitado para el despliegue actual de ROTERO.');
-                    await supabase.auth.signOut();
-                    return;
-                }
-                navigate('/dashboard');
-            }
-        } catch (err: any) {
-            console.error('Login error', err);
-            setError('Fallo inesperado durante el login.');
+        } catch {
+            setError('No fue posible comprobar los intentos de acceso. Revisa el almacenamiento de esta pestaña y reintenta.');
+            return;
+        }
+        setLoading(true);
+        try {
+            await authService.signIn({ email, password });
         } finally {
-            setLoading(false);
+            if (mounted.current) setLoading(false);
         }
     };
 
@@ -106,18 +76,27 @@ const LoginPage = () => {
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
-                    {error && (
+                    {(error || access.message) && (
                         <div className="mb-4 rounded-md bg-red-50 p-4 border border-red-200">
                             <div className="flex items-center">
                                 <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
                                 <h3 className="text-sm font-medium text-red-800">Error de inicio de sesión</h3>
                             </div>
                             <div className="mt-2 text-sm text-red-700">
-                                <p>{error}</p>
+                                <p>{error || access.message}</p>
                             </div>
                         </div>
                     )}
 
+                    {['error', 'disabled'].includes(access.status) && (
+                        <button type="button" onClick={() => { void authService.access.retry(); }} className="mb-4 text-sm font-semibold text-primary">Reintentar verificación</button>
+                    )}
+                    {access.status === 'error' && (
+                        <button type="button" onClick={() => window.location.reload()} className="mb-4 ml-4 text-sm font-semibold text-gray-700">Recargar página</button>
+                    )}
+                    {access.message && (
+                        <button type="button" onClick={() => { void authService.signOut(); }} className="mb-4 ml-4 text-sm font-semibold text-gray-700">Cerrar sesión</button>
+                    )}
                     <form className="space-y-6" onSubmit={handleLogin}>
                         <div>
                             <label className="block text-sm font-medium text-gray-700" htmlFor="email">
