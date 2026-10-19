@@ -36,9 +36,11 @@ añade ese esquema a la API.
 El helper usa SECURITY DEFINER con search_path vacío y referencias cualificadas.
 Su propietario NOLOGIN `rotero_company_access_owner` no tiene SUPERUSER,
 BYPASSRLS, CREATEROLE, CREATEDB, REPLICATION o acceso a tablas de negocio
-existentes. Posee sólo las dos tablas nuevas; esa propiedad permite leerlas sin
+existentes. En este primer bloque posee las dos tablas nuevas; esa propiedad permite leerlas sin
 recursión de RLS. Por ello no se usa FORCE RLS sobre estas raíces. No se concede
-el rol propietario a las identidades API.
+el rol propietario a las identidades API. La extensión local
+[MULTI-05](MULTI05_CAPABILITIES.md) reutiliza ese propietario para sus tablas de
+concesiones cerradas, sin añadirle acceso a tablas de negocio existentes.
 
 El administrador que ejecuta la migración recibe SET, sin INHERIT, sobre ese
 propietario para mantenimiento/transferencia en PostgreSQL 17. CREATE en public
