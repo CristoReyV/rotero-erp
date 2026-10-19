@@ -166,7 +166,10 @@ BEGIN
           AND p.prosecdef
           AND NOT EXISTS (
               SELECT 1 FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS setting
+              -- Hardened, schema-qualified functions may use an empty path.
+              -- Missing or caller-controlled-only paths must still fail.
               WHERE setting LIKE 'search_path=pg_catalog, public%'
+                 OR setting = 'search_path=""'
           )
     ) THEN
         RAISE EXCEPTION 'DB BASELINE TEST FAILED: SECURITY DEFINER without safe search_path';
