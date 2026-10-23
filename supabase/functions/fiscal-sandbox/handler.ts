@@ -95,6 +95,7 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
             const result = await executeFiscal(store, adapter, user.id, input.cfdiId, input.action, {
                 motive: input.motive,
                 replacement: input.replacement,
+                recoverAck: input.recoverAck === true,
             });
             if (result instanceof Uint8Array) {
                 return new Response(new Uint8Array(result).buffer, {

@@ -1,6 +1,10 @@
 -- FACTURAMA-01: sandbox extension of FISCAL.0, never a second fiscal aggregate.
 -- Depends only on the reviewed MULTI-04/05 commits. No seeds or real grants.
 BEGIN;
+-- Verified staging retains a historical NOT NULL on UUID. An unissued draft
+-- must have no fiscal identity; relax only nullability, never fabricate a UUID
+-- or rewrite an existing row. Both the canonical local and staging shapes work.
+ALTER TABLE public.billing_cfdis ALTER COLUMN uuid DROP NOT NULL;
 SELECT set_config('fiscal01.migration_role',current_user,true);
 SET LOCAL ROLE rotero_company_access_owner;
 ALTER TABLE public.membership_company_capabilities DROP CONSTRAINT membership_company_capabilities_capability_code_check;
@@ -104,7 +108,8 @@ AS $$ BEGIN
    RAISE EXCEPTION USING ERRCODE='23514',MESSAGE='frozen_fiscal_payload';
   END IF;
  END IF;
- IF NOT EXISTS(SELECT FROM public.billing_cfdis c WHERE c.id=NEW.cfdi_id AND c.tenant_id=NEW.tenant_id AND c.rfc_emisor='EKU9003173C9' AND c.rfc_receptor='URE180429TM6' AND c.operation_id IS NULL) THEN
+ IF NOT EXISTS(SELECT FROM public.billing_cfdis c WHERE c.id=NEW.cfdi_id AND c.tenant_id=NEW.tenant_id AND c.rfc_emisor='EKU9003173C9' AND c.rfc_receptor='URE180429TM6' AND to_jsonb(c)->>'operation_id' IS NULL
+  AND NOT EXISTS(SELECT FROM public.billing_documents b WHERE b.linked_cfdi_id=c.id AND b.operation_id IS NOT NULL)) THEN
   RAISE EXCEPTION USING ERRCODE='23514',MESSAGE='sandbox_fixture_required';
  END IF;
  RETURN NEW; END $$;
@@ -119,8 +124,8 @@ DECLARE d private.fiscal01_documents;
 BEGIN
  SELECT * INTO d FROM private.fiscal01_documents WHERE cfdi_id=OLD.id;
  IF d.cfdi_id IS NULL THEN RETURN NEW; END IF;
- IF ROW(NEW.id,NEW.tenant_id,NEW.operation_id,NEW.rfc_emisor,NEW.rfc_receptor,NEW.receptor_name,NEW.serie,NEW.folio,NEW.subtotal,NEW.total,NEW.currency,NEW.fiscal_input,NEW.has_complemento_pago)
- IS DISTINCT FROM ROW(OLD.id,OLD.tenant_id,OLD.operation_id,OLD.rfc_emisor,OLD.rfc_receptor,OLD.receptor_name,OLD.serie,OLD.folio,OLD.subtotal,OLD.total,OLD.currency,OLD.fiscal_input,OLD.has_complemento_pago) THEN
+ IF ROW(NEW.id,NEW.tenant_id,to_jsonb(NEW)->>'operation_id',NEW.rfc_emisor,NEW.rfc_receptor,NEW.receptor_name,NEW.serie,NEW.folio,NEW.subtotal,NEW.total,NEW.currency,NEW.fiscal_input,NEW.has_complemento_pago)
+ IS DISTINCT FROM ROW(OLD.id,OLD.tenant_id,to_jsonb(OLD)->>'operation_id',OLD.rfc_emisor,OLD.rfc_receptor,OLD.receptor_name,OLD.serie,OLD.folio,OLD.subtotal,OLD.total,OLD.currency,OLD.fiscal_input,OLD.has_complemento_pago) THEN
   RAISE EXCEPTION USING ERRCODE='23514',MESSAGE='frozen_canonical_fiscal_source';
  END IF;
  IF OLD.request_fingerprint IS NOT NULL AND ROW(NEW.request_fingerprint,NEW.fiscal_snapshot,NEW.fiscal_provider) IS DISTINCT FROM ROW(OLD.request_fingerprint,OLD.fiscal_snapshot,OLD.fiscal_provider) THEN
@@ -172,7 +177,8 @@ BEGIN
   RETURN jsonb_build_object('company_id',d.company_id,'fiscal_input',c.fiscal_input,'serie',c.serie,'folio',c.folio,'subtotal',c.subtotal,'total',c.total,'currency',c.currency);
  END IF;
  IF p_action='prepare' AND d.cfdi_id IS NULL THEN
-  IF c.id IS NULL OR c.fiscal_status<>'draft' OR c.uuid IS NOT NULL OR c.operation_id IS NOT NULL
+  IF c.id IS NULL OR c.fiscal_status<>'draft' OR c.uuid IS NOT NULL OR to_jsonb(c)->>'operation_id' IS NOT NULL
+    OR EXISTS(SELECT FROM public.billing_documents b WHERE b.linked_cfdi_id=c.id AND b.operation_id IS NOT NULL)
     OR NOT EXISTS(SELECT FROM private.fiscal01_draft_scope s WHERE s.cfdi_id=c.id AND s.tenant_id=c.tenant_id AND s.company_id=(p_data->>'company_id')::uuid)
     OR NOT private.fiscal01_authorized(c.tenant_id,(p_data->>'company_id')::uuid,'prepare') THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='fiscal_forbidden'; END IF;
   hash:=encode(extensions.digest(convert_to((p_data->'payload')::text,'UTF8'),'sha256'),'hex');
@@ -286,7 +292,9 @@ BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('fiscal01-payments:'||s.company_id::text,0));
  SELECT * INTO c FROM public.billing_cfdis WHERE id=s.cfdi_id FOR UPDATE;
  IF EXISTS(SELECT FROM private.fiscal01_receipts WHERE cfdi_id=c.id) THEN RETURN jsonb_build_object('already_recorded',true); END IF;
- IF c.tenant_id<>s.tenant_id OR c.fiscal_status<>'draft' OR c.uuid IS NOT NULL OR c.operation_id IS NOT NULL OR p_paid_at IS NULL OR NOT c.has_complemento_pago OR c.total<>0 OR c.subtotal<>0
+ IF c.tenant_id<>s.tenant_id OR c.fiscal_status<>'draft' OR c.uuid IS NOT NULL OR to_jsonb(c)->>'operation_id' IS NOT NULL
+   OR EXISTS(SELECT FROM public.billing_documents b WHERE b.linked_cfdi_id=c.id AND b.operation_id IS NOT NULL)
+   OR p_paid_at IS NULL OR NOT c.has_complemento_pago OR c.total<>0 OR c.subtotal<>0
    OR p_paid_at>(now() AT TIME ZONE 'America/Mexico_City')+interval '1 minute'
    OR jsonb_typeof(p_applications) IS DISTINCT FROM 'array' OR jsonb_array_length(p_applications) NOT BETWEEN 1 AND 25 THEN RAISE EXCEPTION USING ERRCODE='23514',MESSAGE='invalid_payment'; END IF;
  -- Reserve a receipt first; the whole transaction rolls back on any mismatch.

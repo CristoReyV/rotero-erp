@@ -95,6 +95,18 @@ export function FiscalSandboxPanel(
                 Estado: {context.status}
                 {context.uncertain ? ' · Resultado incierto; consulta antes de continuar.' : ''}
             </p>
+            {context.remote_cancel_status && (
+                <p className='text-sm'>
+                    Cancelación del proveedor: {context.remote_cancel_status === 'canceled'
+                        ? 'confirmada por consulta'
+                        : 'solicitada, pendiente de confirmación'}. Acuse XML:{' '}
+                    {context.cancellation_ack_state === 'validated'
+                        ? 'validado'
+                        : context.cancellation_ack_state === 'mismatch'
+                        ? 'rechazado por identidad; pendiente con el proveedor'
+                        : 'pendiente de validación'}.
+                </p>
+            )}
             <dl className='grid grid-cols-2 gap-1 text-sm'>
                 <dt>Referencia fiscal</dt>
                 <dd>{context.draft_summary.serie} / {context.draft_summary.folio}</dd>
@@ -186,6 +198,23 @@ export function FiscalSandboxPanel(
                     onClick={() => void run('ack')}
                 >
                     Descargar acuse de prueba
+                </button>
+            )}
+            {context.actions.cancel && context.remote_cancel_status === 'canceled' &&
+                !context.cancellation_available && (
+                <button
+                    type='button'
+                    className={button}
+                    disabled={disabled}
+                    onClick={() => {
+                        if (
+                            window.confirm(
+                                'Consultar la cancelación confirmada y recuperar el acuse de esta prueba. No emite otro CFDI.',
+                            )
+                        ) void run('cancel', { motive: '03', recoverAck: true });
+                    }}
+                >
+                    Recuperar acuse de cancelación
                 </button>
             )}
             {confirm && (

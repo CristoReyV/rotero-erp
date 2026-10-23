@@ -91,12 +91,19 @@ CREATE TABLE public.membership_company_access (
 CREATE INDEX membership_company_access_company_idx
     ON public.membership_company_access (tenant_id, company_id);
 
+-- This unapplied dependency must not rely on a historical public helper which
+-- is absent from the verified staging schema. Scope the timestamp trigger to
+-- these new roots; no existing trigger or business contract is replaced.
+CREATE FUNCTION private.multi04_touch_updated_at() RETURNS trigger
+LANGUAGE plpgsql SET search_path='' AS $$
+BEGIN NEW.updated_at:=pg_catalog.now(); RETURN NEW; END $$;
+REVOKE ALL ON FUNCTION private.multi04_touch_updated_at() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER companies_touch_updated_at
     BEFORE UPDATE ON public.companies
-    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+    FOR EACH ROW EXECUTE FUNCTION private.multi04_touch_updated_at();
 CREATE TRIGGER membership_company_access_touch_updated_at
     BEFORE UPDATE ON public.membership_company_access
-    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+    FOR EACH ROW EXECUTE FUNCTION private.multi04_touch_updated_at();
 
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.membership_company_access ENABLE ROW LEVEL SECURITY;
@@ -162,6 +169,7 @@ COMMENT ON FUNCTION private.multi04_has_company_access(uuid, uuid) IS
 ALTER TABLE public.companies OWNER TO rotero_company_access_owner;
 ALTER TABLE public.membership_company_access OWNER TO rotero_company_access_owner;
 ALTER FUNCTION private.multi04_has_company_access(uuid, uuid) OWNER TO rotero_company_access_owner;
+ALTER FUNCTION private.multi04_touch_updated_at() OWNER TO rotero_company_access_owner;
 REVOKE CREATE ON SCHEMA public, private FROM rotero_company_access_owner;
 
 COMMIT;

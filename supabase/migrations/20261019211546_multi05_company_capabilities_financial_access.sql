@@ -167,12 +167,33 @@ CREATE TABLE public.consolidation_grant_companies (
 CREATE INDEX consolidation_companies_capability_idx
     ON public.consolidation_grant_companies(tenant_id,user_id,company_id,required_capability);
 
+-- The migration administrator does not inherit the closed root owner. Grant
+-- this pure timestamp trigger only for DDL, preserving any prior EXECUTE grant.
+DO $timestamp_grant$
+DECLARE actor text:=current_user; needed boolean:=NOT pg_catalog.has_function_privilege(current_user,'private.multi04_touch_updated_at()','EXECUTE');
+BEGIN
+ PERFORM pg_catalog.set_config('multi05.timestamp_granted',needed::text,true);
+ IF needed THEN
+  SET LOCAL ROLE rotero_company_access_owner;
+  EXECUTE format('GRANT EXECUTE ON FUNCTION private.multi04_touch_updated_at() TO %I',actor);
+  EXECUTE format('SET LOCAL ROLE %I',actor);
+ END IF;
+END $timestamp_grant$;
 CREATE TRIGGER financial_bindings_touch_updated_at BEFORE UPDATE ON private.financial_principal_bindings
-    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+    FOR EACH ROW EXECUTE FUNCTION private.multi04_touch_updated_at();
 CREATE TRIGGER company_capabilities_touch_updated_at BEFORE UPDATE ON public.membership_company_capabilities
-    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+    FOR EACH ROW EXECUTE FUNCTION private.multi04_touch_updated_at();
 CREATE TRIGGER consolidation_grants_touch_updated_at BEFORE UPDATE ON public.membership_consolidation_grants
-    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+    FOR EACH ROW EXECUTE FUNCTION private.multi04_touch_updated_at();
+DO $timestamp_revoke$
+DECLARE actor text:=current_user;
+BEGIN
+ IF pg_catalog.current_setting('multi05.timestamp_granted')::boolean THEN
+  SET LOCAL ROLE rotero_company_access_owner;
+  EXECUTE format('REVOKE EXECUTE ON FUNCTION private.multi04_touch_updated_at() FROM %I',actor);
+  EXECUTE format('SET LOCAL ROLE %I',actor);
+ END IF;
+END $timestamp_revoke$;
 
 ALTER TABLE private.financial_principal_bindings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.membership_company_capabilities ENABLE ROW LEVEL SECURITY;

@@ -243,7 +243,9 @@ export function verifyCancellationAck(bytes: Uint8Array, uuid: string): void {
         processEntities: false,
     }).parse(xml);
     const root = parsed.Acuse;
-    if (!root || Array.isArray(root)) throw new FiscalFailure('invalid_cancellation_ack');
+    if (!root || Array.isArray(root) || root['@_RfcEmisor'] !== TEST_ISSUER.Rfc) {
+        throw new FiscalFailure('invalid_cancellation_ack');
+    }
     const folios = root.Folios, rows = Array.isArray(folios) ? folios : [folios];
     const text = (v: unknown): string => String(v && typeof v === 'object' ? (v as Json)['#text'] : v ?? '');
     const match = rows.filter((x: Json) =>

@@ -110,7 +110,11 @@ export async function executeFiscal(
         actor,
         action === 'issue' ? 'claim' : action,
         action === 'cancel'
-            ? { motive: options.motive, ...(options.replacement ? { replacement: options.replacement } : {}) }
+            ? {
+                motive: options.motive,
+                ...(options.replacement ? { replacement: options.replacement } : {}),
+                recover_ack: options.recoverAck === true,
+            }
             : {},
     );
     if (lease.busy || lease.reconcile_required || lease.cancellation_pending) {
@@ -124,16 +128,46 @@ export async function executeFiscal(
     try {
         validatePayload(payload);
         if (action === 'cancel') {
-            const result = await adapter.cancelDocument(providerId, options.motive, options.replacement);
+            const correlated = (remote: Json) =>
+                remote.Id === providerId &&
+                remote.Complement?.TaxStamp?.Uuid?.toLowerCase() === lease.fiscal_uuid?.toLowerCase() &&
+                remote.Issuer?.Rfc === TEST_ISSUER.Rfc;
+            if (options.recoverAck === true) {
+                const before = await adapter.detail(providerId);
+                if (!correlated(before)) throw new FiscalFailure('uncorrelated_cancellation_status');
+                if (!['cancel', 'canceled'].includes(before.Status)) {
+                    await save('release');
+                    return {
+                        status: 'cancellation_requested',
+                        message: 'El proveedor aún no confirma cancelación; no se repitió la solicitud.',
+                    };
+                }
+            }
+            const cancellation = lease.cancellation_options ?? options;
+            const result = await adapter.cancelDocument(
+                providerId,
+                cancellation.motive,
+                cancellation.replacement,
+            );
             const status = await adapter.detail(providerId);
+            if (!correlated(status)) throw new FiscalFailure('uncorrelated_cancellation_status');
             if (
                 result.Status !== 'canceled' || !['cancel', 'canceled'].includes(status.Status) ||
-                result.Uuid?.toLowerCase() !== lease.fiscal_uuid?.toLowerCase() || !result.AcuseXmlBase64
+                result.Uuid?.toLowerCase() !== lease.fiscal_uuid?.toLowerCase()
             ) {
                 await save('release');
                 return {
                     status: 'cancellation_requested',
                     message: 'Cancelación pendiente de confirmación y acuse.',
+                };
+            }
+            await save('cancel_confirmed', { uuid: lease.fiscal_uuid, provider_document_id: providerId });
+            if (!result.AcuseXmlBase64) {
+                await save('release');
+                return {
+                    status: 'cancellation_requested',
+                    remoteCancellation: 'confirmed',
+                    acknowledgement: 'unavailable',
                 };
             }
             const ack = Uint8Array.from(atob(result.AcuseXmlBase64), (c) => c.charCodeAt(0));
@@ -145,10 +179,24 @@ export async function executeFiscal(
                 )}.xml`,
                 ack,
             );
-            verifyCancellationAck(ack, lease.fiscal_uuid);
+            try {
+                verifyCancellationAck(ack, lease.fiscal_uuid);
+            } catch {
+                await save('cancel_ack_invalid', { ack_sha256: await sha256(ack) });
+                await save('release');
+                return {
+                    status: 'cancellation_requested',
+                    remoteCancellation: 'confirmed',
+                    acknowledgement: 'mismatch',
+                };
+            }
             const path = `${lease.tenant_id}/${lease.company_id}/${id}/cancellation.xml`;
             await store.upload(path, ack);
-            await save('cancelled', { uuid: lease.fiscal_uuid, ack_path: path });
+            await save('cancelled', {
+                uuid: lease.fiscal_uuid,
+                ack_path: path,
+                ack_sha256: await sha256(ack),
+            });
             return { status: 'cancelled', uuid: lease.fiscal_uuid, acuseAvailable: true };
         }
         if (action === 'issue') {
@@ -183,6 +231,13 @@ export async function executeFiscal(
         if (action === 'status') {
             const remote = await adapter.detail(providerId);
             if (['cancel', 'canceled'].includes(remote.Status)) {
+                if (
+                    remote.Id !== providerId ||
+                    remote.Complement?.TaxStamp?.Uuid?.toLowerCase() !== lease.fiscal_uuid?.toLowerCase() ||
+                    remote.Issuer?.Rfc !== TEST_ISSUER.Rfc
+                ) {
+                    throw new FiscalFailure('uncorrelated_cancellation_status');
+                }
                 await save('cancel_observed');
                 return {
                     status: 'cancellation_requested',

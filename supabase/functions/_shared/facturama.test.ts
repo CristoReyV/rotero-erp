@@ -255,13 +255,21 @@ test('payment validation: partial, multiple invoices, conservation and duplicate
 test('cancellation acknowledgement must correlate its XML UUID, not merely HTTP/status', () => {
     const ack = (id: string) =>
         new TextEncoder().encode(
-            `<Acuse><Folios><UUID>${id}</UUID><EstatusUUID>201</EstatusUUID></Folios></Acuse>`,
+            `<Acuse RfcEmisor="EKU9003173C9"><Folios><UUID>${id}</UUID><EstatusUUID>201</EstatusUUID></Folios></Acuse>`,
         );
     verifyCancellationAck(ack(uuid), uuid);
     assert.throws(() => verifyCancellationAck(ack('0088B8E0-00DE-43D7-A590-8328B803839F'), uuid), {
         code: 'unconfirmed_cancellation_ack',
     });
     assert.throws(() => verifyCancellationAck(new TextEncoder().encode('<not-xml'), uuid));
+    assert.throws(() =>
+        verifyCancellationAck(
+            new TextEncoder().encode(
+                new TextDecoder().decode(ack(uuid)).replace('EKU9003173C9', 'WLS110325JH8'),
+            ),
+            uuid,
+        )
+    );
 });
 test('HTTP 400 before a provider ID is a rejection, not an uncertain submission', async () => {
     const m = memoryStore();
@@ -317,4 +325,97 @@ test('canonical provider boundary requires frozen serialization and never return
         })).outcome,
         'processing',
     );
+});
+
+test('cancel confirms the exact remote identity, quarantines foreign XML, keeps a recoverable state', async () => {
+    const saved: string[] = [], files: string[] = [], methods: string[] = [];
+    const store: FiscalStore = {
+        async worker(_id, _actor, action, data = {}) {
+            saved.push(action);
+            if (action === 'cancel') {
+                return {
+                    busy_token: 'lease',
+                    tenant_id: 'tenant',
+                    company_id: 'company',
+                    provider_payload: invoice(),
+                    provider_document_id: 'test-id',
+                    fiscal_uuid: uuid,
+                    cancellation_options: { motive: '02' },
+                };
+            }
+            assert.equal(data.busy_token, 'lease');
+            return { saved: true };
+        },
+        async upload(path) {
+            files.push(path);
+        },
+        async download() {
+            throw new Error('not used');
+        },
+    };
+    const badAck = Buffer.from(
+        '<Acuse RfcEmisor="EKU9003173C9"><Folios><UUID>0088B8E0-00DE-43D7-A590-8328B803839F</UUID><EstatusUUID>201</EstatusUUID></Folios></Acuse>',
+    ).toString('base64');
+    const adapter = new FacturamaSandbox(config, async (url, init) => {
+        methods.push(init!.method!);
+        if (init?.method === 'DELETE') {
+            assert.ok(String(url).endsWith('?motive=02'));
+            return Response.json({ Status: 'canceled', Uuid: uuid, AcuseXmlBase64: badAck });
+        }
+        return Response.json({
+            Id: 'test-id',
+            Status: 'canceled',
+            Issuer: TEST_ISSUER,
+            Complement: { TaxStamp: { Uuid: uuid } },
+        });
+    });
+    const result: any = await executeFiscal(store, adapter, 'actor', 'doc', 'cancel', {
+        motive: '03',
+        recoverAck: true,
+    });
+    assert.equal(result.remoteCancellation, 'confirmed');
+    assert.equal(result.acknowledgement, 'mismatch');
+    assert.deepEqual(methods, ['GET', 'DELETE', 'GET']);
+    assert.ok(
+        saved.includes('cancel_confirmed') && saved.includes('cancel_ack_invalid') &&
+            saved.includes('release'),
+    );
+    assert.ok(!saved.includes('cancelled') && !saved.includes('uncertain'));
+    assert.equal(files.length, 1);
+    assert.ok(files[0].includes('/unverified-cancellation-'));
+});
+test('ack recovery does not repeat DELETE while remote cancellation is pending', async () => {
+    let deletes = 0;
+    const actions: string[] = [];
+    const store: FiscalStore = {
+        async worker(_id, _actor, action) {
+            actions.push(action);
+            return action === 'cancel'
+                ? {
+                    busy_token: 'lease',
+                    provider_payload: invoice(),
+                    provider_document_id: 'test-id',
+                    fiscal_uuid: uuid,
+                }
+                : { saved: true };
+        },
+        async upload() {
+            throw new Error('not used');
+        },
+        async download() {
+            throw new Error('not used');
+        },
+    };
+    const adapter = new FacturamaSandbox(config, async (_url, init) => {
+        if (init?.method === 'DELETE') deletes++;
+        return Response.json({
+            Id: 'test-id',
+            Status: 'active',
+            Issuer: TEST_ISSUER,
+            Complement: { TaxStamp: { Uuid: uuid } },
+        });
+    });
+    await executeFiscal(store, adapter, 'actor', 'doc', 'cancel', { motive: '03', recoverAck: true });
+    assert.equal(deletes, 0);
+    assert.ok(actions.includes('release'));
 });

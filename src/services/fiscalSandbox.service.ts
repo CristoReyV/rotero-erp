@@ -12,6 +12,8 @@ export interface SandboxFiscalContext {
     payment_recorded: boolean;
     xml_available: boolean;
     cancellation_available: boolean;
+    remote_cancel_status: 'pending' | 'canceled' | null;
+    cancellation_ack_state: 'unavailable' | 'unverified' | 'mismatch' | 'validated';
     busy: boolean;
     actions: Record<'prepare' | 'issue' | 'read' | 'cancel' | 'payment', boolean>;
     draft_summary: {
