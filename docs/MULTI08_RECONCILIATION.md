@@ -105,11 +105,13 @@ configured o flags ausentes no habilitan envío. No se construye otra interfaz.
 - Sólo fiscal01 explícito recibe metadata histórica demostrable; otros orígenes
   permanecen desconocidos. No se reescriben documentos/XML/intentos históricos.
   Nuevos campos canónicos se completan en futuras escrituras verificadas.
-- Las solicitudes guardan un binding inmutable al agregado/origen, con FK
+- Las solicitudes de origen conocido guardan un binding inmutable al agregado/origen, con FK
   compuesta. Historia sólo se vincula con snapshot de empresa de laboratorio y
   sin intentos de otro proveedor. Los intentos conservan filas originales y no
   admiten otro proveedor/tenant. La evidencia del artefacto sigue el agregado y
   sus rutas/relaciones guardadas; no se migra ni regenera.
+  Las solicitudes legacy sin origen demostrado permanecen sin vincular y no
+  pueden salir por el worker neutral deshabilitado; no se adivina su ambiente.
 - Status/cancelación/descarga usan origen, nunca la selección futura. SQL/dobles
   prueban cambiar a Soft sin redirigir el documento Facturama. Configurar una
   selección nueva deshabilita futuros prepare/claim de laboratorio para esa
