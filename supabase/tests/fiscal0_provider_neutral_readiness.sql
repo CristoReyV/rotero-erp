@@ -1,4 +1,7 @@
 \set ON_ERROR_STOP on
+-- MULTI-08: preserve normalized-result, validation, artifacts and immutable-attempt
+-- coverage. Replace obsolete tenant-wide provider enablement with strict denial;
+-- worker results below use explicit offline synthetic owner fixtures, no Soft I/O.
 BEGIN;
 
 DO $contract$
@@ -16,7 +19,7 @@ BEGIN
     'public.rpc_get_fiscal_provider_config(uuid)','public.rpc_update_fiscal_provider_config(uuid,text,boolean,text,jsonb)'
   ] LOOP
     o:=to_regprocedure(s); IF o IS NULL THEN RAISE EXCEPTION 'FISCAL0 missing RPC %',s; END IF;
-    IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=o AND prosecdef AND proconfig@>ARRAY['search_path=pg_catalog, public']::text[]) THEN RAISE EXCEPTION 'FISCAL0 unsafe RPC %',s; END IF;
+    IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=o AND prosecdef AND proconfig=CASE WHEN s IN ('public.rpc_queue_fiscal_stamp(uuid)','public.rpc_update_fiscal_provider_config(uuid,text,boolean,text,jsonb)') THEN ARRAY['search_path=""']::text[] ELSE ARRAY['search_path=pg_catalog, public']::text[] END) THEN RAISE EXCEPTION 'FISCAL0 unsafe RPC %',s; END IF;
     IF NOT has_function_privilege('authenticated',o,'EXECUTE') OR has_function_privilege('anon',o,'EXECUTE') OR has_function_privilege('service_role',o,'EXECUTE') OR pg_get_functiondef(o)~*'\mSQLERRM\M' THEN RAISE EXCEPTION 'FISCAL0 RPC ACL/error %',s; END IF;
   END LOOP;
   FOREACH s IN ARRAY ARRAY[
@@ -27,7 +30,7 @@ BEGIN
   ] LOOP
     o:=to_regprocedure(s); IF o IS NULL OR has_function_privilege('authenticated',o,'EXECUTE') OR has_function_privilege('anon',o,'EXECUTE') OR has_function_privilege('service_role',o,'EXECUTE') THEN RAISE EXCEPTION 'FISCAL0 private ACL %',s; END IF;
   END LOOP;
-  IF pg_get_functiondef('public.rpc_queue_fiscal_stamp(uuid)'::regprocedure)!~'pg_advisory_xact_lock'
+  IF pg_get_functiondef('private.multi08_begin_stamp(uuid,text,text,text)'::regprocedure)!~'pg_advisory_xact_lock'
      OR NOT EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='fiscal_requests_identity_uidx')
      OR NOT EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='fiscal_requests_one_active_type_uidx') THEN RAISE EXCEPTION 'FISCAL0 concurrency/idempotency boundary'; END IF;
   IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='public.document_files'::regclass AND conname='document_files_source_type_check' AND pg_get_constraintdef(oid) LIKE '%billing_cfdi%') THEN RAISE EXCEPTION 'FISCAL0 F3 extension'; END IF;
@@ -76,22 +79,43 @@ BEGIN
     IF public.rpc_update_cfdi_fiscal_input(c,fiscal_input,'4.0')?'error' OR public.rpc_prepare_cfdi_for_api(c)?'error' THEN RAISE EXCEPTION 'FISCAL0 prepare %',c; END IF;
   END LOOP;
   c:=current_setting('fiscal0.cfdi1')::uuid; r:=public.rpc_queue_fiscal_stamp(c);
-  IF r->>'error'<>'provider_not_configured' OR public.rpc_get_fiscal_readiness(c)->>'fiscal_status'<>'ready_for_api' THEN RAISE EXCEPTION 'FISCAL0 fail closed %',r; END IF;
-  IF public.rpc_update_fiscal_provider_config(tenant,'soft_management',true,'sandbox','{"status_polling":true}')?'error' THEN RAISE EXCEPTION 'FISCAL0 config'; END IF;
-  r:=public.rpc_queue_fiscal_stamp(c); IF NOT (r->>'accepted')::boolean THEN RAISE EXCEPTION 'FISCAL0 first queue %',r; END IF; PERFORM set_config('fiscal0.req1',r->>'request_id',true);
-  r:=public.rpc_queue_fiscal_stamp(c); IF (r->>'accepted')::boolean OR r->>'error'<>'already_processing' THEN RAISE EXCEPTION 'FISCAL0 duplicate queue %',r; END IF;
-  IF public.rpc_get_fiscal_operational_status(tenant)->>'queue_depth'<>'1' THEN RAISE EXCEPTION 'FISCAL0 observability'; END IF;
-  IF public.rpc_update_fiscal_provider_config(tenant,'soft_management',true,'production','{}')?'error' THEN RAISE EXCEPTION 'FISCAL0 production config'; END IF;
-  r:=public.rpc_queue_fiscal_stamp(current_setting('fiscal0.cfdi4')::uuid); IF r->>'error'<>'provider_not_configured' THEN RAISE EXCEPTION 'FISCAL0 staging production fallthrough %',r; END IF;
-  PERFORM public.rpc_update_fiscal_provider_config(tenant,'soft_management',true,'sandbox','{}');
+  IF r->>'error'<>'company_fiscal_transport_disabled' OR public.rpc_get_fiscal_readiness(c)->>'fiscal_status'<>'ready_for_api' THEN RAISE EXCEPTION 'FISCAL0 general emission must remain disabled %',r; END IF;
+  IF public.rpc_update_fiscal_provider_config(tenant,'soft_management',true,'sandbox','{}')->>'error'<>'company_provider_configuration_required' THEN RAISE EXCEPTION 'FISCAL0 old tenant toggle enabled'; END IF;
+  IF public.rpc_update_fiscal_provider_config(tenant,'facturama',true,'production','{}')->>'error'<>'company_provider_configuration_required' THEN RAISE EXCEPTION 'FISCAL0 old production toggle enabled'; END IF;
+  IF public.rpc_get_fiscal_operational_status(tenant)->>'queue_depth'<>'0' THEN RAISE EXCEPTION 'FISCAL0 blocked API created request'; END IF;
 END $admin_prepare$;
 RESET ROLE;
+
+-- Only offline owner-created normalization fixtures follow. They do NOT
+-- activate any provider or public queue; especially not Softmanagement.
+DO $offline_normalization_fixture$
+DECLARE n int; c uuid; req uuid;
+BEGIN
+ INSERT INTO public.fiscal_provider_configs(tenant_id,provider_code,enabled,environment)
+ VALUES(current_setting('fiscal0.tenant')::uuid,'synthetic_test_only',true,'sandbox');
+ FOR n IN 1..3 LOOP
+  c:=current_setting('fiscal0.cfdi'||n)::uuid;
+  INSERT INTO public.fiscal_requests(tenant_id,billing_cfdi_id,request_type,idempotency_key,payload_snapshot,requested_by)
+   SELECT tenant_id,id,'stamp',request_fingerprint,fiscal_snapshot,current_setting('fiscal0.admin')::uuid FROM public.billing_cfdis WHERE id=c RETURNING id INTO req;
+  PERFORM set_config(CASE n WHEN 1 THEN 'fiscal0.req1' WHEN 2 THEN 'fiscal0.techreq' ELSE 'fiscal0.rejectreq' END,req::text,true);
+  UPDATE public.billing_cfdis SET fiscal_provider='synthetic_test_only',fiscal_status='queued' WHERE id=c;
+ END LOOP;
+ BEGIN
+  PERFORM private.fiscal0_claim_requests(10);
+  RAISE EXCEPTION 'FISCAL0 neutral dispatch must be disabled';
+ EXCEPTION WHEN check_violation THEN
+  IF SQLERRM<>'neutral_transport_not_activated' THEN RAISE; END IF;
+ END;
+ -- Simulate worker input to exercise normalized outcomes/immutability, not I/O.
+ UPDATE public.fiscal_requests SET status='submitting' WHERE id=ANY(ARRAY[current_setting('fiscal0.req1')::uuid,current_setting('fiscal0.techreq')::uuid,current_setting('fiscal0.rejectreq')::uuid]);
+ UPDATE public.billing_cfdis SET fiscal_status='submitting' WHERE id=ANY(ARRAY[current_setting('fiscal0.cfdi1')::uuid,current_setting('fiscal0.cfdi2')::uuid,current_setting('fiscal0.cfdi3')::uuid]);
+ IF (public.rpc_get_fiscal_readiness(current_setting('fiscal0.cfdi1')::uuid)#>>'{provider,configured}')::boolean THEN RAISE EXCEPTION 'FISCAL0 unknown origin must not inherit tenant config'; END IF;
+END $offline_normalization_fixture$;
 
 DO $provider_results$
 DECLARE req uuid:=current_setting('fiscal0.req1')::uuid; c uuid:=current_setting('fiscal0.cfdi1')::uuid; r jsonb; xml_id uuid; pdf_id uuid; payment_count bigint;
 BEGIN
   SELECT count(*) INTO payment_count FROM public.finance_payments WHERE tenant_id=current_setting('fiscal0.tenant')::uuid;
-  PERFORM private.fiscal0_claim_requests(10);
   r:=private.fiscal0_apply_provider_result(req,'{"outcome":"processing","provider_document_id":"provider-doc-1"}',now()-interval '1 second'); IF r?'error' THEN RAISE EXCEPTION 'FISCAL0 processing %',r; END IF;
   r:=private.fiscal0_apply_provider_result(req,'{"outcome":"stamped","provider_document_id":"provider-doc-1","fiscal_uuid":"11111111-1111-4111-8111-111111111111"}',now()-interval '1 second'); IF r?'error' THEN RAISE EXCEPTION 'FISCAL0 stamped %',r; END IF;
   IF (SELECT fiscal_status FROM public.billing_cfdis WHERE id=c)<>'stamped' OR (SELECT count(*) FROM public.finance_payments WHERE tenant_id=current_setting('fiscal0.tenant')::uuid)<>payment_count THEN RAISE EXCEPTION 'FISCAL0 stamped/accounting separation'; END IF;
@@ -113,8 +137,6 @@ BEGIN
   r:=public.rpc_request_fiscal_cancellation(c1,''); IF r->>'error'<>'validation_failed' THEN RAISE EXCEPTION 'FISCAL0 cancellation reason'; END IF;
   r:=public.rpc_request_fiscal_cancellation(c1,'Error en datos fiscales'); IF NOT (r->>'accepted')::boolean THEN RAISE EXCEPTION 'FISCAL0 cancel queue %',r; END IF; PERFORM set_config('fiscal0.cancelreq',r->>'request_id',true);
   r:=public.rpc_request_fiscal_cancellation(c1,'Error en datos fiscales'); IF (r->>'accepted')::boolean OR r->>'error'<>'already_processing' THEN RAISE EXCEPTION 'FISCAL0 cancel duplicate %',r; END IF;
-  r:=public.rpc_queue_fiscal_stamp(c2); req:=(r->>'request_id')::uuid; PERFORM set_config('fiscal0.techreq',req::text,true);
-  r:=public.rpc_queue_fiscal_stamp(c3); req:=(r->>'request_id')::uuid; PERFORM set_config('fiscal0.rejectreq',req::text,true);
   IF public.rpc_get_fiscal_readiness(c1)->>'fiscal_status'<>'cancellation_requested' THEN RAISE EXCEPTION 'FISCAL0 finance read'; END IF;
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('fiscal0.operator'),'role','authenticated')::text,true);
   IF public.rpc_get_fiscal_readiness(c1)->>'error'<>'unauthorized' OR public.rpc_queue_fiscal_stamp(c2)->>'error'<>'unauthorized' THEN RAISE EXCEPTION 'FISCAL0 role isolation'; END IF;
@@ -127,7 +149,7 @@ DO $finish$
 DECLARE r jsonb; c1 uuid:=current_setting('fiscal0.cfdi1')::uuid; c2 uuid:=current_setting('fiscal0.cfdi2')::uuid; c3 uuid:=current_setting('fiscal0.cfdi3')::uuid; original_uuid text;
 BEGIN
   SELECT uuid INTO original_uuid FROM public.billing_cfdis WHERE id=c1;
-  PERFORM private.fiscal0_claim_requests(10);
+  UPDATE public.fiscal_requests SET status='submitting' WHERE id=ANY(ARRAY[current_setting('fiscal0.statusreq')::uuid,current_setting('fiscal0.cancelreq')::uuid]);
   r:=private.fiscal0_apply_provider_result(current_setting('fiscal0.statusreq')::uuid,'{"outcome":"stamped","provider_document_id":"provider-doc-1","fiscal_uuid":"11111111-1111-4111-8111-111111111111"}'); IF r?'error' THEN RAISE EXCEPTION 'FISCAL0 reconcile stamped'; END IF;
   r:=private.fiscal0_apply_provider_result(current_setting('fiscal0.cancelreq')::uuid,'{"outcome":"cancelled"}'); IF r?'error' OR (SELECT fiscal_status FROM public.billing_cfdis WHERE id=c1)<>'cancelled' THEN RAISE EXCEPTION 'FISCAL0 cancel confirm %',r; END IF;
   r:=private.fiscal0_apply_provider_result(current_setting('fiscal0.techreq')::uuid,'{"outcome":"technical_error","safe_error_code":"provider_timeout"}'); IF r?'error' OR (SELECT fiscal_status FROM public.billing_cfdis WHERE id=c2)<>'api_error' THEN RAISE EXCEPTION 'FISCAL0 technical %',r; END IF;

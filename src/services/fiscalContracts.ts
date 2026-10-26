@@ -12,6 +12,9 @@ export const FISCAL_ERROR_MESSAGES: Record<FiscalSafeError, string> = {
     cancellation_failed: 'El proveedor no confirmó la cancelación.',
     artifact_unavailable: 'El artefacto fiscal todavía no está disponible.',
     status_conflict: 'El estado remoto requiere revisión manual.',
+    company_provider_configuration_required: 'La configuración fiscal requiere una empresa autorizada.',
+    company_fiscal_transport_disabled: 'La ejecución fiscal general está deshabilitada; configurar un proveedor no la habilita.',
+    fiscal_reconciliation_required: 'Existe un envío fiscal previo. Concilia su resultado antes de continuar.',
 };
 
 export interface FiscalActionAvailability {
@@ -28,15 +31,23 @@ export interface FiscalActionAvailability {
 export function getFiscalActionAvailability(readiness: FiscalReadiness): FiscalActionAvailability {
     const status: FiscalStatus = readiness.fiscal_status;
     const configured = readiness.provider.configured;
+    const enabled = configured && readiness.provider.enabled === true
+        && readiness.provider.code === 'facturama' && readiness.provider.environment === 'sandbox'
+        && readiness.provider.validation === 'sandbox_only';
+    const canStamp = enabled && readiness.provider.capabilities?.stamp === true;
+    const canStatus = enabled && readiness.provider.capabilities?.status === true;
+    const canCancel = enabled && readiness.provider.capabilities?.cancel === true;
     return {
         validate: status === 'draft',
-        submit: configured && status === 'ready_for_api',
-        retry: configured && status === 'api_error' && readiness.last_attempt?.status === 'technical_error',
-        refresh: configured && ['processing', 'api_error', 'stamped', 'cancellation_requested', 'cancellation_rejected'].includes(status),
-        cancel: configured && status === 'stamped',
+        submit: canStamp && status === 'ready_for_api',
+        retry: canStamp && status === 'api_error' && readiness.last_attempt?.status === 'technical_error',
+        refresh: canStatus && ['processing', 'api_error', 'stamped', 'cancellation_requested', 'cancellation_rejected'].includes(status),
+        cancel: canCancel && status === 'stamped',
         downloadXml: Boolean(readiness.xml_document_file_id),
         downloadPdf: Boolean(readiness.pdf_document_file_id),
-        externalDisabledReason: configured ? null : FISCAL_ERROR_MESSAGES.provider_not_configured,
+        externalDisabledReason: !configured ? FISCAL_ERROR_MESSAGES.provider_not_configured
+            : readiness.provider.validation === 'pending_validation' ? 'Proveedor pendiente de validación; ejecución deshabilitada'
+                : !enabled || !(canStamp || canStatus || canCancel) ? 'Proveedor configurado; ejecución deshabilitada' : null,
     };
 }
 
