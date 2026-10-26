@@ -4,6 +4,7 @@ import {
     FiscalFailure,
     type Json,
     money,
+    sandboxCancellationRequestId,
     sha256,
     TEST_ISSUER,
     validatePayload,
@@ -13,8 +14,29 @@ import {
 
 export interface FiscalStore {
     worker(id: string, actor: string, action: string, data?: Json): Promise<Json>;
-    upload(path: string, bytes: Uint8Array): Promise<void>;
+    upload(
+        path: string,
+        bytes: Uint8Array,
+        contentType?: 'application/xml' | 'application/pdf',
+    ): Promise<void>;
     download(path: string): Promise<Uint8Array>;
+}
+
+function cancellationEvidence(state: Json, remote: Json): Json {
+    if (
+        !state.provider_document_id || !state.fiscal_uuid || remote.Id !== state.provider_document_id ||
+        remote.Complement?.TaxStamp?.Uuid?.toLowerCase() !== state.fiscal_uuid.toLowerCase() ||
+        remote.Issuer?.Rfc !== TEST_ISSUER.Rfc || !['cancel', 'canceled'].includes(remote.Status)
+    ) {
+        throw new FiscalFailure('uncorrelated_cancellation_status');
+    }
+    return {
+        provider_document_id: state.provider_document_id,
+        uuid: state.fiscal_uuid,
+        remote_status: remote.Status,
+        http_status: 200,
+        ...(state.busy_token ? { busy_token: state.busy_token } : {}),
+    };
 }
 export function invoiceFromSource(s: Json, date: string): Json {
     const lines = s.fiscal_input?.concepts;
@@ -99,6 +121,66 @@ export async function executeFiscal(
         if (!r.path) throw new FiscalFailure('artifact_unavailable');
         return store.download(r.path);
     }
+    if (action === 'ack_pdf') {
+        const r = await store.worker(id, actor, 'pdf_load');
+        if (!r.path || !r.sha256) throw new FiscalFailure('artifact_unavailable');
+        const bytes = await store.download(r.path);
+        if (await sha256(bytes) !== r.sha256) throw new FiscalFailure('artifact_integrity_failed');
+        return bytes;
+    }
+    if (action === 'recover_pdf') {
+        const state = await store.worker(id, actor, 'load');
+        if (state.cancellation_pdf_path) return { pdfAvailable: true };
+        if (
+            !state.provider_document_id || !/^[A-Za-z0-9_-]+$/.test(state.provider_document_id) ||
+            !state.fiscal_uuid
+        ) {
+            throw new FiscalFailure('cancellation_not_confirmed');
+        }
+        const proof = cancellationEvidence(state, await adapter.detail(state.provider_document_id));
+        // Historical XML remains quarantined. Record only a supported sandbox
+        // request identifier, never replace the invoice UUID or approve the XML.
+        if (state.cancellation_ack_state === 'mismatch' && state.cancellation_ack_sha256) {
+            const path =
+                `${state.tenant_id}/${state.company_id}/${id}/unverified-cancellation-${state.cancellation_ack_sha256}.xml`;
+            const bytes = await store.download(path);
+            if (await sha256(bytes) !== state.cancellation_ack_sha256) {
+                throw new FiscalFailure('artifact_integrity_failed');
+            }
+            const requestId = sandboxCancellationRequestId(bytes);
+            if (requestId && requestId !== state.fiscal_uuid.toLowerCase()) {
+                proof.request_identifier = requestId;
+                proof.xml_source_sha256 = state.cancellation_ack_sha256;
+            }
+        }
+        await store.worker(id, actor, 'observe_cancel', proof);
+        const lease = await store.worker(id, actor, 'pdf_claim');
+        if (lease.available || lease.busy) {
+            return { pdfAvailable: Boolean(lease.available), busy: Boolean(lease.busy) };
+        }
+        if (!lease.busy_token || !lease.provider_document_id) throw new FiscalFailure('invalid_worker_lease');
+        try {
+            const bytes = await adapter.cancellationPdf(lease.provider_document_id),
+                hash = await sha256(bytes);
+            const path = `${lease.tenant_id}/${lease.company_id}/${id}/cancellation-${hash}.pdf`;
+            await store.upload(path, bytes, 'application/pdf');
+            await store.worker(id, actor, 'pdf_save', {
+                busy_token: lease.busy_token,
+                provider_document_id: lease.provider_document_id,
+                path,
+                sha256: hash,
+                bytes: bytes.length,
+            });
+            return { status: 'cancelled', remoteCancellation: 'confirmed', pdfAvailable: true };
+        } catch (e) {
+            // Failure of a read/artifact never rewinds the confirmed cancellation
+            // and never creates a fiscal HTTP attempt or resends DELETE.
+            await store.worker(id, actor, 'pdf_release', { busy_token: lease.busy_token }).catch(() =>
+                undefined
+            );
+            throw e;
+        }
+    }
     if (!['issue', 'status', 'cancel'].includes(action)) throw new FiscalFailure('unsupported_action');
     if (action === 'cancel' && options.recoverAck !== undefined && typeof options.recoverAck !== 'boolean') {
         throw new FiscalFailure('invalid_cancellation');
@@ -153,46 +235,69 @@ export async function executeFiscal(
             const status = await adapter.detail(providerId);
             if (!correlated(status)) throw new FiscalFailure('uncorrelated_cancellation_status');
             if (
-                result.Status !== 'canceled' || !['cancel', 'canceled'].includes(status.Status) ||
-                result.Uuid?.toLowerCase() !== lease.fiscal_uuid?.toLowerCase()
+                result.Status !== 'canceled' || !['cancel', 'canceled'].includes(status.Status)
             ) {
                 await save('release');
                 return {
                     status: 'cancellation_requested',
-                    message: 'Cancelación pendiente de confirmación y acuse.',
+                    message: 'Cancelación pendiente de confirmación remota.',
                 };
             }
             await save('cancel_confirmed', { uuid: lease.fiscal_uuid, provider_document_id: providerId });
+            const proof = cancellationEvidence(lease, status);
             if (!result.AcuseXmlBase64) {
-                await save('release');
-                return {
-                    status: 'cancellation_requested',
-                    remoteCancellation: 'confirmed',
-                    acknowledgement: 'unavailable',
-                };
+                return store.worker(id, actor, 'observe_cancel', proof);
             }
-            const ack = Uint8Array.from(atob(result.AcuseXmlBase64), (c) => c.charCodeAt(0));
+            let ack: Uint8Array;
+            try {
+                ack = Uint8Array.from(atob(result.AcuseXmlBase64), (c) => c.charCodeAt(0));
+            } catch {
+                return store.worker(id, actor, 'observe_cancel', proof);
+            }
             // Preserve an uncorrelated provider receipt in quarantine. It is not
             // linked or downloadable by application users until UUID validation.
-            await store.upload(
-                `${lease.tenant_id}/${lease.company_id}/${id}/unverified-cancellation-${await sha256(
+            try {
+                await store.upload(
+                    `${lease.tenant_id}/${lease.company_id}/${id}/unverified-cancellation-${await sha256(
+                        ack,
+                    )}.xml`,
                     ack,
-                )}.xml`,
-                ack,
-            );
+                );
+            } catch {
+                // Optional XML persistence cannot make a confirmed cancellation
+                // non-terminal. Existing artifacts are never replaced.
+                return store.worker(id, actor, 'observe_cancel', proof);
+            }
             try {
                 verifyCancellationAck(ack, lease.fiscal_uuid);
             } catch {
-                await save('cancel_ack_invalid', { ack_sha256: await sha256(ack) });
-                await save('release');
+                const hash = await sha256(ack);
+                await save('cancel_ack_invalid', { ack_sha256: hash });
+                const requestId = (() => {
+                    try {
+                        return sandboxCancellationRequestId(ack);
+                    } catch {
+                        return undefined;
+                    }
+                })();
+                if (requestId) {
+                    proof.request_identifier = requestId;
+                    proof.xml_source_sha256 = hash;
+                }
+                await store.worker(id, actor, 'observe_cancel', proof);
                 return {
-                    status: 'cancellation_requested',
+                    status: 'cancelled',
                     remoteCancellation: 'confirmed',
-                    acknowledgement: 'mismatch',
+                    acknowledgement: 'historical_xml_unverified',
+                    pdfAvailable: false,
                 };
             }
             const path = `${lease.tenant_id}/${lease.company_id}/${id}/cancellation.xml`;
-            await store.upload(path, ack);
+            try {
+                await store.upload(path, ack);
+            } catch {
+                return store.worker(id, actor, 'observe_cancel', proof);
+            }
             await save('cancelled', {
                 uuid: lease.fiscal_uuid,
                 ack_path: path,
@@ -239,11 +344,7 @@ export async function executeFiscal(
                 ) {
                     throw new FiscalFailure('uncorrelated_cancellation_status');
                 }
-                await save('cancel_observed');
-                return {
-                    status: 'cancellation_requested',
-                    message: 'El proveedor informa cancelación; falta un acuse correlacionado.',
-                };
+                return store.worker(id, actor, 'observe_cancel', cancellationEvidence(lease, remote));
             }
         }
         const bytes = await adapter.xml(providerId),

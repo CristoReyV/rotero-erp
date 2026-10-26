@@ -131,6 +131,13 @@ test('CORS permission never substitutes identity or current company capability',
     const denied = fixture(false);
     assert.equal((await denied.handler(request())).status, 403);
     assert.equal(denied.providerCalls(), 0);
+    for (const action of ['recover_pdf', 'ack_pdf']) {
+        const noIdentity = fixture();
+        assert.equal((await noIdentity.handler(request(origin, false, { action }))).status, 401);
+        const noCapability = fixture(false);
+        assert.equal((await noCapability.handler(request(origin, true, { action }))).status, 403);
+        assert.equal(noCapability.providerCalls(), 0);
+    }
 });
 test('a direct request cannot reinterpret a non-boolean recovery flag as initial cancellation', async () => {
     for (const recoverAck of ['true', 'false', 1, {}]) {

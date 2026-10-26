@@ -1,5 +1,9 @@
 # FACTURAMA-04 — recuperación de acuse y origen staging
 
+> Antecedente conservado. FACTURAMA-05 sustituye la expectativa de XML pendiente:
+> soporte aclaró el identificador sandbox y confirmó que no ofrece consulta XML.
+> El contrato vigente es [acuse PDF y conciliación](FACTURAMA05_PDF_AND_CANCELLATION.md).
+
 ## Lectura de evidencia, sin nueva cancelación
 
 [GET de acuse CFDI](https://facturama.mx/docs/api-reference/endpoint/factura-cfdi/obtiene-el-acuse-de-un-cfdi)

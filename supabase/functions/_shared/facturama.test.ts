@@ -373,16 +373,70 @@ test('initial cancel retains server motive and rejects an unrelated XML acknowle
         motive: '03',
     });
     assert.equal(result.remoteCancellation, 'confirmed');
-    assert.equal(result.acknowledgement, 'mismatch');
+    assert.equal(result.acknowledgement, 'historical_xml_unverified');
     assert.deepEqual(methods, ['DELETE', 'GET']);
     assert.ok(
         saved.includes('cancel_confirmed') && saved.includes('cancel_ack_invalid') &&
-            saved.includes('release'),
+            saved.includes('observe_cancel'),
     );
     assert.ok(!saved.includes('cancelled') && !saved.includes('uncertain'));
     assert.equal(files.length, 1);
     assert.ok(files[0].includes('/unverified-cancellation-'));
 });
+test('confirmed cancellation finishes even when optional sandbox XML is malformed and its response UUID is not the invoice UUID', async () => {
+    const actions: string[] = [], methods: string[] = [];
+    const store: FiscalStore = {
+        async worker(_id, _actor, action, data = {}) {
+            actions.push(action);
+            if (action === 'cancel') {
+                return {
+                    busy_token: 'lease',
+                    tenant_id: 'tenant',
+                    company_id: 'company',
+                    provider_payload: invoice(),
+                    provider_document_id: 'test-id',
+                    fiscal_uuid: uuid,
+                    cancellation_options: { motive: '02' },
+                };
+            }
+            assert.equal(data.busy_token, 'lease');
+            if (action === 'observe_cancel') {
+                assert.equal(data.uuid, uuid);
+                return { status: 'cancelled', pdfAvailable: false };
+            }
+            return { saved: true };
+        },
+        async upload() {
+            throw Error('malformed XML is not stored');
+        },
+        async download() {
+            throw Error('not used');
+        },
+    };
+    const adapter = new FacturamaSandbox(config, async (_url, init) => {
+        methods.push(init!.method!);
+        if (init?.method === 'DELETE') {
+            return Response.json({
+                Status: 'canceled',
+                Uuid: '0088b8e0-00de-43d7-a590-8328b803839f',
+                AcuseXmlBase64: 'invalid!',
+            });
+        }
+        return Response.json({
+            Id: 'test-id',
+            Status: 'canceled',
+            Issuer: TEST_ISSUER,
+            Complement: { TaxStamp: { Uuid: uuid } },
+        });
+    });
+    assert.deepEqual(await executeFiscal(store, adapter, 'actor', 'doc', 'cancel', { motive: '02' }), {
+        status: 'cancelled',
+        pdfAvailable: false,
+    });
+    assert.deepEqual(actions, ['cancel', 'cancel_confirmed', 'observe_cancel']);
+    assert.deepEqual(methods, ['DELETE', 'GET']);
+});
+
 test('ack recovery is read-authorized but never mutates or contacts the provider', async () => {
     let requests = 0;
     const actions: string[] = [];

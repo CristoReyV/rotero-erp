@@ -7,6 +7,13 @@ export interface SandboxFiscalContext {
     environment: 'sandbox';
     status: string;
     uuid?: string;
+    provider_document_id?: string;
+    cancellation_request_id?: string;
+    cancellation_xml_interpretation?: 'sandbox_request_identifier';
+    cancellation_pdf_available: boolean;
+    cancellation_pdf_sha256?: string;
+    cancellation_pdf_fetched_at?: string;
+    cancellation_confirmed_at?: string;
     uncertain: boolean;
     document_type: 'invoice' | 'payment';
     payment_recorded: boolean;

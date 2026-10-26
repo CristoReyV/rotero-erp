@@ -42,13 +42,17 @@ export function FiscalSandboxPanel(
         try {
             const result = await sandboxFiscalAction(cfdiId, action, options);
             if (currentId.current !== cfdiId) return;
-            if (action === 'xml' || action === 'ack') {
-                const blob = result instanceof Blob
-                    ? result
-                    : new Blob([String(result)], { type: 'application/xml' });
+            if (action === 'xml' || action === 'ack' || action === 'ack_pdf') {
+                const blob = result instanceof Blob ? result : new Blob([String(result)], {
+                    type: action === 'ack_pdf' ? 'application/pdf' : 'application/xml',
+                });
                 const url = URL.createObjectURL(blob), a = document.createElement('a');
                 a.href = url;
-                a.download = action === 'ack' ? 'acuse-sandbox.xml' : 'cfdi-sandbox.xml';
+                a.download = action === 'ack_pdf'
+                    ? 'acuse-sandbox.pdf'
+                    : action === 'ack'
+                    ? 'acuse-sandbox.xml'
+                    : 'cfdi-sandbox.xml';
                 a.click();
                 URL.revokeObjectURL(url);
             }
@@ -99,12 +103,22 @@ export function FiscalSandboxPanel(
                 <p className='text-sm'>
                     Cancelación del proveedor: {context.remote_cancel_status === 'canceled'
                         ? 'confirmada por consulta'
-                        : 'solicitada, pendiente de confirmación'}. Acuse XML:{' '}
-                    {context.cancellation_ack_state === 'validated'
-                        ? 'validado'
-                        : context.cancellation_ack_state === 'mismatch'
-                        ? 'rechazado por identidad; pendiente con el proveedor'
-                        : 'pendiente de validación'}.
+                        : 'solicitada, pendiente de confirmación'}. Acuse PDF:{' '}
+                    {context.cancellation_pdf_available ? 'disponible' : 'sin recuperar'}.
+                </p>
+            )}
+            {context.remote_cancel_status === 'canceled' && (
+                <p className='text-sm'>
+                    El proveedor no ofrece consulta del acuse XML de la factura. En sandbox, el UUID del acuse
+                    histórico identifica la solicitud de cancelación según soporte; se conserva su
+                    diagnóstico, sin validarlo como UUID fiscal. Esta aclaración no acredita el contrato de
+                    producción.
+                </p>
+            )}
+            {context.cancellation_pdf_available && (
+                <p className='text-sm'>
+                    PDF recuperado con el ID persistido del proveedor; formato y hash comprobados. No se
+                    acredita firma criptográfica ni correlación interna del PDF.
                 </p>
             )}
             <dl className='grid grid-cols-2 gap-1 text-sm'>
@@ -114,8 +128,12 @@ export function FiscalSandboxPanel(
                 <dd>{context.draft_summary.receiver_rfc}</dd>
                 <dt>Total</dt>
                 <dd>{context.draft_summary.total} {context.draft_summary.currency}</dd>
-                <dt>UUID</dt>
+                <dt>UUID fiscal del comprobante</dt>
                 <dd className='break-all'>{context.uuid || 'Pendiente de evidencia XML'}</dd>
+                <dt>ID del proveedor</dt>
+                <dd className='break-all'>{context.provider_document_id || 'Sin asignar'}</dd>
+                <dt>ID de solicitud de cancelación (sandbox)</dt>
+                <dd className='break-all'>{context.cancellation_request_id || 'No disponible'}</dd>
             </dl>
             {error && <p role='alert' className='text-sm text-red-800'>{error}</p>}
             {busy && <p role='status'>Procesando; no vuelvas a enviar.</p>}
@@ -200,14 +218,22 @@ export function FiscalSandboxPanel(
                     Descargar acuse de prueba
                 </button>
             )}
-            {context.remote_cancel_status === 'canceled' &&
-                !context.cancellation_available && (
+            {context.remote_cancel_status === 'canceled' && (
                 <div className='space-y-2'>
                     <p role='status' className='text-sm'>
-                        Cancelación confirmada; acuse XML pendiente del proveedor
+                        Cancelación confirmada; acuse PDF{' '}
+                        {context.cancellation_pdf_available ? 'disponible' : 'sin recuperar'}.
                     </p>
-                    <button type='button' className={button} disabled>
-                        Recuperar acuse de cancelación
+                    <button
+                        type='button'
+                        className={button}
+                        disabled={disabled || !context.actions.read}
+                        onClick={() =>
+                            void run(context.cancellation_pdf_available ? 'ack_pdf' : 'recover_pdf')}
+                    >
+                        {context.cancellation_pdf_available
+                            ? 'Descargar acuse PDF sandbox'
+                            : 'Recuperar acuse PDF sandbox'}
                     </button>
                 </div>
             )}

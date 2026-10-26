@@ -77,24 +77,28 @@ Se distinguen solicitud, confirmación por consulta y acuse validado:
 - `remote_cancel_status=pending`: solicitud enviada, confirmación pendiente.
 - `remote_cancel_status=canceled`: GET correlacionado por ID proveedor, UUID e
   issuer confirma cancelación. No demuestra por sí solo un acuse SAT válido.
-- `cancellation_ack_state`: unavailable, unverified, mismatch o validated.
-  Un XML ajeno no se enlaza ni permite finalizar cancelación local.
+- `cancellation_ack_state`: diagnóstico XML histórico (unavailable, unverified,
+  mismatch o validated). No se reescribe ni sustituye el UUID fiscal.
 
 El sandbox devolvió el mismo XML con UUID ajeno para dos comprobantes distintos;
 detalle y HTML corresponden a sus respectivos IDs. El HTML se usó como diagnóstico,
 no como sustituto del XML. Se conserva evidencia del incidente comunicado a soporte.
 
-La recuperación remota de acuse XML está deshabilitada. El endpoint documentado
-de acuse CFDI sólo ofrece PDF/HTML; el de XML de retenciones es otro contrato.
-Reenviar DELETE no es recuperar evidencia. UI deshabilita el control y backend
-rechaza recoverAck=true con 409 y «Cancelación confirmada; acuse XML pendiente
-del proveedor», después de autorizar sólo una lectura, sin lease ni escritura.
-El motivo y la trazabilidad originales permanecen intactos. La descarga de un
-acuse ya validado y almacenado sigue siendo de lectura.
+FACTURAMA-05 incorpora la aclaración de soporte: el UUID del acuse describe una
+solicitud de cancelación en este sandbox; no es el UUID fiscal de la factura.
+No ofrecen consulta XML del acuse de factura y ya no se promete su entrega.
+La confirmación remota correlacionada puede finalizar la cancelación y su ledger
+independientemente del PDF. La reclasificación añade trazabilidad y conserva XML,
+diagnósticos e intentos anteriores; no aprueba ese XML como acuse fiscal.
+
+La recuperación usa exclusivamente GET /acuse/pdf/issuedLite/{Id}, con el ID
+persistido en servidor. Archivo privado, hash/procedencia y autorización vigente
+en cada descarga; no renderiza HTML ni reenvía DELETE. El flag recoverAck legacy
+sigue rechazado. Ver [contrato actual](FACTURAMA05_PDF_AND_CANCELLATION.md).
 
 Las consultas de estado reutilizan la solicitud canónica activa del mismo tipo.
 Se conservan leases, intentos y auditoría, sin abrir reenvíos automáticos. Ver
-[contrato y límites actuales](FACTURAMA04_RECOVERY_AND_STAGING.md).
+[antecedente FACTURAMA-04](FACTURAMA04_RECOVERY_AND_STAGING.md).
 
 ## Recuperación de base de datos
 

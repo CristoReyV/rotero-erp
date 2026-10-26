@@ -55,7 +55,8 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
             }
             if (
                 !/^[0-9a-f-]{36}$/i.test(input.cfdiId ?? '') ||
-                !['prepare', 'issue', 'status', 'xml', 'ack', 'cancel', 'payment'].includes(input.action)
+                !['prepare', 'issue', 'status', 'xml', 'ack', 'cancel', 'payment', 'recover_pdf', 'ack_pdf']
+                    .includes(input.action)
             ) return json({ error: 'invalid_action' }, 400);
             const authorization = req.headers.get('authorization') ?? '';
             if (!authorization.startsWith('Bearer ')) return json({ error: 'authentication_required' }, 401);
@@ -65,12 +66,19 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
             const admin = deps.admin;
             const store: FiscalStore = {
                 async worker(id, actor, action, data = {}) {
-                    const r = await admin.rpc('rpc_fiscal01_worker', {
-                        p_cfdi_id: id,
-                        p_actor: actor,
-                        p_action: action,
-                        p_data: data,
-                    });
+                    const r = await admin.rpc(
+                        ['observe_cancel', 'pdf_claim', 'pdf_save', 'pdf_release', 'pdf_load'].includes(
+                                action,
+                            )
+                            ? 'rpc_fiscal05_evidence'
+                            : 'rpc_fiscal01_worker',
+                        {
+                            p_cfdi_id: id,
+                            p_actor: actor,
+                            p_action: action,
+                            p_data: data,
+                        },
+                    );
                     if (r.error || r.data?.error) {
                         throw new FiscalFailure(
                             r.error?.code === '42501' ? 'fiscal_forbidden' : 'fiscal_store_failed',
@@ -78,9 +86,9 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
                     }
                     return r.data;
                 },
-                async upload(path, bytes) {
+                async upload(path, bytes, contentType = 'application/xml') {
                     const r = await admin.storage.from('fiscal-sandbox').upload(path, bytes, {
-                        contentType: 'application/xml',
+                        contentType,
                         upsert: false,
                     });
                     if (r.error) {
@@ -121,8 +129,10 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
                 return new Response(new Uint8Array(result).buffer, {
                     headers: {
                         ...headers,
-                        'Content-Type': 'application/xml',
-                        'Content-Disposition': 'attachment; filename="sandbox.xml"',
+                        'Content-Type': input.action === 'ack_pdf' ? 'application/pdf' : 'application/xml',
+                        'Content-Disposition': input.action === 'ack_pdf'
+                            ? 'attachment; filename="acuse-sandbox.pdf"'
+                            : 'attachment; filename="sandbox.xml"',
                     },
                 });
             }
@@ -137,7 +147,7 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
                     validationFields: e instanceof FiscalFailure ? e.validationFields : [],
                     ...(code === 'ack_recovery_unavailable' ? { message: ACK_RECOVERY_PENDING_MESSAGE } : {}),
                     ...(code === 'cancellation_not_confirmed'
-                        ? { message: 'La cancelación no está confirmada; acuse XML pendiente del proveedor' }
+                        ? { message: 'La cancelación aún no está confirmada por el proveedor.' }
                         : {}),
                 },
                 code === 'fiscal_forbidden'

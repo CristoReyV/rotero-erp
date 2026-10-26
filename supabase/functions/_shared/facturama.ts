@@ -8,7 +8,8 @@ import type {
 } from './fiscal-provider.ts';
 
 export const SANDBOX = 'https://apisandbox.facturama.mx';
-export const ACK_RECOVERY_PENDING_MESSAGE = 'Cancelación confirmada; acuse XML pendiente del proveedor';
+export const ACK_RECOVERY_PENDING_MESSAGE =
+    'El proveedor no ofrece acuse XML de la factura; usa el acuse PDF sandbox.';
 export const TEST_ISSUER = Object.freeze({
     Rfc: 'EKU9003173C9',
     Name: 'ESCUELA KEMPER URGATE',
@@ -258,6 +259,56 @@ export function verifyCancellationAck(bytes: Uint8Array, uuid: string): void {
     ) throw new FiscalFailure('unconfirmed_cancellation_ack');
 }
 
+// Support clarified this sandbox XML field describes a cancellation request,
+// not the invoice UUID. Extract provenance without approving it as a CFDI ack.
+export function sandboxCancellationRequestId(bytes: Uint8Array): string | undefined {
+    const xml = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    if (bytes.length > 2_000_000 || /<!DOCTYPE|<!ENTITY/i.test(xml) || XMLValidator.validate(xml) !== true) {
+        throw new FiscalFailure('invalid_cancellation_ack');
+    }
+    const root = new XMLParser({
+        ignoreAttributes: false,
+        parseTagValue: false,
+        removeNSPrefix: true,
+        processEntities: false,
+    }).parse(xml).Acuse;
+    const folio = root?.Folios;
+    const value = folio?.UUID ?? folio?.['@_UUID'];
+    if (
+        !root || Array.isArray(root) || root['@_RfcEmisor'] !== TEST_ISSUER.Rfc || Array.isArray(folio) ||
+        typeof value !== 'string' || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)
+    ) return undefined;
+    return value.toLowerCase();
+}
+
+export function decodeCancellationPdf(data: Json): Uint8Array {
+    const encoded = data.Content ?? data.Data;
+    if (
+        !['pdf', 'application/pdf'].includes(data.ContentType) ||
+        !['base64', 'UTF-8'].includes(data.ContentEncoding) || typeof encoded !== 'string' ||
+        encoded.length > 2_666_668 || encoded.length % 4 !== 0 ||
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) ||
+        (data.Content !== undefined && data.Data !== undefined && data.Content !== data.Data)
+    ) {
+        throw new FiscalFailure('invalid_ack_pdf');
+    }
+    let bytes: Uint8Array;
+    try {
+        bytes = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
+    } catch {
+        throw new FiscalFailure('invalid_ack_pdf');
+    }
+    if (
+        bytes.length < 16 || bytes.length > 2_000_000 ||
+        (data.ContentLength !== undefined && data.ContentLength !== bytes.length) ||
+        !/^%PDF-(?:1\.[0-7]|2\.0)[\r\n]/.test(new TextDecoder().decode(bytes.slice(0, 10))) ||
+        !/%%EOF\s*$/.test(new TextDecoder().decode(bytes.slice(-1024)))
+    ) {
+        throw new FiscalFailure('invalid_ack_pdf');
+    }
+    return bytes;
+}
+
 export class FacturamaSandbox implements FiscalProviderAdapter {
     readonly providerCode = 'facturama';
     readonly baseUrl = SANDBOX;
@@ -283,7 +334,7 @@ export class FacturamaSandbox implements FiscalProviderAdapter {
     private readonly timeout: number;
     async request(method: string, path: string, body?: Json): Promise<Json> {
         if (
-            !/^(?:\/api-lite\/4\/cfdis|\/api-lite\/csds|\/api-lite\/cfdis\/[A-Za-z0-9_-]+(?:\?motive=0[1-4](?:&uuidReplacement=[0-9a-f-]{36})?)?|\/cfdi\?type=issuedLite&page=\d+&folio=[A-Z0-9-]+|\/api\/Cfdi\/xml\/issuedLite\/[A-Za-z0-9_-]+)$/
+            !/^(?:\/api-lite\/4\/cfdis|\/api-lite\/csds|\/api-lite\/cfdis\/[A-Za-z0-9_-]+(?:\?motive=0[1-4](?:&uuidReplacement=[0-9a-f-]{36})?)?|\/cfdi\?type=issuedLite&page=\d+&folio=[A-Z0-9-]+|\/api\/Cfdi\/xml\/issuedLite\/[A-Za-z0-9_-]+|\/acuse\/pdf\/issuedLite\/[A-Za-z0-9_-]+)$/
                 .test(path) ||
             !['GET', 'POST', 'DELETE'].includes(method) ||
             (method === 'POST' && !['/api-lite/4/cfdis', '/api-lite/csds'].includes(path)) ||
@@ -305,7 +356,10 @@ export class FacturamaSandbox implements FiscalProviderAdapter {
             });
             if (!res.ok) {
                 const fields: string[] = [];
-                if (res.status === 400 && Number(res.headers.get('content-length') ?? 0) < 100000) {
+                if (
+                    method === 'POST' && res.status === 400 &&
+                    Number(res.headers.get('content-length') ?? 0) < 100000
+                ) {
                     try {
                         const data = await res.json();
                         for (const k of Object.keys(data.ModelState ?? {})) {
@@ -356,6 +410,10 @@ export class FacturamaSandbox implements FiscalProviderAdapter {
     }
     listCsds(): Promise<Json> {
         return this.request('GET', '/api-lite/csds');
+    }
+    async cancellationPdf(id: string): Promise<Uint8Array> {
+        if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new FiscalFailure('invalid_provider_id');
+        return decodeCancellationPdf(await this.request('GET', '/acuse/pdf/issuedLite/' + id));
     }
     async registerOfficialTestCsd(csd: Json): Promise<void> {
         if (csd.Rfc !== TEST_ISSUER.Rfc || !csd.Certificate || !csd.PrivateKey || !csd.PrivateKeyPassword) {
