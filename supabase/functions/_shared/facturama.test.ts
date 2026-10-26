@@ -419,3 +419,56 @@ test('ack recovery does not repeat DELETE while remote cancellation is pending',
     assert.equal(deletes, 0);
     assert.ok(actions.includes('release'));
 });
+
+test('accepted issuance with delayed XML stays pending and reconciles without another POST', async () => {
+    const m = memoryStore();
+    let ready = false, posts = 0;
+    const adapter = new FacturamaSandbox(config, async (url, init) => {
+        if (init?.method === 'POST') {
+            posts++;
+            return Response.json({ Id: 'delayed-xml-id' });
+        }
+        if (String(url).includes('/api-lite/cfdis/')) {
+            return Response.json({ Id: 'delayed-xml-id', Issuer: TEST_ISSUER, Status: 'active' });
+        }
+        return ready
+            ? Response.json({ ContentEncoding: 'base64', Content: Buffer.from(xml()).toString('base64') })
+            : new Response('{}', { status: 404 });
+    });
+    const initial: any = await executeFiscal(m.store, adapter, 'actor', 'doc', 'issue');
+    assert.equal(initial.status, 'processing');
+    assert.equal(initial.uncertain, true);
+    assert.equal(initial.xmlAvailable, false);
+    assert.equal(initial.providerDocumentId, 'delayed-xml-id');
+    assert.ok(m.actions.includes('identified') && m.actions.includes('uncertain'));
+    assert.ok(!m.actions.includes('verified'));
+    assert.equal(
+        (await executeFiscal(m.store, adapter, 'actor', 'doc', 'issue') as any).reconcile_required,
+        true,
+    );
+    ready = true;
+    assert.equal((await executeFiscal(m.store, adapter, 'actor', 'doc', 'status') as any).status, 'stamped');
+    assert.equal(posts, 1);
+    assert.equal(m.files.size, 1);
+});
+
+test('missing XML does not hide failed persistence of the uncertainty marker', async () => {
+    const m = memoryStore();
+    const original = m.store.worker;
+    m.store.worker = async (id, actor, action, data) => {
+        if (action === 'uncertain') throw new Error('synthetic persistence failure');
+        return original(id, actor, action, data);
+    };
+    const adapter = new FacturamaSandbox(
+        config,
+        async (_url, init) =>
+            init?.method === 'POST'
+                ? Response.json({ Id: 'durable-id' })
+                : new Response('{}', { status: 404 }),
+    );
+    await assert.rejects(
+        () => executeFiscal(m.store, adapter, 'actor', 'doc', 'issue'),
+        (e: any) => e.uncertain,
+    );
+    assert.ok(!m.actions.includes('verified'));
+});

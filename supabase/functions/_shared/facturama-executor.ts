@@ -267,8 +267,24 @@ export async function executeFiscal(
         }
         // Mark uncertainty after any attempted mutation, malformed result or lost
         // persistence. Never return raw bodies/headers or queue blind retries.
-        await save('uncertain', { http_status: e instanceof FiscalFailure ? e.httpStatus ?? null : null })
-            .catch(() => undefined);
+        const uncertaintySaved = await save('uncertain', {
+            http_status: e instanceof FiscalFailure ? e.httpStatus ?? null : null,
+        }).then(() => true, () => false);
+        if (
+            uncertaintySaved && action === 'issue' && providerId && e instanceof FiscalFailure &&
+            e.httpStatus === 404
+        ) {
+            // The provider ID is already durable. A temporarily unavailable XML
+            // is pending verification, not permission to send another invoice.
+            return {
+                status: 'processing',
+                uncertain: true,
+                xmlAvailable: false,
+                providerDocumentId: providerId,
+                message:
+                    'Identificador recibido; falta verificar el XML. Consulta el estado sin emitir de nuevo.',
+            };
+        }
         throw new FiscalFailure(
             e instanceof FiscalFailure ? e.code : 'fiscal_operation_uncertain',
             e instanceof FiscalFailure ? e.httpStatus : undefined,

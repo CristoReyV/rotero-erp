@@ -134,8 +134,39 @@ la regresión admite exclusivamente 42501 o el mensaje exacto del guard,
 comprueba fila inalterada y prueba además la ruta SQL directa. No se debilita
 la denegación por una diferencia de envoltura de errores.
 
-El logout local recibió clic normal, mostró login, eliminó caché de sesión y
+La prueba local previa de logout recibió clic normal, mostró login, eliminó caché de sesión y
 restringió Billing después de recargar. Un comprobador aislado recibió HTTP 400
 para el refresh token de esa sesión. Se observaron encabezados 204 y después
 ERR_ABORTED en Chromium; la finalización HTTP normal queda sin aprobar. Esto
 no valida sesiones del preview ni demuestra revocación de access tokens vigentes.
+
+El QA posterior del preview repitió ese recorrido con la cuenta dedicada y
+obtuvo HTTP 400 al intentar renovar únicamente su refresh token cerrado. También
+observó 204 seguido de ERR_ABORTED en logout. Se verificó la restricción tras
+recarga; no se declara finalización HTTP normal ni invalidez inmediata del
+access token. Los permisos fiscales temporales se revocaron al terminar.
+
+## Conciliación de la solicitud original
+
+El QA real verificó cuatro XML mediante consultas de estado posteriores a la
+emisión. La solicitud `status` se completó, pero las solicitudes `stamp`
+originales permanecieron en `processing`, sin retry programado. Se preparó una
+migración nueva, sin editar versiones aplicadas: cierra sólo el registro `stamp`
+cuando coinciden XML privado ya verificado, fingerprint congelado, UUID/ID del
+proveedor y un resultado `status` terminado que confirme ese mismo comprobante.
+El helper es privado INVOKER, sin EXECUTE de roles API. Conserva intentos y añade
+la procedencia a auditoría; no invoca al proveedor ni aprueba un acuse pendiente.
+
+La regresión sintética reproduce XML diferido, comprueba ambas solicitudes
+terminales, ausencia de nuevos intentos, idempotencia, ACL y cancelación aún
+pendiente con acuse ajeno. Se reprodujo el fallo en la base de 43 migraciones y
+pasó con la corrección. Los replays de 44 migraciones (12 suites) y del overlay
+MULTI-06/07 de 46 (14 suites) pasaron sin modificar esas ramas. La recuperación
+actual se comprueba por separado antes de aplicar el delta remoto; el informe
+local registra sus límites y el estado efectivo.
+
+La misma observación mostró 404 al obtener el XML inmediatamente después de
+recibir el ID del proveedor, seguido de recuperación válida por consulta. La
+candidata devuelve `processing` (sin aprobación fiscal) únicamente si ese ID y
+el marcador de incertidumbre ya se conservaron. Mantiene el bloqueo de reenvío,
+la verificación estricta del XML y el error cuando falla la persistencia.
