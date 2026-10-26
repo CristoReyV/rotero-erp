@@ -1,8 +1,9 @@
 /**
  * Provider-neutral fiscal boundary for a future authenticated Edge orchestrator.
- * FISCAL.0 deliberately contains no endpoint, transport, credential or provider
- * serialization. Frontend code must call canonical RPCs and never import this file.
+ * Canonical FISCAL.0 input stays provider-neutral. The server registry binds only
+ * explicitly configured adapters; frontend code must never import this file.
  */
+import { FacturamaSandbox } from './facturama.ts';
 
 export type FiscalRequestType = 'stamp' | 'status' | 'cancel' | 'fetch_xml' | 'fetch_pdf';
 export type FiscalEnvironment = 'sandbox' | 'production';
@@ -23,6 +24,8 @@ export interface FiscalCanonicalRequest {
   idempotencyKey: string;
   environment: FiscalEnvironment;
   payloadSnapshot: Readonly<Record<string, unknown>>;
+  /** Server-generated, frozen serialization; canonical FISCAL.0 input stays neutral. */
+  providerPayloadSnapshot?: Readonly<Record<string, unknown>>;
   providerDocumentId?: string;
   fiscalUuid?: string;
 }
@@ -72,10 +75,11 @@ export class FiscalProviderNotConfiguredError extends Error {
 }
 
 /**
- * Registry is intentionally inert until official provider documentation exists.
- * `soft_management` is only a stable candidate identifier, never an adapter.
+ * Facturama requires explicit server-only sandbox configuration. All other
+ * providers remain inert; Softmanagement is preserved without automatic fallback.
  */
-export function resolveFiscalProviderAdapter(providerCode: string | null): FiscalProviderAdapter {
+export function resolveFiscalProviderAdapter(providerCode: string | null, sandbox?: { username: string; password: string; environment: string; baseUrl?: string }): FiscalProviderAdapter {
+  if (providerCode === 'facturama' && sandbox) return new FacturamaSandbox(sandbox);
   if (providerCode === 'soft_management' || providerCode === null) {
     throw new FiscalProviderNotConfiguredError();
   }

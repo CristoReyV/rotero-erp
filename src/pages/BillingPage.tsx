@@ -9,6 +9,7 @@ import {
 } from '@/services/billing.service';
 import { createDocumentSignedUrl, listDocumentFiles } from '@/services/documents.service';
 import { getFiscalActionAvailability } from '@/services/fiscalContracts';
+import { FiscalSandboxPanel } from '@/components/billing/FiscalSandboxPanel';
 import { useAuthStore } from '@/store/authStore';
 import { canAccessRoteroModule } from '@/constants/roles';
 import type { CFDIFilters, CFDIListRow, CFDIStatus, CFDIWithDetail, FiscalReadiness } from '@/types/billing';
@@ -93,6 +94,8 @@ const BillingPage = () => {
     const [fiscalBusy, setFiscalBusy] = useState<string | null>(null);
     const [fiscalError, setFiscalError] = useState<string | null>(null);
     const [cancellationReason, setCancellationReason] = useState('');
+    const [sandboxCfdiId, setSandboxCfdiId] = useState<string | null>(null);
+    const onSandboxAvailable = useCallback((available: boolean) => setSandboxCfdiId(available ? selectedCfdiId : null), [selectedCfdiId]);
     const listRequestId = useRef(0);
     const detailRequestId = useRef(0);
 
@@ -150,11 +153,11 @@ const BillingPage = () => {
 
     useEffect(() => {
         const cfdiId=searchParams.get('cfdiId');
-        if(cfdiId&&cfdis.some((item)=>item.db_id===cfdiId)&&selectedCfdiId!==cfdiId){
+        if(cfdiId&&cfdis.some((item)=>item.db_id===cfdiId)){
             setSelectedCfdiId(cfdiId);
             void loadDetail(cfdiId);
         }
-    },[cfdis,loadDetail,searchParams,selectedCfdiId]);
+    },[cfdis,loadDetail,searchParams]);
 
     useEffect(() => {
         void loadCFDIs();
@@ -258,10 +261,10 @@ const BillingPage = () => {
                 <div className="flex items-start gap-3">
                     <FileText className="mt-0.5 shrink-0 text-blue-600" size={20} />
                     <div>
-                        <p className="text-sm font-bold text-slate-800">Sin integración SAT/PAC confirmada</p>
+                        <p className="text-sm font-bold text-slate-800">Registro interno y pruebas fiscales controladas</p>
                         <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                            Los estados e identificadores se muestran como registros internos. Esta pantalla no confirma emisión,
-                            validación ni cancelación ante servicios fiscales externos.
+                            Los registros internos no acreditan timbrado. El panel Facturama sólo permite pruebas sandbox
+                            con autorización empresarial explícita y evidencia XML verificada. La emisión real permanece deshabilitada.
                         </p>
                         <p className="mt-2 text-[11px] text-slate-500">
                             Acceso disponible para Administración y Finanzas, conforme al contrato backend vigente.
@@ -400,8 +403,9 @@ const BillingPage = () => {
                                 </div>
                             ) : selectedDetail ? (
                                 <div className="space-y-5">
+                                    <FiscalSandboxPanel cfdiId={selectedCfdiId} onAvailable={onSandboxAvailable} />
                                     <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs leading-relaxed text-slate-600">
-                                        Preparación fiscal provider-neutral. Ninguna acción simula timbrado ni confirma comunicación con SAT/PAC.
+                                        Registro fiscal interno. Las pruebas externas autorizadas se muestran únicamente en el panel Facturama sandbox; este registro por sí solo no acredita timbrado.
                                     </div>
                                     <dl className="divide-y divide-slate-100 rounded-xl border border-slate-100 px-4">
                                         {[
@@ -431,7 +435,7 @@ const BillingPage = () => {
                                         ))}
                                     </dl>
 
-                                    {fiscalReadiness && fiscalActions && (
+                                    {sandboxCfdiId !== selectedCfdiId && fiscalReadiness && fiscalActions && (
                                         <section className="space-y-3 rounded-xl border border-slate-200 p-4">
                                             <div>
                                                 <h3 className="text-sm font-bold text-slate-800">Control fiscal</h3>
