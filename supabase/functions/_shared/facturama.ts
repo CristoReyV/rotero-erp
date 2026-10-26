@@ -8,6 +8,7 @@ import type {
 } from './fiscal-provider.ts';
 
 export const SANDBOX = 'https://apisandbox.facturama.mx';
+export const ACK_RECOVERY_PENDING_MESSAGE = 'Cancelación confirmada; acuse XML pendiente del proveedor';
 export const TEST_ISSUER = Object.freeze({
     Rfc: 'EKU9003173C9',
     Name: 'ESCUELA KEMPER URGATE',
@@ -406,6 +407,7 @@ export class FacturamaSandbox implements FiscalProviderAdapter {
         }
         throw new FiscalFailure('reconciliation_incomplete');
     }
+    // A cancellation mutation, never a way to recover an existing receipt.
     cancelDocument(id: string, motive: string, replacement?: string): Promise<Json> {
         if (
             !['01', '02', '03', '04'].includes(motive) || (motive === '01') !== Boolean(replacement) ||

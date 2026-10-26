@@ -327,7 +327,7 @@ test('canonical provider boundary requires frozen serialization and never return
     );
 });
 
-test('cancel confirms the exact remote identity, quarantines foreign XML, keeps a recoverable state', async () => {
+test('initial cancel retains server motive and rejects an unrelated XML acknowledgement', async () => {
     const saved: string[] = [], files: string[] = [], methods: string[] = [];
     const store: FiscalStore = {
         async worker(_id, _actor, action, data = {}) {
@@ -371,11 +371,10 @@ test('cancel confirms the exact remote identity, quarantines foreign XML, keeps 
     });
     const result: any = await executeFiscal(store, adapter, 'actor', 'doc', 'cancel', {
         motive: '03',
-        recoverAck: true,
     });
     assert.equal(result.remoteCancellation, 'confirmed');
     assert.equal(result.acknowledgement, 'mismatch');
-    assert.deepEqual(methods, ['GET', 'DELETE', 'GET']);
+    assert.deepEqual(methods, ['DELETE', 'GET']);
     assert.ok(
         saved.includes('cancel_confirmed') && saved.includes('cancel_ack_invalid') &&
             saved.includes('release'),
@@ -384,20 +383,17 @@ test('cancel confirms the exact remote identity, quarantines foreign XML, keeps 
     assert.equal(files.length, 1);
     assert.ok(files[0].includes('/unverified-cancellation-'));
 });
-test('ack recovery does not repeat DELETE while remote cancellation is pending', async () => {
-    let deletes = 0;
+test('ack recovery is read-authorized but never mutates or contacts the provider', async () => {
+    let requests = 0;
     const actions: string[] = [];
+    const original = { motive: '02', remote_cancel_status: 'canceled', request_id: 'original-request' };
+    const snapshot = JSON.stringify(original);
     const store: FiscalStore = {
-        async worker(_id, _actor, action) {
+        async worker(_id, _actor, action, data) {
             actions.push(action);
-            return action === 'cancel'
-                ? {
-                    busy_token: 'lease',
-                    provider_payload: invoice(),
-                    provider_document_id: 'test-id',
-                    fiscal_uuid: uuid,
-                }
-                : { saved: true };
+            assert.equal(action, 'load');
+            assert.equal(data, undefined);
+            return original;
         },
         async upload() {
             throw new Error('not used');
@@ -407,17 +403,90 @@ test('ack recovery does not repeat DELETE while remote cancellation is pending',
         },
     };
     const adapter = new FacturamaSandbox(config, async (_url, init) => {
-        if (init?.method === 'DELETE') deletes++;
+        requests++;
+        throw new Error(`unexpected provider ${init?.method}`);
+    });
+    await assert.rejects(
+        () => executeFiscal(store, adapter, 'actor', 'doc', 'cancel', { motive: '03', recoverAck: true }),
+        (e: any) => e.code === 'ack_recovery_unavailable' && !e.uncertain,
+    );
+    assert.equal(requests, 0);
+    assert.deepEqual(actions, ['load']);
+    assert.equal(JSON.stringify(original), snapshot);
+    assert.equal(original.motive, '02');
+});
+
+test('initial cancel can validate its own XML and retains the supplied non-03 motive', async () => {
+    const actions: string[] = [], methods: string[] = [];
+    const store: FiscalStore = {
+        async worker(_id, _actor, action, data = {}) {
+            actions.push(action);
+            if (action === 'cancel') {
+                assert.equal(data.motive, '02');
+                assert.ok(!('recover_ack' in data));
+                return {
+                    busy_token: 'lease',
+                    tenant_id: 'tenant',
+                    company_id: 'company',
+                    provider_payload: invoice(),
+                    provider_document_id: 'test-id',
+                    fiscal_uuid: uuid,
+                    cancellation_options: { motive: '02' },
+                };
+            }
+            return { saved: true };
+        },
+        async upload() {},
+        async download() {
+            throw new Error('not used');
+        },
+    };
+    const ack = Buffer.from(
+        `<Acuse RfcEmisor="EKU9003173C9"><Folios><UUID>${uuid}</UUID><EstatusUUID>201</EstatusUUID></Folios></Acuse>`,
+    ).toString('base64');
+    const adapter = new FacturamaSandbox(config, async (url, init) => {
+        methods.push(init!.method!);
+        if (init?.method === 'DELETE') {
+            assert.ok(String(url).endsWith('?motive=02'));
+            return Response.json({ Status: 'canceled', Uuid: uuid, AcuseXmlBase64: ack });
+        }
         return Response.json({
             Id: 'test-id',
-            Status: 'active',
+            Status: 'canceled',
             Issuer: TEST_ISSUER,
             Complement: { TaxStamp: { Uuid: uuid } },
         });
     });
-    await executeFiscal(store, adapter, 'actor', 'doc', 'cancel', { motive: '03', recoverAck: true });
-    assert.equal(deletes, 0);
-    assert.ok(actions.includes('release'));
+    const result = await executeFiscal(store, adapter, 'actor', 'doc', 'cancel', { motive: '02' });
+    assert.equal((result as any).status, 'cancelled');
+    assert.deepEqual(methods, ['DELETE', 'GET']);
+    assert.ok(actions.includes('cancel_confirmed') && actions.includes('cancelled'));
+});
+
+test('recovery of an unconfirmed cancellation never resends it or asserts confirmation', async () => {
+    for (const remote_cancel_status of ['pending', null]) {
+        const actions: string[] = [];
+        const store: FiscalStore = {
+            async worker(_id, _actor, action) {
+                actions.push(action);
+                return { remote_cancel_status };
+            },
+            async upload() {
+                throw new Error('must not write');
+            },
+            async download() {
+                throw new Error('must not download');
+            },
+        };
+        const adapter = new FacturamaSandbox(config, async () => {
+            throw new Error('must not contact provider');
+        });
+        await assert.rejects(
+            () => executeFiscal(store, adapter, 'actor', 'doc', 'cancel', { motive: '03', recoverAck: true }),
+            (e: any) => e.code === 'cancellation_not_confirmed' && !e.uncertain,
+        );
+        assert.deepEqual(actions, ['load']);
+    }
 });
 
 test('accepted issuance with delayed XML stays pending and reconciles without another POST', async () => {

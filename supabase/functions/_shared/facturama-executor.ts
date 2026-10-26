@@ -100,6 +100,19 @@ export async function executeFiscal(
         return store.download(r.path);
     }
     if (!['issue', 'status', 'cancel'].includes(action)) throw new FiscalFailure('unsupported_action');
+    if (action === 'cancel' && options.recoverAck !== undefined && typeof options.recoverAck !== 'boolean') {
+        throw new FiscalFailure('invalid_cancellation');
+    }
+    if (action === 'cancel' && options.recoverAck === true) {
+        // Authorize a read without claiming a cancellation lease or changing its
+        // original parameters. No documented read API provides this CFDI XML ack.
+        const state = await store.worker(id, actor, 'load');
+        throw new FiscalFailure(
+            state.remote_cancel_status === 'canceled'
+                ? 'ack_recovery_unavailable'
+                : 'cancellation_not_confirmed',
+        );
+    }
     if (
         action === 'cancel' &&
         (!['01', '02', '03', '04'].includes(options.motive) ||
@@ -113,7 +126,6 @@ export async function executeFiscal(
             ? {
                 motive: options.motive,
                 ...(options.replacement ? { replacement: options.replacement } : {}),
-                recover_ack: options.recoverAck === true,
             }
             : {},
     );
@@ -132,17 +144,6 @@ export async function executeFiscal(
                 remote.Id === providerId &&
                 remote.Complement?.TaxStamp?.Uuid?.toLowerCase() === lease.fiscal_uuid?.toLowerCase() &&
                 remote.Issuer?.Rfc === TEST_ISSUER.Rfc;
-            if (options.recoverAck === true) {
-                const before = await adapter.detail(providerId);
-                if (!correlated(before)) throw new FiscalFailure('uncorrelated_cancellation_status');
-                if (!['cancel', 'canceled'].includes(before.Status)) {
-                    await save('release');
-                    return {
-                        status: 'cancellation_requested',
-                        message: 'El proveedor aún no confirma cancelación; no se repitió la solicitud.',
-                    };
-                }
-            }
             const cancellation = lease.cancellation_options ?? options;
             const result = await adapter.cancelDocument(
                 providerId,

@@ -82,16 +82,19 @@ Se distinguen solicitud, confirmación por consulta y acuse validado:
 
 El sandbox devolvió el mismo XML con UUID ajeno para dos comprobantes distintos;
 detalle y HTML corresponden a sus respectivos IDs. El HTML se usó como diagnóstico,
-no como sustituto del XML. Se conserva evidencia y mensaje de soporte sin enviarlo.
+no como sustituto del XML. Se conserva evidencia del incidente comunicado a soporte.
 
-La recuperación es una acción explícita con capacidad fiscal.cancel. Primero
-consulta y verifica que ya está cancelado; sólo entonces recupera la respuesta
-usando los parámetros originales. No emite CFDI, no es un retry de timbrado y no
-se ejecuta automáticamente al recargar. Una respuesta ajena vuelve a cuarentena.
+La recuperación remota de acuse XML está deshabilitada. El endpoint documentado
+de acuse CFDI sólo ofrece PDF/HTML; el de XML de retenciones es otro contrato.
+Reenviar DELETE no es recuperar evidencia. UI deshabilita el control y backend
+rechaza recoverAck=true con 409 y «Cancelación confirmada; acuse XML pendiente
+del proveedor», después de autorizar sólo una lectura, sin lease ni escritura.
+El motivo y la trazabilidad originales permanecen intactos. La descarga de un
+acuse ya validado y almacenado sigue siendo de lectura.
 
-Las consultas y recuperación reutilizan la solicitud canónica activa del mismo
-tipo. Se corrigió la colisión con su índice de unicidad; siguen conservándose
-leases, intentos y auditoría, sin abrir reenvíos automáticos.
+Las consultas de estado reutilizan la solicitud canónica activa del mismo tipo.
+Se conservan leases, intentos y auditoría, sin abrir reenvíos automáticos. Ver
+[contrato y límites actuales](FACTURAMA04_RECOVERY_AND_STAGING.md).
 
 ## Recuperación de base de datos
 

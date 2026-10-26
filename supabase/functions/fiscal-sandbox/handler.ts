@@ -1,9 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { FacturamaSandbox, FiscalFailure, type Json } from '../_shared/facturama.ts';
+import {
+    ACK_RECOVERY_PENDING_MESSAGE,
+    FacturamaSandbox,
+    FiscalFailure,
+    type Json,
+} from '../_shared/facturama.ts';
 import { executeFiscal, type FiscalStore } from '../_shared/facturama-executor.ts';
 
 const preview = /^https:\/\/deploy-preview-\d+--rotero-erp-staging\.netlify\.app$/;
 const local = /^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/;
+const stagingOrigin = 'https://rotero-erp-staging.netlify.app';
+export const STAGING_SUPABASE_URL = 'https://mxpmgihuheagrcowwbia.supabase.co';
+export function isFiscalSandboxRuntime(config: {
+    enabled?: string;
+    environment?: string;
+    supabaseUrl?: string;
+}): boolean {
+    return config.enabled === 'true' && config.environment === 'sandbox' &&
+        config.supabaseUrl === STAGING_SUPABASE_URL;
+}
+const allowedOrigin = (origin: string) =>
+    origin === stagingOrigin || preview.test(origin) || local.test(origin);
 export interface FiscalHandlerDependencies {
     userClient: (authorization: string) => SupabaseClient;
     admin: SupabaseClient;
@@ -16,12 +33,12 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-store',
             'Vary': 'Origin',
-            ...(preview.test(origin) || local.test(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+            ...(allowedOrigin(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
             'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
         };
         const json = (body: Json, status = 200) => new Response(JSON.stringify(body), { status, headers });
-        if (origin && !preview.test(origin) && !local.test(origin)) {
+        if (origin && !allowedOrigin(origin)) {
             return json({ error: 'origin_forbidden' }, 403);
         }
         if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
@@ -33,6 +50,9 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
             const text = await req.text();
             if (text.length > 16000) return json({ error: 'request_too_large' }, 413);
             const input = JSON.parse(text);
+            if (input.recoverAck !== undefined && typeof input.recoverAck !== 'boolean') {
+                return json({ error: 'invalid_recovery_flag' }, 400);
+            }
             if (
                 !/^[0-9a-f-]{36}$/i.test(input.cfdiId ?? '') ||
                 !['prepare', 'issue', 'status', 'xml', 'ack', 'cancel', 'payment'].includes(input.action)
@@ -110,11 +130,22 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
         } catch (e) {
             const code = e instanceof FiscalFailure ? e.code : 'fiscal_operation_failed';
             // No raw exception, provider body, URL, JWT or Authorization in logs/output.
-            return json({
-                error: code,
-                uncertain: e instanceof FiscalFailure && e.uncertain,
-                validationFields: e instanceof FiscalFailure ? e.validationFields : [],
-            }, code === 'fiscal_forbidden' ? 403 : 422);
+            return json(
+                {
+                    error: code,
+                    uncertain: e instanceof FiscalFailure && e.uncertain,
+                    validationFields: e instanceof FiscalFailure ? e.validationFields : [],
+                    ...(code === 'ack_recovery_unavailable' ? { message: ACK_RECOVERY_PENDING_MESSAGE } : {}),
+                    ...(code === 'cancellation_not_confirmed'
+                        ? { message: 'La cancelación no está confirmada; acuse XML pendiente del proveedor' }
+                        : {}),
+                },
+                code === 'fiscal_forbidden'
+                    ? 403
+                    : ['ack_recovery_unavailable', 'cancellation_not_confirmed'].includes(code)
+                    ? 409
+                    : 422,
+            );
         }
     };
     function equal(a: Uint8Array, b: Uint8Array): boolean {

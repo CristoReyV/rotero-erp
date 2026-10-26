@@ -200,22 +200,16 @@ export function FiscalSandboxPanel(
                     Descargar acuse de prueba
                 </button>
             )}
-            {context.actions.cancel && context.remote_cancel_status === 'canceled' &&
+            {context.remote_cancel_status === 'canceled' &&
                 !context.cancellation_available && (
-                <button
-                    type='button'
-                    className={button}
-                    disabled={disabled}
-                    onClick={() => {
-                        if (
-                            window.confirm(
-                                'Consultar la cancelación confirmada y recuperar el acuse de esta prueba. No emite otro CFDI.',
-                            )
-                        ) void run('cancel', { motive: '03', recoverAck: true });
-                    }}
-                >
-                    Recuperar acuse de cancelación
-                </button>
+                <div className='space-y-2'>
+                    <p role='status' className='text-sm'>
+                        Cancelación confirmada; acuse XML pendiente del proveedor
+                    </p>
+                    <button type='button' className={button} disabled>
+                        Recuperar acuse de cancelación
+                    </button>
+                </div>
             )}
             {confirm && (
                 <div

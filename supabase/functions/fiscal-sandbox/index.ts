@@ -1,13 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import { FacturamaSandbox } from '../_shared/facturama.ts';
-import { createFiscalHandler } from './handler.ts';
-const staging = 'https://mxpmgihuheagrcowwbia.supabase.co';
+import { createFiscalHandler, isFiscalSandboxRuntime, STAGING_SUPABASE_URL } from './handler.ts';
+const staging = STAGING_SUPABASE_URL;
 // Immutable deployment boundary. The test harness injects local clients into
 // handler.ts; deployment never accepts a caller-provided URL or environment.
 Deno.serve(async (req: Request) => {
     if (
-        Deno.env.get('FACTURAMA_SANDBOX_ENABLED') !== 'true' ||
-        Deno.env.get('FACTURAMA_ENVIRONMENT') !== 'sandbox' || Deno.env.get('SUPABASE_URL') !== staging
+        !isFiscalSandboxRuntime({
+            enabled: Deno.env.get('FACTURAMA_SANDBOX_ENABLED'),
+            environment: Deno.env.get('FACTURAMA_ENVIRONMENT'),
+            supabaseUrl: Deno.env.get('SUPABASE_URL'),
+        })
     ) {
         return Response.json({ error: 'sandbox_disabled' }, {
             status: 503,
