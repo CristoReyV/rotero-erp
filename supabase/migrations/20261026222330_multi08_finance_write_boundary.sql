@@ -2,6 +2,12 @@
 -- Unknown historical ownership retains the legacy contract, explicitly outside
 -- enterprise protection. No permission to write follows from financial.full.read.
 BEGIN;
+-- Accept only the uniform CRLF transport form of the exact reviewed source.
+CREATE FUNCTION pg_temp.multi08_write_source(value text) RETURNS text
+LANGUAGE sql IMMUTABLE SET search_path='' AS $$
+ SELECT CASE WHEN position(chr(13) IN value)>0 AND replace(replace(value,chr(13)||chr(10),chr(10)),chr(10),chr(13)||chr(10))=value
+ THEN replace(value,chr(13)||chr(10),chr(10)) ELSE value END;
+$$;
 GRANT SELECT(linked_cfdi_id) ON public.finance_invoices,public.billing_documents TO rotero_finance_scope_owner;
 CREATE FUNCTION private.multi08_legacy_write_target(p_tenant uuid,p_kind text,p_id uuid)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $fn$
@@ -33,7 +39,7 @@ REVOKE CREATE ON SCHEMA private FROM rotero_finance_scope_owner;
 -- Five exact reviewed main bodies; keep their signatures, ACL, owners, role gate,
 -- fiscal02 sources, and legacy response contracts. Inject before value reads.
 DO $patch$ DECLARE proc oid:='public.rpc_create_finance_invoice(uuid,jsonb)'::regprocedure; BEGIN
- IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(prosrc)='5e8a190a291f0969c948d0a8d6e5b0ef' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
+ IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(pg_temp.multi08_write_source(prosrc))='5e8a190a291f0969c948d0a8d6e5b0ef' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
 END $patch$;
 CREATE OR REPLACE FUNCTION public.rpc_create_finance_invoice(p_tenant_id uuid, p_payload jsonb)
  RETURNS jsonb
@@ -120,7 +126,7 @@ END;
 $function$
 ;
 DO $patch$ DECLARE proc oid:='public.rpc_create_payment_complement(uuid,jsonb)'::regprocedure; BEGIN
- IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(prosrc)='e4b1c8d1d1a9a759a5dcec8dfc99f9e3' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
+ IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(pg_temp.multi08_write_source(prosrc))='e4b1c8d1d1a9a759a5dcec8dfc99f9e3' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
 END $patch$;
 CREATE OR REPLACE FUNCTION public.rpc_create_payment_complement(p_tenant_id uuid, p_payload jsonb)
  RETURNS jsonb
@@ -154,7 +160,7 @@ END;
 $function$
 ;
 DO $patch$ DECLARE proc oid:='public.rpc_record_payment(uuid,jsonb)'::regprocedure; BEGIN
- IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(prosrc)='553d654533096c861f317158b10ade12' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
+ IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(pg_temp.multi08_write_source(prosrc))='553d654533096c861f317158b10ade12' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
 END $patch$;
 CREATE OR REPLACE FUNCTION public.rpc_record_payment(p_tenant_id uuid, p_payload jsonb)
  RETURNS jsonb
@@ -222,7 +228,7 @@ END;
 $function$
 ;
 DO $patch$ DECLARE proc oid:='public.rpc_update_finance_invoice_status(uuid,uuid,text)'::regprocedure; BEGIN
- IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(prosrc)='6d438d851a46fd788f38828102266933' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
+ IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(pg_temp.multi08_write_source(prosrc))='6d438d851a46fd788f38828102266933' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
 END $patch$;
 CREATE OR REPLACE FUNCTION public.rpc_update_finance_invoice_status(p_tenant_id uuid, p_id uuid, p_status text)
  RETURNS jsonb
@@ -251,7 +257,7 @@ END;
 $function$
 ;
 DO $patch$ DECLARE proc oid:='public.rpc_void_finance_invoice(uuid,uuid,text)'::regprocedure; BEGIN
- IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(prosrc)='458c794e5f3c2df9bfa78db7d465c40c' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
+ IF NOT EXISTS(SELECT FROM pg_proc WHERE oid=proc AND md5(pg_temp.multi08_write_source(prosrc))='458c794e5f3c2df9bfa78db7d465c40c' AND prosecdef AND proowner=current_user::regrole AND proconfig=ARRAY['search_path=pg_catalog, public']) THEN RAISE EXCEPTION 'unsupported_multi08_write_body'; END IF;
 END $patch$;
 CREATE OR REPLACE FUNCTION public.rpc_void_finance_invoice(p_tenant_id uuid, p_id uuid, p_reason text)
  RETURNS jsonb

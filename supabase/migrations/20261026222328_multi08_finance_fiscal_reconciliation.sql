@@ -3,11 +3,14 @@
 -- MULTI-07: explicit financial ownership; closed new APIs; guarded legacy reads.
 BEGIN;
 -- Normalize ONLY the reviewed fiscal02 source redirections, retaining original
--- expected hashes. All other body drift remains a hard failure.
+-- expected hashes. Uniform CRLF is accepted as the reviewed Windows transport
+-- representation; mixed endings and every SQL/body change remain hard failures.
 CREATE FUNCTION pg_temp.multi08_pre_fiscal_reader_source(value text) RETURNS text
 LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $normalizer$
 DECLARE result text:=value; name text;
 BEGIN
+ IF position(chr(13) IN result)>0 AND replace(replace(result,chr(13)||chr(10),chr(10)),chr(10),chr(13)||chr(10))=result
+ THEN result:=replace(result,chr(13)||chr(10),chr(10)); END IF;
  FOREACH name IN ARRAY ARRAY['finance_invoices','finance_payments','billing_documents','billing_credit_notes','billing_payment_complements'] LOOP
   result:=replace(result,'private.fiscal02_legacy_'||name,'public.'||name);
  END LOOP;

@@ -303,6 +303,10 @@ DO $lab_context$ DECLARE d text; needle text:='jsonb_object_agg(a,private.fiscal
 END $lab_context$;
 DO $readiness$ DECLARE d text; needle text:=E'''provider'',jsonb_build_object(''configured'',COALESCE(v_config.enabled,false) AND v_config.provider_code IS NOT NULL,\n            ''code'',v_config.provider_code,''environment'',COALESCE(v_config.environment,''sandbox''))'; BEGIN
  SELECT pg_get_functiondef('public.rpc_get_fiscal_readiness(uuid)'::regprocedure) INTO d;
+ -- Same reviewed source fragment, accepting the Windows transport newline.
+ -- Preserve the stored body; do not broaden the source match or replace logic.
+ IF position(needle IN d)=0 AND position(replace(needle,chr(10),chr(13)||chr(10)) IN d)>0
+ THEN needle:=replace(needle,chr(10),chr(13)||chr(10)); END IF;
  IF position(needle IN d)=0 OR d NOT LIKE '%private.fiscal02_readable_cfdis%' THEN RAISE EXCEPTION 'unsupported_fiscal_readiness_source'; END IF;
  EXECUTE replace(d,needle,'''provider'',private.multi08_readiness_provider(v_cfdi.id)');
 END $readiness$;
