@@ -1,0 +1,922 @@
+{
+  "scope": "local disposable loopback; remote backend not modified",
+  "migrations": 53,
+  "sql_suites": [
+    {
+      "suite": "db_baseline_contract",
+      "sha256": "48eefabf586539dddb7a9bb0c3ad6b31a006599feed5cebd4883a48fc25ef92e",
+      "passed": true
+    },
+    {
+      "suite": "db_consumed_contracts",
+      "sha256": "b6ee8b4e8d288c426114f1bd58a8b137ac457a99ab219c60d11ddbe5f979a3d9",
+      "passed": true
+    },
+    {
+      "suite": "multi04_companies_explicit_access",
+      "sha256": "2309d2171418381d2c2f9cc582b375780e6f5cbb8348ea6e7f5b687403b782fc",
+      "passed": true
+    },
+    {
+      "suite": "multi05_company_capabilities",
+      "sha256": "fb2a87534b4562f907fd8d599338c9b235e0772eafb28d1082a8986e5f8b1d97",
+      "passed": true
+    },
+    {
+      "suite": "multi06_operations_company_scope",
+      "sha256": "0cf2918914442af98a2f189108df43b3c0ea51d323fe4993791ea595395905fe",
+      "passed": true
+    },
+    {
+      "suite": "multi07_finance_company_authorization",
+      "sha256": "4776b3167973c6fb6dd66149eba9774c70caf6408aee49b2547f3a2fe641b555",
+      "passed": true
+    },
+    {
+      "suite": "multi08_finance_and_provider_policy",
+      "sha256": "33fb211cd0b179f601b9325ced3a8585b8bff195744d5316f5a11126ccb49fee",
+      "passed": true
+    },
+    {
+      "suite": "facturama01_sandbox",
+      "sha256": "68d9f21019afd802bff64868c9aa0e34f15b99d661118ce7abb78857b6e78d31",
+      "passed": true
+    },
+    {
+      "suite": "facturama02_reconciliation",
+      "sha256": "9bf5ea767daefd05423626a2078577e544e0834617d5be9a31bae1204777833e",
+      "passed": true
+    },
+    {
+      "suite": "facturama05_pdf_evidence",
+      "sha256": "e957efc96c4386c8d50cd10284921977410b121bb56ddb16f3bfe2cc5a35e72b",
+      "passed": true
+    },
+    {
+      "suite": "f2_operation_360",
+      "sha256": "3e05507f67ad3c080ca667417824ec3bc8ad58b134a4e56c349a4429be6c22ac",
+      "passed": true
+    },
+    {
+      "suite": "f3_documents_360",
+      "sha256": "d342063e6cbd09b540db03aba5ae06197a69d23de9f13eedd66f78daf3f16781",
+      "passed": true
+    },
+    {
+      "suite": "f4_finance_360",
+      "sha256": "a8d1f31649cd6e2f6badf7adc2f9de60d8d7c438d8af1ca6ecd10b2958c6bd8f",
+      "passed": true
+    },
+    {
+      "suite": "f6_data_operations",
+      "sha256": "7dd8a588fc9945cfb7bd097b11b42721cb9ed377c9ade5cbfd7f7cbb944e2280",
+      "passed": true
+    },
+    {
+      "suite": "fiscal0_composite_parameter_regression",
+      "sha256": "6775e8e48c6472a4bf81d67e6c11de10716ad8d791b658416a6c988a0d869a4e",
+      "passed": true
+    },
+    {
+      "suite": "fiscal0_provider_neutral_readiness",
+      "sha256": "ff5485a609c279a0c1de5da609b2c30044f135e19e530362b579746a9c109b9d",
+      "passed": true
+    },
+    {
+      "suite": "f1_commercial_360",
+      "sha256": "ed98e3c8ca339fc7ff6385bc42b815df4cbaec0ff9eafb522ef217623bfac4ab",
+      "passed": true
+    },
+    {
+      "suite": "f5_executive_productivity",
+      "sha256": "14fa717c0b0e299d869a902d1404d18cce3c86a419d2cc0f4d6250b1fd0cb743",
+      "passed": true
+    },
+    {
+      "suite": "f7_automations",
+      "sha256": "e6768c1d3a9d7aab6548c669eca02440063ca01d276367982432f9875cb09d12",
+      "passed": true
+    },
+    {
+      "suite": "f8_rates_partner_360",
+      "sha256": "972f052f24f8849c0b84700cd6955b3eb95ec9f17d01c87cca0e3907d0bc037b",
+      "passed": true
+    },
+    {
+      "suite": "f9_compliance_contracts",
+      "sha256": "5843b3e003ea6c5989a96e0934bc56de59e1c3370e2ae8e682b75ca0fdc92d0e",
+      "passed": true
+    },
+    {
+      "suite": "f10_claims_customer_service",
+      "sha256": "b2489ee5a94f48de970128300cd53781df9f3ac8348f02d3988dc006d685eaf8",
+      "passed": true
+    },
+    {
+      "suite": "bh1_cross_module_invariants",
+      "sha256": "39e46cd068dfb6b7d35f5a534bb317bf8b32012788b1535259516255d9d827d5",
+      "passed": true
+    },
+    {
+      "suite": "bh2_daily_use_hardening",
+      "sha256": "e6fa95489c50254eda4b120200eb044271444bd2a5db5277c7c769d60f034f90",
+      "passed": true
+    },
+    {
+      "suite": "delivery_company_boundary",
+      "sha256": "6fabcf7bafcfd57efac77a7220e1660d006bcd8f0c43c2758498587230f38234",
+      "passed": true
+    }
+  ],
+  "sql_all_passed": true,
+  "node_unique_tests": 142,
+  "node_files": 40,
+  "node_evidence": "141 passed in combined run; one source-format assertion fixed and affected file passed; three affected UI contracts rerun after document panel correction",
+  "lint_typecheck": "passed",
+  "deno_check": "passed",
+  "deno_runtime_tests": 1,
+  "format": "passed",
+  "build_staging": "passed; empty environment directory and isolated cache/output",
+  "account_menu_browser": {
+    "viewports": [
+      [
+        1280,
+        720
+      ],
+      [
+        1024,
+        768
+      ]
+    ],
+    "pointer_and_enter": "passed; no force or handler evaluation"
+  },
+  "local_http_browser": {
+    "checks": [
+      {
+        "case": "isolated local finance login and company selection",
+        "passed": true
+      },
+      {
+        "case": "operations to 360 to authorized private Storage download",
+        "passed": true
+      },
+      {
+        "case": "company CSV contains operational projection only",
+        "passed": true
+      },
+      {
+        "case": "explicit AR collection without AP or full financial permission",
+        "passed": true
+      },
+      {
+        "case": "Tanda1 scoped real HTTP structure seven keys",
+        "passed": true
+      },
+      {
+        "case": "reload retains authorized local session",
+        "passed": true
+      },
+      {
+        "case": "actual focus transition",
+        "passed": false,
+        "evidence": {
+          "hidden": {
+            "visibility": "visible",
+            "focused": true
+          },
+          "focused": {
+            "visibility": "visible",
+            "focused": true
+          }
+        },
+        "limitation": "Headless focus is only approved if effective visibility transition is observed"
+      },
+      {
+        "case": "company switch clears data and denies missing capability",
+        "passed": true
+      },
+      {
+        "case": "normal pointer logout HTTP204 local cleanup and protected redirect",
+        "passed": true
+      },
+      {
+        "case": "no notification refresh mark dismiss observed",
+        "passed": true
+      }
+    ],
+    "actual_mode": "headed; repeated visibility remained visible, focus not demonstrated",
+    "traffic_counts": [
+      {
+        "phase": "login",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "login",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 4
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 4
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 6
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 6
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 12
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 12
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 4
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 4
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 5
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 5
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_incidents",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_assignment_history",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_incident_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_incidents",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_assignment_history",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_incident_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_evidence",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_evidence",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_documents",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_documents",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_tracking_events",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_list_operation_tracking_events",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_document_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_dispatch_readiness",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_document_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_dispatch_readiness",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_billing_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_get_operation_billing_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_entity_files",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_entity_files",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "operations",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "operations",
+        "path": "/storage/v1/object/tenant-documents/082905ce-cb4b-41b1-b29c-52374cef03a9/operations/synthetic.txt",
+        "method": "GET",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "operations",
+        "path": "/storage/v1/object/tenant-documents/082905ce-cb4b-41b1-b29c-52374cef03a9/operations/synthetic.txt",
+        "method": "GET",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 6
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 6
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 6
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 6
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "reports",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 3
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 3
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 6
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 6
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "reload",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 8
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 8
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "switch",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "logout",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http_status": 204,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "logout",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http_status": null,
+        "completion": "failed",
+        "count": 1
+      }
+    ]
+  },
+  "applied_45_migrations_unchanged": true,
+  "staging": "blocked: source drift; no migrations/grants/fixtures/Edge deployment/authenticated QA",
+  "backup_restore": {
+    "database_copy_tables_verified": 134,
+    "storage_objects_verified": 15,
+    "storage_bytes_verified": 163317,
+    "custody": "current-user Windows DPAPI; private manifests outside repository"
+  },
+  "excel": {
+    "import_executed": false,
+    "private_preview_generated": true,
+    "workbook_unchanged": true,
+    "formula_error_cells_in_cached_values": {
+      "ROTERO": 37,
+      "ROTERITO": 0
+    },
+    "totals": "raw candidate controls by currency; not an approved batch"
+  },
+  "financial_identity_grants_executed": 0,
+  "provider_calls_executed": 0,
+  "original_worktrees": 28,
+  "original_worktrees_preserved": true,
+  "original_refs_excluding_codex_preserved": true
+}
