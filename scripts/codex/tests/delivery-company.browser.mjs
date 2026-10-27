@@ -155,37 +155,39 @@ try {
     await page.getByText('Operaciones clasificadas', { exact: false }).first().waitFor({ timeout: 20000 })
         .catch(() => {});
     check('isolated local finance login and company selection');
-    phase = 'operations';
-    await page.goto(origin + '/operations');
-    await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
-    await page.getByText('3 operaciones en este alcance', { exact: true }).waitFor();
-    assert.equal(await page.getByText('FINANCIAL_CANARY').count(), 0);
-    await page.getByRole('table').getByText('A-1', { exact: true }).click();
-    await page.getByRole('button', { name: 'Documentos', exact: true }).click();
-    await page.getByRole('button', { name: 'synthetic.txt', exact: true }).waitFor();
-    const fileEvent = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'synthetic.txt', exact: true }).click();
-    const file = await fileEvent;
-    const fstream = await file.createReadStream();
-    let body = '';
-    for await (const c of fstream) body += c;
-    assert.equal(body, 'synthetic QA');
-    check('operations to 360 to authorized private Storage download');
-    // Close detail by Escape/close accessible control, then export using actual UI.
-    await page.keyboard.press('Escape');
-    const closes = page.getByRole('button', { name: /Cerrar.*detalle|Cerrar panel|Cerrar ficha/i });
-    if (await closes.count()) await closes.first().click();
-    await page.goto(origin + '/operations');
-    await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
-    await page.getByText('3 operaciones en este alcance', { exact: true }).waitFor();
-    const csvEvent = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Exportar CSV', exact: true }).click();
-    const csv = await csvEvent;
-    let text = '';
-    for await (const c of await csv.createReadStream()) text += c;
-    assert.ok(text.includes('A-1'));
-    assert.ok(!/FINANCIAL_CANARY|12345|54321|provider_cost_amount|margin|AP-A/.test(text));
-    check('company CSV contains operational projection only');
+    if (process.env.LOCAL_QA_ONLY_RECEIVABLES !== '1') {
+        phase = 'operations';
+        await page.goto(origin + '/operations');
+        await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
+        await page.getByText('3 operaciones en este alcance', { exact: true }).waitFor();
+        assert.equal(await page.getByText('FINANCIAL_CANARY').count(), 0);
+        await page.getByRole('table').getByText('A-1', { exact: true }).click();
+        await page.getByRole('button', { name: 'Documentos', exact: true }).click();
+        await page.getByRole('button', { name: 'synthetic.txt', exact: true }).waitFor();
+        const fileEvent = page.waitForEvent('download');
+        await page.getByRole('button', { name: 'synthetic.txt', exact: true }).click();
+        const file = await fileEvent;
+        const fstream = await file.createReadStream();
+        let body = '';
+        for await (const c of fstream) body += c;
+        assert.equal(body, 'synthetic QA');
+        check('operations to 360 to authorized private Storage download');
+        // Close detail by Escape/close accessible control, then export using actual UI.
+        await page.keyboard.press('Escape');
+        const closes = page.getByRole('button', { name: /Cerrar.*detalle|Cerrar panel|Cerrar ficha/i });
+        if (await closes.count()) await closes.first().click();
+        await page.goto(origin + '/operations');
+        await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
+        await page.getByText('3 operaciones en este alcance', { exact: true }).waitFor();
+        const csvEvent = page.waitForEvent('download');
+        await page.getByRole('button', { name: 'Exportar CSV', exact: true }).click();
+        const csv = await csvEvent;
+        let text = '';
+        for await (const c of await csv.createReadStream()) text += c;
+        assert.ok(text.includes('A-1'));
+        assert.ok(!/FINANCIAL_CANARY|12345|54321|provider_cost_amount|margin|AP-A/.test(text));
+        check('company CSV contains operational projection only');
+    }
     phase = 'receivables';
     await page.goto(origin + '/finance');
     await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
@@ -195,55 +197,67 @@ try {
     assert.equal(await page.getByText('AR-B', { exact: true }).count(), 0);
     await page.getByRole('button', { name: /Registrar pago/ }).first().click();
     await page.locator('input[type=number]').fill('25');
-    await page.getByRole('button', { name: /Confirmar pago/ }).click();
-    await page.getByText('AR-A', { exact: true }).waitFor();
-    check('explicit AR collection without AP or full financial permission');
-    phase = 'reports';
-    const tanda = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/rpc_reports_tanda1'));
-    await page.goto(origin + '/reports');
-    await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
-    const tr = await tanda;
-    const tj = await tr.json();
-    assert.deepEqual(
-        Object.keys(tj).sort(),
-        ['date_from', 'date_to', 'weekly', 'volume', 'by_service_type', 'by_zone', 'by_scope'].sort(),
+    const paymentResponse = page.waitForResponse((r) =>
+        new URL(r.url()).pathname.endsWith('/rpc_delivery_record_receivable_payment')
     );
-    assert.equal(tj.volume.operations, 3);
-    check('Tanda1 scoped real HTTP structure seven keys');
-    phase = 'reload';
-    await page.reload();
-    await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
-    await page.getByRole('heading', { name: 'Volumen operativo', exact: true }).waitFor();
-    check('reload retains authorized local session');
-    phase = 'focus';
-    const blank = await context.newPage();
-    await blank.goto('about:blank');
-    await blank.bringToFront();
-    const hidden = await page.evaluate(() => ({
-        visibility: document.visibilityState,
-        focused: document.hasFocus(),
-    }));
-    await page.bringToFront();
-    const focused = await page.evaluate(() => ({
-        visibility: document.visibilityState,
-        focused: document.hasFocus(),
-    }));
-    await blank.close();
-    checks.push({
-        case: 'actual focus transition',
-        passed: hidden.visibility === 'hidden' && focused.visibility === 'visible' && focused.focused,
-        evidence: { hidden, focused },
-        limitation:
-            'Focus is only approved if an effective visibility transition is observed; opening a window alone is insufficient',
-    });
-    phase = 'switch';
-    await page.goto(origin + '/operations');
-    await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_b);
-    await page.getByText('Sin capacidad de lectura operativa para esta empresa.', { exact: true }).waitFor();
-    assert.equal(await page.getByText('A-1', { exact: true }).count(), 0);
-    await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
-    await page.getByText('3 operaciones en este alcance', { exact: true }).waitFor();
-    check('company switch clears data and denies missing capability');
+    await page.getByRole('button', { name: /Confirmar pago/ }).click();
+    const payment = await paymentResponse;
+    assert.equal(payment.status(), 200);
+    assert.equal(await payment.finished(), null, 'payment HTTP request finishes');
+    const paymentResult = await payment.json();
+    assert.ok(!paymentResult.error, 'backend confirms payment');
+    await page.getByRole('button', { name: /Confirmar pago/ }).waitFor({ state: 'detached' });
+    await page.getByRole('row').filter({ hasText: 'AR-A' }).getByText('$975.00', { exact: true }).waitFor();
+    check('explicit AR collection without AP or full financial permission');
+    if (process.env.LOCAL_QA_ONLY_RECEIVABLES !== '1') {
+        phase = 'reports';
+        const tanda = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/rpc_reports_tanda1'));
+        await page.goto(origin + '/reports');
+        await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
+        const tr = await tanda;
+        const tj = await tr.json();
+        assert.deepEqual(
+            Object.keys(tj).sort(),
+            ['date_from', 'date_to', 'weekly', 'volume', 'by_service_type', 'by_zone', 'by_scope'].sort(),
+        );
+        assert.equal(tj.volume.operations, 3);
+        check('Tanda1 scoped real HTTP structure seven keys');
+        phase = 'reload';
+        await page.reload();
+        await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
+        await page.getByRole('heading', { name: 'Volumen operativo', exact: true }).waitFor();
+        check('reload retains authorized local session');
+        phase = 'focus';
+        const blank = await context.newPage();
+        await blank.goto('about:blank');
+        await blank.bringToFront();
+        const hidden = await page.evaluate(() => ({
+            visibility: document.visibilityState,
+            focused: document.hasFocus(),
+        }));
+        await page.bringToFront();
+        const focused = await page.evaluate(() => ({
+            visibility: document.visibilityState,
+            focused: document.hasFocus(),
+        }));
+        await blank.close();
+        checks.push({
+            case: 'actual focus transition',
+            passed: hidden.visibility === 'hidden' && focused.visibility === 'visible' && focused.focused,
+            evidence: { hidden, focused },
+            limitation:
+                'Focus is only approved if an effective visibility transition is observed; opening a window alone is insufficient',
+        });
+        phase = 'switch';
+        await page.goto(origin + '/operations');
+        await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_b);
+        await page.getByText('Sin capacidad de lectura operativa para esta empresa.', { exact: true })
+            .waitFor();
+        assert.equal(await page.getByText('A-1', { exact: true }).count(), 0);
+        await page.getByLabel('Empresa', { exact: true }).selectOption(f.company_a);
+        await page.getByText('3 operaciones en este alcance', { exact: true }).waitFor();
+        check('company switch clears data and denies missing capability');
+    }
     phase = 'logout';
     await page.getByRole('button', { name: /Cuenta|Local|example/ }).last().click().catch(async () => {
         await page.locator('header button').last().click();

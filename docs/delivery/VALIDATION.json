@@ -165,10 +165,6 @@
         "passed": true
       },
       {
-        "case": "explicit AR collection without AP or full financial permission",
-        "passed": true
-      },
-      {
         "case": "Tanda1 scoped real HTTP structure seven keys",
         "passed": true
       },
@@ -201,6 +197,10 @@
       },
       {
         "case": "no notification refresh mark dismiss observed",
+        "passed": true
+      },
+      {
+        "case": "explicit AR collection without AP or full financial permission",
         "passed": true
       }
     ],
@@ -894,7 +894,228 @@
         "completion": "failed",
         "count": 1
       }
-    ]
+    ],
+    "payment_confirmation": {
+      "http_status": 200,
+      "request_finished": true,
+      "backend_error": false,
+      "ui_balance_before": 1000,
+      "ui_balance_after": 975,
+      "currency": "MXN",
+      "data": "synthetic local only",
+      "coverage_correction": "Supersedes the initial harness click-only assertion; explicit HTTP completion and refreshed balance are now required."
+    },
+    "targeted_confirmation_traffic": [
+      {
+        "phase": "login",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "login",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 4
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 4
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 6
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 6
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "login",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 6
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 6
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 2
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 2
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 3
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 3
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_record_receivable_payment",
+        "method": "POST",
+        "http_status": 200,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "receivables",
+        "path": "/rest/v1/rpc/rpc_delivery_record_receivable_payment",
+        "method": "POST",
+        "http_status": null,
+        "completion": "finished",
+        "count": 1
+      },
+      {
+        "phase": "logout",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http_status": 204,
+        "completion": null,
+        "count": 1
+      },
+      {
+        "phase": "logout",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http_status": null,
+        "completion": "failed",
+        "count": 1
+      }
+    ],
+    "logout_limitation": "HTTP204 and local redirect observed; request completion includes net::ERR_ABORTED. Complete remote-session revocation is not proven."
   },
   "applied_45_migrations_unchanged": true,
   "staging": "blocked: source drift; no migrations/grants/fixtures/Edge deployment/authenticated QA",
