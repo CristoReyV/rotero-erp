@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { companyWorkflowActive } from './companyWorkflow.service';
+import { companyAutomationStatus, companyAutomationHealth, evaluateCompanyAutomations, updateCompanyAutomation } from './companyAutomation.service';
 import type {
     AutomationEvaluation,
     AutomationHealth,
@@ -15,6 +17,7 @@ function assertResult<T>(data: unknown, error: { message: string } | null): T {
     return data as T;
 }
 export async function listAutomationRules(tenantId: string): Promise<AutomationRule[]> {
+    if (companyWorkflowActive()) return (await companyAutomationStatus(tenantId)).rules;
     const { data, error } = await supabase.rpc('rpc_list_automation_rules', { p_tenant_id: tenantId });
     return assertResult<{ items: AutomationRule[] }>(data, error).items;
 }
@@ -24,6 +27,12 @@ export async function updateAutomationRule(
     ruleId: string,
     payload: AutomationRuleUpdate,
 ): Promise<AutomationRule> {
+    if (companyWorkflowActive()) {
+        await updateCompanyAutomation(tenantId, ruleId, payload);
+        const rule = (await companyAutomationStatus(tenantId)).rules.find((item) => item.id === ruleId);
+        if (!rule) throw new Error('No fue posible verificar la regla guardada.');
+        return rule;
+    }
     const { data, error } = await supabase.rpc('rpc_update_automation_rule', {
         p_tenant_id: tenantId,
         p_rule_id: ruleId,
@@ -33,11 +42,13 @@ export async function updateAutomationRule(
 }
 
 export async function evaluateAutomations(tenantId: string): Promise<AutomationEvaluation> {
+    if (companyWorkflowActive()) return evaluateCompanyAutomations(tenantId);
     const { data, error } = await supabase.rpc('rpc_evaluate_automations', { p_tenant_id: tenantId });
     return assertResult<AutomationEvaluation>(data, error);
 }
 
 export async function getAutomationHealth(tenantId: string): Promise<AutomationHealth> {
+    if (companyWorkflowActive()) return companyAutomationHealth(tenantId);
     const { data, error } = await supabase.rpc('rpc_get_automation_health', { p_tenant_id: tenantId });
     return assertResult<AutomationHealth>(data, error);
 }

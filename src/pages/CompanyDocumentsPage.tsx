@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { type CompanyFile, downloadCompanyFile } from '@/services/companyDelivery.service';
 import { useAuthStore } from '@/store/authStore';
 import { hasCompanyCapability } from '@/store/companyStore';
+import { companyDocumentSources, type DocumentParent } from '@/services/companyDocuments.service';
+import { CompanyDocumentManager } from '@/components/company/CompanyDocumentManager';
 
 export default function CompanyDocumentsPage() {
     const tenant = useAuthStore((state) => state.activeTenant);
@@ -12,7 +14,17 @@ export default function CompanyDocumentsPage() {
         { items: CompanyFile[]; total: number; next_cursor: string | null } | null
     >(null);
     const [error, setError] = useState('');
+    const [sourceQuery, setSourceQuery] = useState('');
+    const [sources, setSources] = useState<Array<{ kind: DocumentParent; id: string; label: string }>>([]);
+    const [source, setSource] = useState('');
     const allowed = hasCompanyCapability('billing.document.read');
+    const upload = hasCompanyCapability('documents.upload');
+    useEffect(() => {
+        if (!tenant || !upload) return;
+        let active = true;
+        void companyDocumentSources(tenant, sourceQuery).then((rows) => { if (active) setSources(rows); }, () => { if (active) setError('No fue posible consultar los expedientes autorizados.'); });
+        return () => { active = false; };
+    }, [tenant, upload, sourceQuery]);
     useEffect(() => {
         if (!tenant || !allowed) return;
         let active = true;
@@ -52,6 +64,15 @@ export default function CompanyDocumentsPage() {
     return (
         <div className='space-y-5'>
             <h1 className='text-2xl font-bold'>Documentos</h1>
+            {upload && <section className='space-y-3 rounded-xl border p-4'>
+                <h2 className='font-bold'>Administrar expediente</h2>
+                <input aria-label='Buscar expediente' value={sourceQuery} onChange={(e) => setSourceQuery(e.target.value)} placeholder='Referencia de operación o documento' className='rounded border p-2' />
+                <select aria-label='Expediente autorizado' value={source} onChange={(e) => setSource(e.target.value)} className='ml-3 rounded border p-2'>
+                    <option value=''>Seleccionar expediente</option>
+                    {sources.map((s) => <option key={`${s.kind}:${s.id}`} value={`${s.kind}:${s.id}`}>{s.kind === 'operation' ? 'Operación' : 'Financiero'} · {s.label}</option>)}
+                </select>
+                {source && <CompanyDocumentManager key={source} entityType={source.split(':')[0] as DocumentParent} entityId={source.split(':')[1]} />}
+            </section>}
             <input
                 aria-label='Buscar documentos'
                 value={search}

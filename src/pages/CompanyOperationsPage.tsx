@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { OperationsTable } from '@/components/operations/OperationsTable';
 import { Operation360Panel } from '@/components/operations/Operation360Panel';
@@ -8,21 +9,30 @@ import { useAuthStore } from '@/store/authStore';
 import { hasCompanyCapability } from '@/store/companyStore';
 import { downloadCsvContent } from '@/utils/csv';
 import type { Operation } from '@/types/operations';
+import { AssignmentDrawer } from '@/components/operations/AssignmentDrawer';
+import { getOperation, transitionOperationStatus } from '@/services/operations.service';
 
 export default function CompanyOperationsPage() {
+    const [params, setParams] = useSearchParams();
+    const deepLink = params.get('operation_id') ?? params.get('operationId');
     const tenant = useAuthStore((state) => state.activeTenant);
     const role = useAuthStore((state) => state.getRole());
     const [search, setSearch] = useState('');
     const [cursor, setCursor] = useState<string | null>(null);
     const [page, setPage] = useState<DeliveryPage | null>(null);
     const [selected, setSelected] = useState<Operation | null>(null);
+    const [assigning, setAssigning] = useState<Operation | null>(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [revision, setRevision] = useState(0);
+    const createRequest = useRef(crypto.randomUUID());
     const [creating, setCreating] = useState(false);
     const [busy, setBusy] = useState(false);
     const allowed = hasCompanyCapability('operations.read');
     const capture = (role === 'admin' || role === 'operator') && hasCompanyCapability('operations.capture');
+    const manage = (role === 'admin' || role === 'operator') &&
+        ['operations.edit', 'operations.plan', 'operations.assign', 'operations.transition', 'operations.evidence.write']
+            .some(hasCompanyCapability);
     useEffect(() => {
         if (!tenant || !allowed) return;
         let active = true;
@@ -41,6 +51,19 @@ export default function CompanyOperationsPage() {
             active = false;
         };
     }, [tenant, allowed, search, cursor, revision]);
+    useEffect(() => {
+        if (!tenant || !allowed || !deepLink) return;
+        let active = true;
+        void getOperation(deepLink).then((operation) => { if (active) setSelected(operation); }, () => { if (active) setError('La operación solicitada no está disponible en este alcance.'); });
+        return () => { active = false; };
+    }, [tenant, allowed, deepLink]);
+    const select = (operation: Operation | null) => {
+        setSelected(operation);
+        const next = new URLSearchParams(params);
+        next.delete('operationId');
+        if (operation?.db_id) next.set('operation_id', operation.db_id); else { next.delete('operation_id'); next.delete('tab'); }
+        setParams(next, { replace: true });
+    };
     const exportCsv = async () => {
         if (!tenant) return;
         try {
@@ -55,7 +78,8 @@ export default function CompanyOperationsPage() {
         setBusy(true);
         setError('');
         try {
-            const { data, error: failure } = await supabase.rpc('rpc_delivery_create_operation', {
+            const { data, error: failure } = await supabase.rpc('rpc_delivery_create_operation_once', {
+                p_request_id: createRequest.current,
                 p_tenant_id: tenant,
                 p_reference: fields.get('reference'),
                 p_route: fields.get('route'),
@@ -63,6 +87,7 @@ export default function CompanyOperationsPage() {
                 p_destination_city: fields.get('destination'),
             });
             if (failure || data?.error) throw new Error('capture_failed');
+            createRequest.current = crypto.randomUUID();
             setCreating(false);
             setCursor(null);
             setRevision((value) => value + 1);
@@ -112,6 +137,7 @@ export default function CompanyOperationsPage() {
             {creating && (
                 <form
                     className='space-y-3 rounded-xl border bg-surface-card p-5'
+                    onChange={() => { createRequest.current = crypto.randomUUID(); }}
                     onSubmit={(event) => {
                         event.preventDefault();
                         void create(event.currentTarget);
@@ -128,6 +154,7 @@ export default function CompanyOperationsPage() {
                                 {label}
                                 <input
                                     name={String(name)}
+                                    disabled={busy}
                                     required={Boolean(required)}
                                     maxLength={name === 'route' ? 500 : 160}
                                     className='mt-1 block w-full rounded border p-2'
@@ -150,7 +177,7 @@ export default function CompanyOperationsPage() {
                     <OperationsTable
                         operations={page.items.map((item) => mapDbOperationToUI(item as DbOperation))}
                         selectedId={selected?.id ?? null}
-                        onSelect={setSelected}
+                        onSelect={select}
                     />
                     <div className='flex gap-4'>
                         <button disabled={!cursor} onClick={() => setCursor(null)}>Primera página</button>
@@ -164,19 +191,30 @@ export default function CompanyOperationsPage() {
                 <div key={selected.db_id}>
                     <Operation360Panel
                         operation={selected}
-                        canManage={false}
+                        canManage={manage}
                         canManageTracking={false}
                         isAdmin={false}
                         refreshKey={revision}
-                        onClose={() => setSelected(null)}
-                        onAssign={() => undefined}
+                        initialTab={params.get('tab')}
+                        onClose={() => select(null)}
+                        onAssign={() => {
+                            if (!selected.db_id) return;
+                            void getOperation(selected.db_id).then(setAssigning).catch(() => setError('Actualiza la ficha antes de asignar.'));
+                        }}
                         onGenerateTokens={async () => undefined}
-                        onTransition={async () => undefined}
+                        onTransition={async (status, expectedRevision) => {
+                            if (!selected.db_id) return;
+                            await transitionOperationStatus(selected.db_id, status, expectedRevision);
+                            setRevision((value) => value + 1);
+                        }}
                         onOverrideCancel={() => undefined}
                         onOperationsRefresh={async () => setRevision((value) => value + 1)}
                     />
                 </div>
             )}
+            <AssignmentDrawer isOpen={Boolean(assigning)} operation={assigning}
+                onClose={() => setAssigning(null)}
+                onAssigned={() => { setAssigning(null); setRevision((value) => value + 1); }} />
         </div>
     );
 }

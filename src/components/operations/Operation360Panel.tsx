@@ -13,7 +13,10 @@ import { OperationReadiness } from './OperationReadiness';
 import { getOperationStatus } from './operationsControl';
 import { Badge } from '@/components/Badge';
 import { hasCompanyCapability } from '@/store/companyStore';
-import { CompanyOperationFiles } from '@/components/company/CompanyOperationFiles';
+import { CompanyOperationalDocuments } from '@/components/company/CompanyOperationalDocuments';
+import { CompanyEvidence } from '@/components/company/CompanyEvidence';
+import { CompanyOperationEditor } from '@/components/company/CompanyOperationEditor';
+import { companyWorkflowActive } from '@/services/companyWorkflow.service';
 
 type Tab =
     | 'overview'
@@ -60,7 +63,7 @@ export function Operation360Panel(
         onClose: () => void;
         onAssign: () => void;
         onGenerateTokens: () => Promise<void>;
-        onTransition: (status: string) => Promise<void>;
+        onTransition: (status: string, expectedRevision?: number) => Promise<void>;
         onOverrideCancel: () => void;
         onOperationsRefresh: () => Promise<void>;
     },
@@ -103,7 +106,7 @@ export function Operation360Panel(
         setActionLoading(true);
         setError(null);
         try {
-            await onTransition(status);
+            await onTransition(status, data?.operation.workflow_revision);
             await load();
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'No fue posible cambiar el estado.');
@@ -177,11 +180,10 @@ export function Operation360Panel(
                                 setTab(item.value);
                                 onTabChange?.(item.value);
                             }}
-                            className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${
-                                tab === item.value
-                                    ? 'bg-primary text-white'
-                                    : 'text-slate-500 hover:bg-slate-100'
-                            }`}
+                            className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${tab === item.value
+                                ? 'bg-primary text-white'
+                                : 'text-slate-500 hover:bg-slate-100'
+                                }`}
                         >
                             {item.label}
                         </button>
@@ -195,132 +197,129 @@ export function Operation360Panel(
                             </div>
                         )
                         : error && !data
-                        ? (
-                            <div className='mx-auto max-w-xl rounded-2xl border border-red-200 bg-red-50 p-8 text-center'>
-                                <AlertTriangle className='mx-auto text-red-500' />
-                                <p className='mt-3 text-sm font-semibold text-red-700'>{error}</p>
-                                <button
-                                    onClick={() => void load()}
-                                    className='mt-4 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white'
-                                >
-                                    Reintentar
-                                </button>
-                            </div>
-                        )
-                        : data && (
-                            <div className='space-y-5'>
-                                {error && (
-                                    <div className='rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700'>
-                                        {error}
-                                    </div>
-                                )}
-                                {tab === 'overview' && (
-                                    <>
-                                        <OperationOverview operation={data.operation} />
-                                        <section className='border-t border-slate-100 pt-5'>
-                                            <h3 className='mb-3 font-bold text-slate-800'>
-                                                Readiness de despacho y cierre
-                                            </h3>
-                                            <OperationReadiness
-                                                data={data}
-                                                canManageTracking={canManageTracking}
-                                                onGenerateTokens={() => void generate()}
-                                            />
-                                        </section>
-                                        {canManage && (
-                                            <div className='flex flex-wrap gap-2 border-t border-slate-100 pt-5'>
-                                                {nextStatus[data.operation.status] && (
-                                                    <button
-                                                        disabled={actionLoading}
-                                                        onClick={() =>
-                                                            void transition(
-                                                                nextStatus[data.operation.status]!,
-                                                            )}
-                                                        className='rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white'
-                                                    >
-                                                        Avanzar a {getOperationStatus(
-                                                            nextStatus[data.operation.status]!,
-                                                        ).label}
-                                                    </button>
-                                                )}
-                                                {isAdmin && data.operation.status !== 'cancelled' &&
-                                                    data.operation.status !== 'closed' && (
-                                                    <button
-                                                        onClick={onOverrideCancel}
-                                                        className='inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700'
-                                                    >
-                                                        <Ban size={14} />Cancelación con motivo
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div className='grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-2'>
-                                            <div className='rounded-xl border border-dashed border-slate-300 p-4'>
-                                                <div className='flex items-center gap-2'>
-                                                    <Bell size={16} className='text-slate-500' />
-                                                    <p className='text-xs font-bold text-slate-700'>
-                                                        Notificaciones internas
-                                                    </p>
-                                                </div>
-                                                <p className='mt-2 text-xs text-slate-500'>
-                                                    La infraestructura actual no expone un fetch
-                                                    operation-scoped reproducible; se conserva el enlace por
-                                                    ruta para F5/F6 sin duplicar tablas.
-                                                </p>
-                                            </div>
-                                            <div className='rounded-xl border border-dashed border-slate-300 p-4'>
-                                                <div className='flex items-center gap-2'>
-                                                    <FileOutput size={16} className='text-slate-500' />
-                                                    <p className='text-xs font-bold text-slate-700'>
-                                                        Generación documental
-                                                    </p>
-                                                </div>
-                                                <p className='mt-2 text-xs text-slate-500'>
-                                                    Los templates/generated_documents históricos no están
-                                                    canonizados en reset local; el acceso formal continúa en
-                                                    F3.
-                                                </p>
-                                            </div>
+                            ? (
+                                <div className='mx-auto max-w-xl rounded-2xl border border-red-200 bg-red-50 p-8 text-center'>
+                                    <AlertTriangle className='mx-auto text-red-500' />
+                                    <p className='mt-3 text-sm font-semibold text-red-700'>{error}</p>
+                                    <button
+                                        onClick={() => void load()}
+                                        className='mt-4 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white'
+                                    >
+                                        Reintentar
+                                    </button>
+                                </div>
+                            )
+                            : data && (
+                                <div className='space-y-5'>
+                                    {error && (
+                                        <div className='rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700'>
+                                            {error}
                                         </div>
-                                    </>
-                                )}
-                                {tab === 'execution' && (
-                                    <OperationExecution
-                                        data={data}
-                                        canManage={canManage}
-                                        onAssign={onAssign}
-                                        onRefresh={refresh}
-                                    />
-                                )}
-                                {tab === 'timeline' && <OperationTimeline data={data} />}
-                                {tab === 'incidents' && (
-                                    <OperationIncidents
-                                        data={data}
-                                        canManage={canManage}
-                                        isAdmin={isAdmin}
-                                        onRefresh={refresh}
-                                    />
-                                )}
-                                {tab === 'documents' && (
-                                    <CompanyOperationFiles operationId={operation.db_id!} />
-                                )}
-                                {tab === 'evidence' && (
-                                    <OperationEvidence
-                                        data={data}
-                                        canManage={canManage}
-                                        onRefresh={refresh}
-                                    />
-                                )}
-                                {tab === 'crossings' && (
-                                    <OperationCrossings
-                                        data={data}
-                                        canManage={canManage}
-                                        onRefresh={refresh}
-                                    />
-                                )}
-                                {tab === 'economics' && financial && <OperationEconomics data={data} />}
-                            </div>
-                        )}
+                                    )}
+                                    {tab === 'overview' && (
+                                        <>
+                                            <OperationOverview operation={data.operation} />
+                                            <CompanyOperationEditor operation={data.operation} onRefresh={refresh} />
+                                            <section className='border-t border-slate-100 pt-5'>
+                                                <h3 className='mb-3 font-bold text-slate-800'>
+                                                    Readiness de despacho y cierre
+                                                </h3>
+                                                <OperationReadiness
+                                                    data={data}
+                                                    canManageTracking={canManageTracking}
+                                                    onGenerateTokens={() => void generate()}
+                                                />
+                                            </section>
+                                            {canManage && (!companyWorkflowActive() || hasCompanyCapability('operations.transition')) && (
+                                                <div className='flex flex-wrap gap-2 border-t border-slate-100 pt-5'>
+                                                    {nextStatus[data.operation.status] && (
+                                                        <button
+                                                            disabled={actionLoading}
+                                                            onClick={() =>
+                                                                void transition(
+                                                                    nextStatus[data.operation.status]!,
+                                                                )}
+                                                            className='rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white'
+                                                        >
+                                                            Avanzar a {getOperationStatus(
+                                                                nextStatus[data.operation.status]!,
+                                                            ).label}
+                                                        </button>
+                                                    )}
+                                                    {isAdmin && data.operation.status !== 'cancelled' &&
+                                                        data.operation.status !== 'closed' && (
+                                                            <button
+                                                                onClick={onOverrideCancel}
+                                                                className='inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700'
+                                                            >
+                                                                <Ban size={14} />Cancelación con motivo
+                                                            </button>
+                                                        )}
+                                                </div>
+                                            )}
+                                            <div className='grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-2'>
+                                                <div className='rounded-xl border border-dashed border-slate-300 p-4'>
+                                                    <div className='flex items-center gap-2'>
+                                                        <Bell size={16} className='text-slate-500' />
+                                                        <p className='text-xs font-bold text-slate-700'>
+                                                            Notificaciones internas
+                                                        </p>
+                                                    </div>
+                                                    <p className='mt-2 text-xs text-slate-500'>
+                                                        Consulta las alertas de la empresa desde el centro de notificaciones.
+                                                    </p>
+                                                </div>
+                                                <div className='rounded-xl border border-dashed border-slate-300 p-4'>
+                                                    <div className='flex items-center gap-2'>
+                                                        <FileOutput size={16} className='text-slate-500' />
+                                                        <p className='text-xs font-bold text-slate-700'>
+                                                            Expediente documental
+                                                        </p>
+                                                    </div>
+                                                    <p className='mt-2 text-xs text-slate-500'>
+                                                        Consulta los archivos autorizados, sus versiones y los requisitos de esta operación.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                    {tab === 'execution' && (
+                                        <OperationExecution
+                                            data={data}
+                                            canManage={canManage}
+                                            onAssign={onAssign}
+                                            onRefresh={refresh}
+                                        />
+                                    )}
+                                    {tab === 'timeline' && <OperationTimeline data={data} />}
+                                    {tab === 'incidents' && (
+                                        <OperationIncidents
+                                            data={data}
+                                            canManage={canManage && (!companyWorkflowActive() || hasCompanyCapability('operations.edit'))}
+                                            isAdmin={isAdmin}
+                                            onRefresh={refresh}
+                                        />
+                                    )}
+                                    {tab === 'documents' && (
+                                        <CompanyOperationalDocuments data={data} onRefresh={refresh} />
+                                    )}
+                                    {tab === 'evidence' && (
+                                        companyWorkflowActive() ? <CompanyEvidence data={data} canManage={canManage && hasCompanyCapability('operations.evidence.write')} onRefresh={refresh} /> : <OperationEvidence
+                                            data={data}
+                                            canManage={canManage}
+                                            onRefresh={refresh}
+                                        />
+                                    )}
+                                    {tab === 'crossings' && (
+                                        <OperationCrossings
+                                            data={data}
+                                            canManage={canManage && (!companyWorkflowActive() || hasCompanyCapability('operations.edit'))}
+                                            onRefresh={refresh}
+                                        />
+                                    )}
+                                    {tab === 'economics' && financial && <OperationEconomics data={data} />}
+                                </div>
+                            )}
                 </main>
             </div>
         </div>

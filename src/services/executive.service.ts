@@ -1,3 +1,5 @@
+import { companyWorkflowActive } from './companyWorkflow.service';
+import { scopedResponse } from '@/store/companyStore';
 import { supabase } from '@/lib/supabase';
 import type {
     AttentionItem,
@@ -54,6 +56,10 @@ export async function listInternalNotifications(
 }
 
 export async function markInternalNotificationsRead(tenantId: string, ids: string[] | null): Promise<void> {
+    if (companyWorkflowActive()) {
+        const { data, error } = await supabase.rpc('rpc_delivery_notification_action', { p_tenant_id: tenantId, p_action: 'read', p_ids: ids });
+        assertResult(data, error); return;
+    }
     const { data, error } = await supabase.rpc('rpc_mark_internal_notifications_read', {
         p_tenant_id: tenantId,
         p_notification_ids: ids,
@@ -62,6 +68,10 @@ export async function markInternalNotificationsRead(tenantId: string, ids: strin
 }
 
 export async function dismissInternalNotification(tenantId: string, notificationId: string): Promise<void> {
+    if (companyWorkflowActive()) {
+        const { data, error } = await supabase.rpc('rpc_delivery_notification_action', { p_tenant_id: tenantId, p_action: 'dismiss', p_ids: [notificationId] });
+        assertResult(data, error); return;
+    }
     const { data, error } = await supabase.rpc('rpc_dismiss_internal_notification', {
         p_tenant_id: tenantId,
         p_notification_id: notificationId,
@@ -74,12 +84,14 @@ export async function globalSearch(
     query: string,
     limit = 5,
 ): Promise<GlobalSearchResult[]> {
-    const { data, error } = await supabase.rpc('rpc_delivery_search', {
-        p_tenant_id: tenantId,
-        p_query: query,
-        p_limit: limit,
+    return scopedResponse(async () => {
+        const { data, error } = await supabase.rpc('rpc_delivery_search', {
+            p_tenant_id: tenantId,
+            p_query: query,
+            p_limit: limit,
+        });
+        return assertResult<{ items: GlobalSearchResult[] }>(data, error).items;
     });
-    return assertResult<{ items: GlobalSearchResult[] }>(data, error).items;
 }
 
 export async function listSavedViews(tenantId: string, module: ProductivityModule): Promise<SavedView[]> {
