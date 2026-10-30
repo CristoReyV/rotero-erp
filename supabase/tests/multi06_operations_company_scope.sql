@@ -96,6 +96,9 @@ DO $fixtures$
 DECLARE t uuid; x uuid; a uuid; b uuid; xc uuid; u uuid:=gen_random_uuid(); no_grant uuid:=gen_random_uuid();
     other_user uuid:=gen_random_uuid(); op uuid; i int;
 BEGIN
+    -- The reconciled staging audit contract references auth.users. These are
+    -- synthetic actors in this rollback, not provisioned/login-capable accounts.
+    INSERT INTO auth.users(id) VALUES(u),(no_grant),(other_user);
     INSERT INTO public.tenants(name,slug) VALUES('MULTI06 synthetic','multi06-'||gen_random_uuid()) RETURNING id INTO t;
     INSERT INTO public.tenants(name,slug) VALUES('MULTI06 other','multi06-'||gen_random_uuid()) RETURNING id INTO x;
     INSERT INTO public.memberships(user_id,tenant_id,role) VALUES(u,t,'finance'),(no_grant,t,'admin'),(other_user,x,'finance');

@@ -49,6 +49,8 @@ BEGIN
 END $$;
 DO $$ DECLARE t uuid;x uuid;a uuid;b uuid;xc uuid;u uuid:=gen_random_uuid();ng uuid:=gen_random_uuid();op uuid;inv uuid;f uuid;e uuid;
 BEGIN
+ -- The restored staging audit/creator contract requires Auth FK targets.
+ INSERT INTO auth.users(id) VALUES(u),(ng);
  INSERT INTO public.tenants(name,slug) VALUES('Delivery synthetic','delivery-'||gen_random_uuid()) RETURNING id INTO t;
  INSERT INTO public.tenants(name,slug) VALUES('Delivery other','delivery-'||gen_random_uuid()) RETURNING id INTO x;
  INSERT INTO public.memberships(user_id,tenant_id,role) VALUES(u,t,'finance'),(ng,t,'admin');
@@ -160,6 +162,7 @@ SELECT pg_temp.ok(NOT pg_has_role('authenticated','rotero_delivery_capture_owner
 -- A separate synthetic verified human proves full/consolidated paths locally.
 -- This is not the technical QA identity and is never assigned remotely.
 DO $$ DECLARE u uuid:=gen_random_uuid();b uuid;t uuid:=current_setting('d.t')::uuid;c uuid;BEGIN
+ INSERT INTO auth.users(id) VALUES(u);
  INSERT INTO public.memberships(user_id,tenant_id,role) VALUES(u,t,'finance');
  INSERT INTO private.financial_principal_bindings(tenant_id,user_id,principal_code,identity_kind,identity_issuer,approval_reference,verified_by,verified_at)
  VALUES(t,u,'approved_financial_01','verified_human','https://synthetic-access.invalid/auth/v1','local-synthetic-proof',current_setting('d.u')::uuid,now()-interval '1 minute') RETURNING id INTO b;

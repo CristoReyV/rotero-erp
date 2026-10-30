@@ -93,8 +93,11 @@ RESET ROLE;
 DO $fixtures$
 DECLARE t uuid; x uuid; a uuid; b uuid; xc uuid; u uuid:=gen_random_uuid(); ng uuid:=gen_random_uuid();
     adm uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid(); binding uuid; oa uuid; ob uuid; ox uuid;
-    da uuid; db uuid; ia uuid; ap uuid; ib uuid; ix uuid; ip uuid; child uuid; payment uuid;
+    da uuid; db uuid; ia uuid; ap uuid; ib uuid; ix uuid; ip uuid; child uuid; payment uuid; payroll uuid:=gen_random_uuid();
 BEGIN
+    -- Reconciled audit/creator FKs require real synthetic Auth row IDs. All
+    -- actors and effects remain local to this transaction and are rolled back.
+    INSERT INTO auth.users(id) VALUES(u),(ng),(adm),(outsider);
     INSERT INTO public.tenants(name,slug) VALUES('M07 synthetic','m07-'||gen_random_uuid()) RETURNING id INTO t;
     INSERT INTO public.tenants(name,slug) VALUES('M07 other','m07-'||gen_random_uuid()) RETURNING id INTO x;
     INSERT INTO public.memberships(user_id,tenant_id,role) VALUES(u,t,'finance'),(ng,t,'finance'),(adm,t,'admin'),(outsider,x,'finance');
@@ -129,8 +132,14 @@ BEGIN
     PERFORM pg_temp.m07_resolve('finance_invoices',ib,b);PERFORM pg_temp.m07_resolve('finance_invoices',ix,xc);
     INSERT INTO public.finance_invoices(tenant_id,direction,counterparty_name,reference,amount) VALUES(t,'ar','Unknown','PENDING',25) RETURNING id INTO ip;
     INSERT INTO public.finance_invoices(tenant_id,operation_id,direction,counterparty_name,reference,amount) VALUES(t,oa,'ar','Known parent','PARENT',15);
+    -- B has the reviewed payroll parent/FK; canonical A only has the nullable
+    -- compatibility column. Exercise the same exclusion with a valid B parent.
+    IF to_regclass('public.payroll_periods') IS NOT NULL THEN
+        EXECUTE 'INSERT INTO public.payroll_periods(id,tenant_id,name,period_start,period_end) VALUES($1,$2,$3,current_date,current_date+14)'
+            USING payroll,t,'MULTI07 SYNTHETIC ROLLBACK';
+    END IF;
     INSERT INTO public.finance_invoices(tenant_id,direction,counterparty_name,reference,amount,payroll_period_id)
-        VALUES(t,'ap','Synthetic reserved payroll','PAYROLL',1,gen_random_uuid()) RETURNING id INTO child;
+        VALUES(t,'ap','Synthetic reserved payroll','PAYROLL',1,payroll) RETURNING id INTO child;
     PERFORM pg_temp.m07_resolve('finance_invoices',child,a);PERFORM set_config('m07.payroll',child::text,true);
     INSERT INTO public.finance_payments(tenant_id,invoice_id,amount,paid_at,bank_reference,note) VALUES(t,ia,20,now(),'SYNTHETIC_PRIVATE_CANARY','SYNTHETIC_PRIVATE_CANARY') RETURNING id INTO payment;
     INSERT INTO public.billing_credit_notes(tenant_id,finance_invoice_id,total,status) VALUES(t,ia,10,'applied') RETURNING id INTO child;

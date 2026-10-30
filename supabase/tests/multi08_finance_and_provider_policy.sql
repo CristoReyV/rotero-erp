@@ -46,6 +46,8 @@ DO $$ BEGIN EXECUTE format('GRANT SELECT,INSERT ON private.finance_invoices_comp
 RESET ROLE;
 DO $fixture$ DECLARE t uuid; x uuid; a uuid; b uuid; xc uuid; u uuid:=gen_random_uuid(); admin uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid();
  o uuid; i uuid; pending uuid; evidence uuid; pay uuid; c uuid; c2 uuid; cx uuid; BEGIN
+ -- Match the reconciled audit FKs without weakening them or provisioning users.
+ INSERT INTO auth.users(id) VALUES(u),(admin),(outsider);
  INSERT INTO public.tenants(name,slug) VALUES('M08 synthetic','m08-'||gen_random_uuid()) RETURNING id INTO t;
  INSERT INTO public.tenants(name,slug) VALUES('M08 other','m08-'||gen_random_uuid()) RETURNING id INTO x;
  INSERT INTO public.memberships(user_id,tenant_id,role) VALUES(u,t,'finance'),(admin,t,'admin'),(outsider,x,'finance');
