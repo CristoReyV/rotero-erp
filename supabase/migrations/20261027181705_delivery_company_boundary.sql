@@ -123,4 +123,7 @@ DO $owners$ DECLARE f record; actor text:=current_user; BEGIN
  END LOOP;
  EXECUTE format('SET LOCAL ROLE %I',actor);
 END $owners$;
+SET LOCAL ROLE rotero_delivery_scope_owner;
+GRANT EXECUTE ON FUNCTION private.delivery_required(uuid) TO rotero_c02_gate_owner;
+SET LOCAL ROLE postgres;
 COMMIT;

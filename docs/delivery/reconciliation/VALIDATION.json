@@ -1,0 +1,441 @@
+{
+  "comparison": {
+    "A45": {
+      "sha256": "7506bc1992e7a1d07a6e4c38a866a001246411332cf5d89a139d75a980f873e3",
+      "functions": 351,
+      "public_authenticated": 245
+    },
+    "B45": {
+      "sha256": "e3df8a28d8581fd02b178b56a8ebe3b1082093b03b9b4e984738dd21270e5df4",
+      "functions": 478,
+      "public_authenticated": 360
+    },
+    "C53_original": {
+      "sha256": "2eb11d18f904c74d7900acdf13f4a15aec3f6d0e139e297b5be0b0bccced89ce",
+      "functions": 707,
+      "public_authenticated": 259
+    },
+    "B45_current": {
+      "sha256": "cff9576f452262abe86124e37d39e94cd1527a2b0e76c5929b603fe4699713a8",
+      "functions": 478,
+      "public_authenticated": 360,
+      "semantic_delta_from_initial": "one reviewed Storage bucket trigger; application definitions and effective privileges unchanged"
+    }
+  },
+  "source_metadata_md5": {
+    "A45": "6767d279c285cfde732d84c5d1782947",
+    "B45": "16b137f19c54a6499924d0a8e663dc17",
+    "B45_with_reviewed_storage_trigger": "d86b1b5b73d52d77e1a864276d6e033a"
+  },
+  "applied45_unchanged": true,
+  "clean_replay": {
+    "migrations": 53,
+    "previous_suites_passed": 25,
+    "new_reconciliation_suite_passed": true,
+    "changed_last_tests_reexecuted": [
+      "f2_operation_360",
+      "f6_data_operations",
+      "fiscal0_provider_neutral_readiness"
+    ],
+    "suites": [
+      {
+        "suite": "db_baseline_contract",
+        "sha256": "48eefabf586539dddb7a9bb0c3ad6b31a006599feed5cebd4883a48fc25ef92e",
+        "passed": true
+      },
+      {
+        "suite": "db_consumed_contracts",
+        "sha256": "b90e7ec34b45344ae03e33b1c4d4c035b1da9562c4e16264e5903537842f7a81",
+        "passed": true
+      },
+      {
+        "suite": "multi04_companies_explicit_access",
+        "sha256": "2309d2171418381d2c2f9cc582b375780e6f5cbb8348ea6e7f5b687403b782fc",
+        "passed": true
+      },
+      {
+        "suite": "multi05_company_capabilities",
+        "sha256": "fb2a87534b4562f907fd8d599338c9b235e0772eafb28d1082a8986e5f8b1d97",
+        "passed": true
+      },
+      {
+        "suite": "multi06_operations_company_scope",
+        "sha256": "e972f5ef458f5e4fc437404918d9d422271bacbe4d07ae728ffc6fb0256c6fa5",
+        "passed": true
+      },
+      {
+        "suite": "multi07_finance_company_authorization",
+        "sha256": "fdf2c3055dc3f8d004e72f3ea48d0376da47a921d15e4213355a93ed2b699114",
+        "passed": true
+      },
+      {
+        "suite": "multi08_finance_and_provider_policy",
+        "sha256": "27df203f271d2e6ebba2fa9607c72495d84a19f7ab06c0b40b675779ae8290e1",
+        "passed": true
+      },
+      {
+        "suite": "facturama01_sandbox",
+        "sha256": "68d9f21019afd802bff64868c9aa0e34f15b99d661118ce7abb78857b6e78d31",
+        "passed": true
+      },
+      {
+        "suite": "facturama02_reconciliation",
+        "sha256": "9bf5ea767daefd05423626a2078577e544e0834617d5be9a31bae1204777833e",
+        "passed": true
+      },
+      {
+        "suite": "facturama05_pdf_evidence",
+        "sha256": "e957efc96c4386c8d50cd10284921977410b121bb56ddb16f3bfe2cc5a35e72b",
+        "passed": true
+      },
+      {
+        "suite": "f2_operation_360",
+        "sha256": "7ec658f170110b5bbbc5a3bcaaf7c51644284005dd2bf3ef890bc27d72ff6d74",
+        "passed": true
+      },
+      {
+        "suite": "f3_documents_360",
+        "sha256": "d342063e6cbd09b540db03aba5ae06197a69d23de9f13eedd66f78daf3f16781",
+        "passed": true
+      },
+      {
+        "suite": "f4_finance_360",
+        "sha256": "a8d1f31649cd6e2f6badf7adc2f9de60d8d7c438d8af1ca6ecd10b2958c6bd8f",
+        "passed": true
+      },
+      {
+        "suite": "f6_data_operations",
+        "sha256": "e00a048a7f9eac5df241ded0468ef6866c25d79880e81323b1dcc154e13d3ac7",
+        "passed": true
+      },
+      {
+        "suite": "fiscal0_composite_parameter_regression",
+        "sha256": "6775e8e48c6472a4bf81d67e6c11de10716ad8d791b658416a6c988a0d869a4e",
+        "passed": true
+      },
+      {
+        "suite": "fiscal0_provider_neutral_readiness",
+        "sha256": "67fac86972596b25929fc4aae9461d9aa0e2fdeb5b82685d9251aa9fd7fcea48",
+        "passed": true
+      },
+      {
+        "suite": "f1_commercial_360",
+        "sha256": "ed98e3c8ca339fc7ff6385bc42b815df4cbaec0ff9eafb522ef217623bfac4ab",
+        "passed": true
+      },
+      {
+        "suite": "f5_executive_productivity",
+        "sha256": "14fa717c0b0e299d869a902d1404d18cce3c86a419d2cc0f4d6250b1fd0cb743",
+        "passed": true
+      },
+      {
+        "suite": "f7_automations",
+        "sha256": "e6768c1d3a9d7aab6548c669eca02440063ca01d276367982432f9875cb09d12",
+        "passed": true
+      },
+      {
+        "suite": "f8_rates_partner_360",
+        "sha256": "972f052f24f8849c0b84700cd6955b3eb95ec9f17d01c87cca0e3907d0bc037b",
+        "passed": true
+      },
+      {
+        "suite": "f9_compliance_contracts",
+        "sha256": "5843b3e003ea6c5989a96e0934bc56de59e1c3370e2ae8e682b75ca0fdc92d0e",
+        "passed": true
+      },
+      {
+        "suite": "f10_claims_customer_service",
+        "sha256": "b2489ee5a94f48de970128300cd53781df9f3ac8348f02d3988dc006d685eaf8",
+        "passed": true
+      },
+      {
+        "suite": "bh1_cross_module_invariants",
+        "sha256": "39e46cd068dfb6b7d35f5a534bb317bf8b32012788b1535259516255d9d827d5",
+        "passed": true
+      },
+      {
+        "suite": "bh2_daily_use_hardening",
+        "sha256": "e6fa95489c50254eda4b120200eb044271444bd2a5db5277c7c769d60f034f90",
+        "passed": true
+      },
+      {
+        "suite": "delivery_company_boundary",
+        "sha256": "696001cf4ed31bd930c12ddcb5736385d5cc635225041919742f432f25984ecb",
+        "passed": true
+      },
+      {
+        "suite": "cierre02_reconciliation",
+        "sha256": "3532e30ee8e485bf093e542af8ac326a54a91a81061db8450f8dc8cc62506345",
+        "passed": true
+      }
+    ]
+  },
+  "restored_replay": {
+    "all_eight_delta_migrations_passed": true,
+    "database_name": "postgres",
+    "API_Auth_services_stopped": true,
+    "suites": [
+      {
+        "suite": "db_consumed_contracts",
+        "sha256": "b90e7ec34b45344ae03e33b1c4d4c035b1da9562c4e16264e5903537842f7a81",
+        "passed": true
+      },
+      {
+        "suite": "multi06_operations_company_scope",
+        "sha256": "e972f5ef458f5e4fc437404918d9d422271bacbe4d07ae728ffc6fb0256c6fa5",
+        "passed": true
+      },
+      {
+        "suite": "multi07_finance_company_authorization",
+        "sha256": "fdf2c3055dc3f8d004e72f3ea48d0376da47a921d15e4213355a93ed2b699114",
+        "passed": true
+      },
+      {
+        "suite": "multi08_finance_and_provider_policy",
+        "sha256": "27df203f271d2e6ebba2fa9607c72495d84a19f7ab06c0b40b675779ae8290e1",
+        "passed": true
+      },
+      {
+        "suite": "facturama01_sandbox",
+        "sha256": "68d9f21019afd802bff64868c9aa0e34f15b99d661118ce7abb78857b6e78d31",
+        "passed": true
+      },
+      {
+        "suite": "facturama02_reconciliation",
+        "sha256": "9bf5ea767daefd05423626a2078577e544e0834617d5be9a31bae1204777833e",
+        "passed": true
+      },
+      {
+        "suite": "facturama05_pdf_evidence",
+        "sha256": "e957efc96c4386c8d50cd10284921977410b121bb56ddb16f3bfe2cc5a35e72b",
+        "passed": true
+      },
+      {
+        "suite": "f2_operation_360",
+        "sha256": "7ec658f170110b5bbbc5a3bcaaf7c51644284005dd2bf3ef890bc27d72ff6d74",
+        "passed": true
+      },
+      {
+        "suite": "f3_documents_360",
+        "sha256": "d342063e6cbd09b540db03aba5ae06197a69d23de9f13eedd66f78daf3f16781",
+        "passed": true
+      },
+      {
+        "suite": "f4_finance_360",
+        "sha256": "a8d1f31649cd6e2f6badf7adc2f9de60d8d7c438d8af1ca6ecd10b2958c6bd8f",
+        "passed": true
+      },
+      {
+        "suite": "f6_data_operations",
+        "sha256": "e00a048a7f9eac5df241ded0468ef6866c25d79880e81323b1dcc154e13d3ac7",
+        "passed": true
+      },
+      {
+        "suite": "fiscal0_composite_parameter_regression",
+        "sha256": "6775e8e48c6472a4bf81d67e6c11de10716ad8d791b658416a6c988a0d869a4e",
+        "passed": true
+      },
+      {
+        "suite": "fiscal0_provider_neutral_readiness",
+        "sha256": "67fac86972596b25929fc4aae9461d9aa0e2fdeb5b82685d9251aa9fd7fcea48",
+        "passed": true
+      },
+      {
+        "suite": "f1_commercial_360",
+        "sha256": "ed98e3c8ca339fc7ff6385bc42b815df4cbaec0ff9eafb522ef217623bfac4ab",
+        "passed": true
+      },
+      {
+        "suite": "f5_executive_productivity",
+        "sha256": "14fa717c0b0e299d869a902d1404d18cce3c86a419d2cc0f4d6250b1fd0cb743",
+        "passed": true
+      },
+      {
+        "suite": "f7_automations",
+        "sha256": "e6768c1d3a9d7aab6548c669eca02440063ca01d276367982432f9875cb09d12",
+        "passed": true
+      },
+      {
+        "suite": "f8_rates_partner_360",
+        "sha256": "972f052f24f8849c0b84700cd6955b3eb95ec9f17d01c87cca0e3907d0bc037b",
+        "passed": true
+      },
+      {
+        "suite": "f9_compliance_contracts",
+        "sha256": "5843b3e003ea6c5989a96e0934bc56de59e1c3370e2ae8e682b75ca0fdc92d0e",
+        "passed": true
+      },
+      {
+        "suite": "f10_claims_customer_service",
+        "sha256": "b2489ee5a94f48de970128300cd53781df9f3ac8348f02d3988dc006d685eaf8",
+        "passed": true
+      },
+      {
+        "suite": "bh1_cross_module_invariants",
+        "sha256": "39e46cd068dfb6b7d35f5a534bb317bf8b32012788b1535259516255d9d827d5",
+        "passed": true
+      },
+      {
+        "suite": "bh2_daily_use_hardening",
+        "sha256": "e6fa95489c50254eda4b120200eb044271444bd2a5db5277c7c769d60f034f90",
+        "passed": true
+      },
+      {
+        "suite": "delivery_company_boundary",
+        "sha256": "696001cf4ed31bd930c12ddcb5736385d5cc635225041919742f432f25984ecb",
+        "passed": true
+      },
+      {
+        "suite": "cierre02_reconciliation",
+        "sha256": "3532e30ee8e485bf093e542af8ac326a54a91a81061db8450f8dc8cc62506345",
+        "passed": true
+      },
+      {
+        "suite": "cierre02_storage_transition",
+        "sha256": "68b9b71af620010af4b82790924cd9e3db88ad11465e7d3ffc7314a22d0a348d",
+        "passed": true
+      }
+    ],
+    "fresh_only_suites_run_in_A": [
+      "db_baseline_contract",
+      "multi04_companies_explicit_access",
+      "multi05_company_capabilities"
+    ],
+    "scheduler_jobs_inactive_local": true
+  },
+  "bounded_new_suite": {
+    "observed_contracts": 169,
+    "protected_calls_A": 88,
+    "protected_calls_B": 90,
+    "input_equivalences_B": 16,
+    "membership_helpers_positive_and_cross_tenant": 8,
+    "registry_acl_drift_rejected": true
+  },
+  "source_fence": [
+    {
+      "case": "reviewed_B_accepts",
+      "passed": true,
+      "rejection": null
+    },
+    {
+      "case": "body_drift",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "acl_drift",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "new_function",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "new_column",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "api_owner_membership",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    }
+  ],
+  "preservation": {
+    "original_copy_tables": 134,
+    "all_original_columns_equal_after_delta": true,
+    "business_company_backfill": false
+  },
+  "backup": {
+    "custody_identifier": "cierre02-313d20a6",
+    "DPAPI": true,
+    "DB_restore_and_hashes_verified": true,
+    "private_storage_objects": 15,
+    "storage_bytes": 163317,
+    "storage_download_hashes_verified": true,
+    "platform_secrets_Vault_root_PITR_not_included": true,
+    "refreshed_for_storage_trigger": true,
+    "new_components": [
+      {
+        "component": "schema-b2",
+        "sha256": "7f529704ddb54e3eec4e03b336607b65d35ca6f49cf143f949d230656966d274",
+        "decrypt_verified": true,
+        "bytes": 1738128
+      },
+      {
+        "component": "data-b2",
+        "sha256": "b847b50951970840815ef5333fa2d118f1c6ff19853ba1629a053749d0026aef",
+        "decrypt_verified": true,
+        "bytes": 4546796
+      }
+    ]
+  },
+  "checks": {
+    "lint_typecheck": true,
+    "build_staging": true,
+    "diff_check": true,
+    "Node_and_Deno_prior_evidence_reused": "Application and server TypeScript plus dependency inputs unchanged; current delta SQL/Python/docs. No test references modified migration filenames."
+  },
+  "staging": {
+    "project_ref": "mxpmgihuheagrcowwbia",
+    "health": "ACTIVE_HEALTHY",
+    "delta_applied": false,
+    "dry_run_exact_eight": true,
+    "vault_roles_seeds_not_updated": true,
+    "advisors_and_logs_connector": "permission unavailable; no repeated retries"
+  },
+  "QA": {
+    "enterprise_UI": "pending exclusive fixture preparation after backend gates",
+    "shared_existing_QA_tenant_other_auth_accounts": 2,
+    "existing_only_company_inactive": true,
+    "real_people_grants": false,
+    "new_business_fixtures_remote": false,
+    "new_provider_calls": false,
+    "exclusive_synthetic_lab_authorized": true
+  },
+  "release": {
+    "PR": 47,
+    "draft": true,
+    "merge": false,
+    "main_deploy": false
+  },
+  "source_fence_current": [
+    {
+      "case": "reviewed_B_accepts",
+      "passed": true,
+      "rejection": null
+    },
+    {
+      "case": "body_drift",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "acl_drift",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "new_function",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "new_column",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "api_owner_membership",
+      "passed": true,
+      "rejection": "cierre02_unreviewed_source_state"
+    },
+    {
+      "case": "storage_body_drift",
+      "passed": true,
+      "rejection": "c02_storage_transition_drift"
+    }
+  ]
+}

@@ -207,8 +207,15 @@ BEGIN
     INSERT INTO public.logistics_providers(tenant_id,display_name) VALUES (v_tenant_a,'Proveedor Dos') RETURNING id INTO v_provider_2;
     INSERT INTO public.drivers(tenant_id,display_name,status) VALUES (v_tenant_a,'Chofer disponible','available') RETURNING id INTO v_driver;
     INSERT INTO public.drivers(tenant_id,display_name,status) VALUES (v_tenant_a,'Chofer inactivo','inactive') RETURNING id INTO v_driver_inactive;
-    INSERT INTO public.vehicles(tenant_id,unit_code,status) VALUES (v_tenant_a,'F2-UNIT-1','available') RETURNING id INTO v_vehicle;
-    INSERT INTO public.vehicles(tenant_id,unit_code,status) VALUES (v_tenant_a,'F2-UNIT-X','inactive') RETURNING id INTO v_vehicle_inactive;
+    IF EXISTS(SELECT FROM information_schema.columns WHERE table_schema='public' AND table_name='vehicles' AND column_name='display_name') THEN
+        EXECUTE 'INSERT INTO public.vehicles(tenant_id,unit_code,display_name,status) VALUES($1,''F2-UNIT-1'',''Synthetic unit'',''available'') RETURNING id'
+            INTO v_vehicle USING v_tenant_a;
+        EXECUTE 'INSERT INTO public.vehicles(tenant_id,unit_code,display_name,status) VALUES($1,''F2-UNIT-X'',''Synthetic inactive unit'',''inactive'') RETURNING id'
+            INTO v_vehicle_inactive USING v_tenant_a;
+    ELSE
+        INSERT INTO public.vehicles(tenant_id,unit_code,status) VALUES (v_tenant_a,'F2-UNIT-1','available') RETURNING id INTO v_vehicle;
+        INSERT INTO public.vehicles(tenant_id,unit_code,status) VALUES (v_tenant_a,'F2-UNIT-X','inactive') RETURNING id INTO v_vehicle_inactive;
+    END IF;
     INSERT INTO public.service_catalog_items(tenant_id,service_type,service_class,presentation,packaging,modality)
       VALUES(v_tenant_a,'Carga terrestre','FTL','Seca','Caja','Puerta a puerta') RETURNING id INTO v_service;
     INSERT INTO public.operations(tenant_id,reference_code,client_display_name,operation_scope,status)
@@ -385,9 +392,9 @@ DO $close_fixture$
 DECLARE v_operation uuid := current_setting('f2.operation')::uuid; v_tenant uuid := current_setting('f2.tenant_a')::uuid;
 BEGIN
     UPDATE public.operations SET status = 'delivered' WHERE id = v_operation;
-    INSERT INTO public.operation_billing(tenant_id, operation_id, status, billing_reference, issued_at)
-    VALUES(v_tenant, v_operation, 'issued', 'F2-BILL-001', now())
-    ON CONFLICT (operation_id) DO UPDATE SET status = 'issued', billing_reference = 'F2-BILL-001', issued_at = now();
+    INSERT INTO public.operation_billing(tenant_id, operation_id, status, billing_reference, issued_at,issued_by)
+    VALUES(v_tenant, v_operation, 'issued', 'F2-BILL-001', now(),current_setting('f2.admin')::uuid)
+    ON CONFLICT (operation_id) DO UPDATE SET status = 'issued', billing_reference = 'F2-BILL-001', issued_at = now(),issued_by=current_setting('f2.admin')::uuid;
 END;
 $close_fixture$;
 
@@ -458,7 +465,7 @@ RESET ROLE;
 
 DO $regression_shape$
 BEGIN
-    IF (SELECT count(*) FROM public.operations WHERE source_deal_id IS NOT NULL) <> 1 THEN
+    IF (SELECT count(*) FROM public.operations WHERE tenant_id=current_setting('f2.tenant_a')::uuid AND source_deal_id IS NOT NULL) <> 1 THEN
       RAISE EXCEPTION 'F2 REGRESSION FAILED: F1 conversion duplicated'; END IF;
     IF EXISTS (SELECT 1 FROM public.operation_evidence e JOIN public.operation_incidents i ON i.id=e.incident_id WHERE e.operation_id<>i.operation_id) THEN
       RAISE EXCEPTION 'F2 REGRESSION FAILED: invalid evidence relation'; END IF;

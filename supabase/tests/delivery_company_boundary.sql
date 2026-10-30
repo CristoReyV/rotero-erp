@@ -88,6 +88,14 @@ END $$;
 SELECT pg_temp.actor(current_setting('d.u')::uuid,current_setting('d.a')::uuid);
 SET LOCAL ROLE authenticated;
 DO $$ DECLARE r jsonb;op uuid:=current_setting('d.op')::uuid;t uuid:=current_setting('d.t')::uuid;BEGIN
+ PERFORM pg_temp.ok(public.billing_user_has_tenant(t,ARRAY['finance'])
+  AND public.tanda2_user_has_role(t,ARRAY['finance']) AND public.tanda3_user_has_role(t,ARRAY['finance'])
+  AND public.tanda4_user_has_role(t,ARRAY['finance']) AND public.tanda5_user_has_role(t,ARRAY['finance']),
+  'reviewed metadata helpers recognize only own membership');
+ PERFORM pg_temp.ok(public.tanda6_user_role(t)='finance' AND public.tanda6_can_view_area(t,'finance')
+  AND public.tanda6_can_mutate_area(t,'finance'),'legacy area metadata retained; not a financial binding');
+ PERFORM pg_temp.ok(NOT public.billing_user_has_tenant(current_setting('d.x')::uuid,NULL)
+  AND public.tanda6_user_role(current_setting('d.x')::uuid) IS NULL,'metadata helpers deny another tenant');
  r:=public.rpc_delivery_context(t);PERFORM pg_temp.ok(jsonb_array_length(r->'companies')=2,'only explicit companies');
  r:=public.rpc_delivery_operations_page(t);PERFORM pg_temp.ok((r->>'total')::int=3 AND jsonb_array_length(r->'items')=3,'scoped list/count');
  PERFORM pg_temp.ok(r::text NOT LIKE '%12345%' AND r::text NOT LIKE '%54321%' AND r::text NOT LIKE '%FINANCIAL_CANARY%','no financial fields in list');
@@ -201,6 +209,10 @@ SELECT pg_temp.ok((SELECT count(*)=0 FROM public.internal_notifications WHERE te
 
 -- A temporary SELECT grant cannot defeat restrictive RLS, even with a valid scope.
 GRANT SELECT ON public.operations,public.finance_invoices TO authenticated;
+-- Restored legacy policies contain direct membership subqueries. Also grant
+-- their minimal metadata temporarily, so a 42501 on that dependency cannot
+-- disguise a broken company RLS predicate. All grants roll back below.
+GRANT SELECT(user_id,tenant_id,role) ON public.memberships TO authenticated;
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok((SELECT count(*)=0 FROM public.operations),'direct operations RLS');
 -- Its existing private finance policy also denies EXECUTE to the API role.

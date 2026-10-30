@@ -259,6 +259,9 @@ skip={'tanda1_user_is_member','tanda1_user_has_role','rpc_get_company_fiscal_pro
 manifest=[]
 for p in C['functions']:
  if p['schema']!='public' or not p['authenticated'] or p['name'] in skip|safe:continue
+ # CIERRE-02 owns this reviewed JSON/table ABI variant and closes it for company
+ # context. Keep its exact historical signature; Tracking is not adopted here.
+ if p['name']=='rpc_list_route_points':continue
  assert p['prosecdef'] and p['result']=='jsonb' and p['owner']=='postgres'
  name=p['name'];args=p['args'];argnames=re.findall(r'\b(p_[a-z0-9_]+)\s',args)
  signature=name+'('+args+')';core='delivery_core_'+hashlib.sha256(signature.encode()).hexdigest()[:20]
@@ -283,8 +286,13 @@ for p in C['functions']:
  # in a new migration; replacements are explicit, confined to admitted read sources.
  clone="replace(pg_get_functiondef(p.oid),"+literal('FUNCTION public.'+name+'(')+','+literal('FUNCTION private.'+core+'(')+")"
  if name in admitted:
-  add(f'''DO $legacy$ DECLARE d text;BEGIN SELECT {clone} INTO STRICT d FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-  WHERE n.nspname='public' AND p.proname={literal(name)} AND pg_get_function_identity_arguments(p.oid)={literal(args)};EXECUTE d;END $legacy$;''')
+  add(f'''DO $legacy$ DECLARE d text;observed text;BEGIN
+  observed:=private.c02_legacy_definition({literal('public.'+name+'('+ident+')')});
+  IF observed IS NOT NULL THEN
+   d:=replace(observed,{literal('FUNCTION private.c02_observed_'+hashlib.sha256(('public.'+name+'('+ident+')').encode()).hexdigest()[:20]+'(')},{literal('FUNCTION private.'+core+'(')});
+  ELSE SELECT {clone} INTO STRICT d FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+   WHERE n.nspname='public' AND p.proname={literal(name)} AND pg_get_function_identity_arguments(p.oid)={literal(args)};END IF;
+  EXECUTE d;END $legacy$;''')
   add(f'REVOKE ALL ON FUNCTION private.{core}({ident}) FROM PUBLIC,anon,authenticated,service_role;')
   clone="replace(pg_get_functiondef(p.oid),"+literal('FUNCTION public.'+name+'(')+','+literal('FUNCTION private.'+scoped_core+'(')+")"
  if name in admitted-writers:
@@ -298,6 +306,23 @@ for p in C['functions']:
    for prefix in ['private.fiscal02_legacy_','private.fiscal02_readable_']:
     clone='replace('+clone+','+literal(prefix+t)+','+literal('private.delivery_'+t)+')'
   clone='replace('+clone+','+literal('private.fiscal02_readable_cfdis')+','+literal('private.delivery_billing_cfdis')+')'
+  # Views deliberately keep canonical projections; a restored database may have
+  # a different physical column order. Populate typed rows by field name, never
+  # assign canonical view positions into a staging table's %ROWTYPE.
+  for table in sources:
+   if not re.search(r'\bpublic\.'+table+r'%ROWTYPE',p['prosrc'],re.I):continue
+   # Build replacements from the exact reviewed source, then perform literal
+   # replacement in the cloned definition. Unknown typed reads abort generation.
+   original=p['definition']
+   matches=list(re.finditer(r'(?is)SELECT\s+([a-z_][a-z0-9_]*\.)?\*\s+INTO\s+(\w+)\s+FROM\s+(?:public\.'+table+r'|private\.fiscal02_readable_'+('cfdis' if table=='billing_cfdis' else table)+r')(?:\s+AS\s+(\w+))?',original))
+   assert matches,('unreviewed typed read',name,table)
+   for match in matches:
+    old=match[0]
+    for prefix in ['public.'+table,'private.fiscal02_readable_'+('cfdis' if table=='billing_cfdis' else table)]:old=old.replace(prefix,'private.delivery_'+table)
+    alias=(match[1] or '').rstrip('.') or match[3] or 'delivery_'+table
+    mapped='SELECT (pg_catalog.jsonb_populate_record(NULL::public.'+table+',pg_catalog.to_jsonb('+alias+'))).* INTO '+match[2]+' FROM private.delivery_'+table
+    if match[3]:mapped+=' AS '+match[3]
+    clone='replace('+clone+','+literal(old)+','+literal(mapped)+')'
  if name in writers:clone='replace('+clone+','+literal('private.multi08_legacy_write_target')+','+literal('private.delivery_finance_write_target')+')'
  add(f'''DO $clone$ DECLARE d text; BEGIN SELECT {clone} INTO STRICT d FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='public' AND p.proname={literal(name)} AND pg_get_function_identity_arguments(p.oid)={literal(args)};EXECUTE d; END $clone$;''')
@@ -379,9 +404,9 @@ COMMIT;
 expected=[p['name']+'('+p['args']+')' for p in C['functions'] if p['schema']=='public' and p['authenticated']]
 expected.append('rpc_delivery_context(p_tenant_id uuid)')
 gate='''DO $surface$ DECLARE f record;BEGIN
- FOR f IN SELECT p.proname,pg_get_function_identity_arguments(p.oid) args FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ FOR f IN SELECT p.oid,p.proname,pg_get_function_identity_arguments(p.oid) args FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='public' AND (p.proname LIKE 'rpc_%' OR p.proname LIKE 'tanda1_%') AND has_function_privilege('authenticated',p.oid,'EXECUTE') LOOP
- IF NOT (f.proname||'('||f.args||')'=ANY(ARRAY[EXPECTED])) THEN RAISE EXCEPTION 'unreviewed_authenticated_RPC: %',f.proname;END IF;
+ IF NOT (f.proname||'('||f.args||')'=ANY(ARRAY[EXPECTED])) AND NOT private.c02_is_reviewed_api(f.oid) THEN RAISE EXCEPTION 'unreviewed_authenticated_RPC: %',f.proname;END IF;
  END LOOP;
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind IN('v','m')
   AND (has_table_privilege('authenticated',oid,'SELECT') OR has_table_privilege('anon',oid,'SELECT')))

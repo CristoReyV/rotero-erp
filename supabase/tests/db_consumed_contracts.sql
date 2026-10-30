@@ -218,7 +218,14 @@ BEGIN
     END LOOP;
 
     IF to_regprocedure('public.rpc_accept_invitation(text,text,text)') IS NOT NULL THEN
-        RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: password-bearing invitation RPC returned';
+        -- B retained this inert, disabled OID. Presence cannot make it callable;
+        -- the exact registered body/configuration and all API denials must hold.
+        IF has_function_privilege('anon','public.rpc_accept_invitation(text,text,text)','EXECUTE')
+           OR has_function_privilege('authenticated','public.rpc_accept_invitation(text,text,text)','EXECUTE')
+           OR has_function_privilege('service_role','public.rpc_accept_invitation(text,text,text)','EXECUTE')
+           OR NOT private.c02_is_reviewed_api('public.rpc_accept_invitation(text,text,text)'::regprocedure) THEN
+            RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: password-bearing invitation RPC exposed';
+        END IF;
     END IF;
 
     FOREACH v_signature IN ARRAY ARRAY[
@@ -244,7 +251,14 @@ $rpcs$;
 DO $privileges$
 DECLARE v_role text; v_table text;
 BEGIN
-    IF to_regclass('public.users') IS NOT NULL THEN RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: public.users exists'; END IF;
+    IF to_regclass('public.users') IS NOT NULL THEN
+        IF (SELECT relkind FROM pg_class WHERE oid=to_regclass('public.users'))<>'v'
+           OR has_any_column_privilege('anon','public.users','SELECT')
+           OR has_any_column_privilege('authenticated','public.users','SELECT')
+           OR has_any_column_privilege('service_role','public.users','SELECT') THEN
+            RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: public.users exposed';
+        END IF;
+    END IF;
     IF has_table_privilege('authenticated','auth.users','SELECT') THEN
         RAISE EXCEPTION 'CONSUMED CONTRACT TEST FAILED: authenticated can read auth.users globally';
     END IF;

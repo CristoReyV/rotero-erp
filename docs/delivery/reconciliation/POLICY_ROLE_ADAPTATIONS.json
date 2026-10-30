@@ -1,0 +1,1617 @@
+[
+  {
+    "schema": "public",
+    "table_name": "audit_log",
+    "name": "Users can view audit_log",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = audit_log.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_api_attempts",
+    "name": "billing_api_attempts_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_api_attempts",
+    "name": "billing_api_attempts_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_api_outbox",
+    "name": "billing_api_outbox_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_api_outbox",
+    "name": "billing_api_outbox_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_api_outbox",
+    "name": "billing_api_outbox_update_tenant_operators",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_carta_porte",
+    "name": "Users can read billing_carta_porte in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = billing_carta_porte.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_cfdis",
+    "name": "Users can read billing_cfdis in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = billing_cfdis.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_credit_notes",
+    "name": "billing_credit_notes_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda2_user_has_role(tenant_id, ARRAY['admin'::text, 'finance'::text])",
+    "check_expression": "public.tanda2_user_has_role(tenant_id, ARRAY['admin'::text, 'finance'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_credit_notes",
+    "name": "billing_credit_notes_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda2_user_has_role(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_lines",
+    "name": "billing_document_lines_delete_tenant_operators",
+    "permissive": true,
+    "command": "d",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_lines",
+    "name": "billing_document_lines_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_lines",
+    "name": "billing_document_lines_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_lines",
+    "name": "billing_document_lines_update_tenant_operators",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_parties",
+    "name": "billing_document_parties_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_parties",
+    "name": "billing_document_parties_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_parties",
+    "name": "billing_document_parties_update_tenant_operators",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_taxes",
+    "name": "billing_document_taxes_delete_tenant_operators",
+    "permissive": true,
+    "command": "d",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_taxes",
+    "name": "billing_document_taxes_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_taxes",
+    "name": "billing_document_taxes_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_document_taxes",
+    "name": "billing_document_taxes_update_tenant_operators",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_documents",
+    "name": "billing_documents_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_documents",
+    "name": "billing_documents_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_documents",
+    "name": "billing_documents_update_tenant_operators",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_fiscal_profiles",
+    "name": "billing_fiscal_profiles_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_fiscal_profiles",
+    "name": "billing_fiscal_profiles_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_fiscal_profiles",
+    "name": "billing_fiscal_profiles_update_tenant_operators",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "check_expression": "public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_payment_complements",
+    "name": "billing_payment_complements_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda2_user_has_role(tenant_id, ARRAY['admin'::text, 'finance'::text])",
+    "check_expression": "public.tanda2_user_has_role(tenant_id, ARRAY['admin'::text, 'finance'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_payment_complements",
+    "name": "billing_payment_complements_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda2_user_has_role(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_sat_catalog_entries",
+    "name": "billing_sat_catalog_entries_insert_tenant_operators",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "((tenant_id IS NOT NULL) AND public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text]))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_sat_catalog_entries",
+    "name": "billing_sat_catalog_entries_select",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "((tenant_id IS NULL) OR public.billing_user_has_tenant(tenant_id))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "billing_sat_catalog_entries",
+    "name": "billing_sat_catalog_entries_update_tenant_operators",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "((tenant_id IS NOT NULL) AND public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text]))",
+    "check_expression": "((tenant_id IS NOT NULL) AND public.billing_user_has_tenant(tenant_id, ARRAY['admin'::text, 'operator'::text]))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_deal_activity",
+    "name": "Users can insert crm_deal_activity in their tenants",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = crm_deal_activity.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_deal_activity",
+    "name": "Users can read crm_deal_activity in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = crm_deal_activity.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_deal_activity",
+    "name": "Users can update crm_deal_activity in their tenants",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = crm_deal_activity.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_deals",
+    "name": "Users can delete crm_deals in their tenants",
+    "permissive": true,
+    "command": "d",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = crm_deals.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_deals",
+    "name": "Users can insert crm_deals in their tenants",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = crm_deals.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_deals",
+    "name": "Users can read crm_deals in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = crm_deals.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_deals",
+    "name": "Users can update crm_deals in their tenants",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = crm_deals.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "currency_exchange_rates",
+    "name": "currency_exchange_rates_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda2_user_has_role(tenant_id, ARRAY['admin'::text, 'finance'::text])",
+    "check_expression": "public.tanda2_user_has_role(tenant_id, ARRAY['admin'::text, 'finance'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "currency_exchange_rates",
+    "name": "currency_exchange_rates_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda2_user_has_role(tenant_id)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customers",
+    "name": "customers_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customers.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customs_descargo_lines",
+    "name": "Users can create descargo lines in their tenants",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customs_descargo_lines.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customs_descargo_lines",
+    "name": "Users can delete descargo lines in their tenants",
+    "permissive": true,
+    "command": "d",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customs_descargo_lines.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customs_descargo_lines",
+    "name": "Users can read descargo lines in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customs_descargo_lines.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customs_descargo_lines",
+    "name": "Users can update descargo lines in their tenants",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customs_descargo_lines.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customs_pedimentos",
+    "name": "Users can create pedimentos in their tenants",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customs_pedimentos.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customs_pedimentos",
+    "name": "Users can read pedimentos in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customs_pedimentos.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "customs_pedimentos",
+    "name": "Users can update pedimentos in their tenants",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = customs_pedimentos.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "daily_work_items",
+    "name": "daily_work_items_insert_by_role_area",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "public.tanda6_can_mutate_area(tenant_id, area)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "daily_work_items",
+    "name": "daily_work_items_select_by_role_area",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda6_can_view_area(tenant_id, area)",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "daily_work_items",
+    "name": "daily_work_items_update_by_role_area",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda6_can_mutate_area(tenant_id, area)",
+    "check_expression": "public.tanda6_can_mutate_area(tenant_id, area)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "drivers",
+    "name": "drivers_admin_manage",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = drivers.tenant_id) AND (m.role = 'admin'::text))))",
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = drivers.tenant_id) AND (m.role = 'admin'::text))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "drivers",
+    "name": "drivers_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = drivers.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "finance_invoices",
+    "name": "Users can read finance_invoices in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = finance_invoices.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "finance_payments",
+    "name": "Users can read finance_payments in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = finance_payments.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "internal_notification_rules",
+    "name": "internal_notification_rules_manage_admin",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda4_user_has_role(tenant_id, ARRAY['admin'::text])",
+    "check_expression": "public.tanda4_user_has_role(tenant_id, ARRAY['admin'::text])",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "internal_notification_rules",
+    "name": "internal_notification_rules_select_by_tenant",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda4_user_has_role(tenant_id, ARRAY['admin'::text, 'finance'::text])",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "internal_notifications",
+    "name": "internal_notifications_select_own",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "((user_id = auth.uid()) AND public.tanda4_user_has_role(tenant_id))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "internal_notifications",
+    "name": "internal_notifications_update_own",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "((user_id = auth.uid()) AND public.tanda4_user_has_role(tenant_id))",
+    "check_expression": "((user_id = auth.uid()) AND public.tanda4_user_has_role(tenant_id))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "inventory_lots",
+    "name": "Users can create inventory in their tenants",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = inventory_lots.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "inventory_lots",
+    "name": "Users can read inventory in their tenants",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = inventory_lots.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "inventory_lots",
+    "name": "Users can update inventory in their tenants",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = inventory_lots.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "logistics_providers",
+    "name": "logistics_providers_manage_tenant_ops",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = logistics_providers.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = logistics_providers.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "logistics_providers",
+    "name": "logistics_providers_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = logistics_providers.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operation_assignment_history",
+    "name": "operation_assignment_history_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operation_assignment_history.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operation_billing",
+    "name": "operation_billing_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operation_billing.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operation_documents",
+    "name": "operation_documents_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operation_documents.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operation_evidence",
+    "name": "operation_evidence_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operation_evidence.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operation_incidents",
+    "name": "operation_incidents_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operation_incidents.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operations",
+    "name": "Users can create operations in their tenants",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operations.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operations",
+    "name": "Users can delete operations in their tenants",
+    "permissive": true,
+    "command": "d",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operations.tenant_id) AND (m.role = 'admin'::text))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "operations",
+    "name": "Users can update operations in their tenants",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = operations.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "payroll_employees",
+    "name": "payroll_employees_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda3_user_has_role(tenant_id)",
+    "check_expression": "public.tanda3_user_has_role(tenant_id)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "payroll_entries",
+    "name": "payroll_entries_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda3_user_has_role(tenant_id)",
+    "check_expression": "public.tanda3_user_has_role(tenant_id)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "payroll_entry_items",
+    "name": "payroll_entry_items_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda3_user_has_role(tenant_id)",
+    "check_expression": "public.tanda3_user_has_role(tenant_id)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "payroll_loans",
+    "name": "payroll_loans_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda3_user_has_role(tenant_id)",
+    "check_expression": "public.tanda3_user_has_role(tenant_id)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "payroll_periods",
+    "name": "payroll_periods_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda3_user_has_role(tenant_id)",
+    "check_expression": "public.tanda3_user_has_role(tenant_id)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "payroll_receipts",
+    "name": "payroll_receipts_manage_finance",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "public.tanda3_user_has_role(tenant_id)",
+    "check_expression": "public.tanda3_user_has_role(tenant_id)",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "tenant_settings",
+    "name": "Admins and Operators can update tenant settings",
+    "permissive": true,
+    "command": "w",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = tenant_settings.tenant_id) AND (m.role = ANY (ARRAY['admin'::text, 'operator'::text])))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "tenant_settings",
+    "name": "Admins can insert tenant settings",
+    "permissive": true,
+    "command": "a",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": null,
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = tenant_settings.tenant_id) AND (m.role = 'admin'::text))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "tenant_settings",
+    "name": "Users can view their tenant settings",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = tenant_settings.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "tracking_route_points",
+    "name": "route_points_select_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = tracking_route_points.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "vehicles",
+    "name": "vehicles_admin_manage",
+    "permissive": true,
+    "command": "*",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = vehicles.tenant_id) AND (m.role = 'admin'::text))))",
+    "check_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = vehicles.tenant_id) AND (m.role = 'admin'::text))))",
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  },
+  {
+    "schema": "public",
+    "table_name": "vehicles",
+    "name": "vehicles_select_tenant_members",
+    "permissive": true,
+    "command": "r",
+    "roles": [
+      "PUBLIC"
+    ],
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM public.memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.tenant_id = vehicles.tenant_id))))",
+    "check_expression": null,
+    "decision": "Preserve exact command, expressions and permissiveness; target only the three API roles. Limited server roles use their own scoped policies; do not grant them broad membership or legacy helper execution.",
+    "new_roles": [
+      "anon",
+      "authenticated",
+      "service_role"
+    ],
+    "test": "cierre02_reconciliation.policy_roles + multi07 + delivery_company_boundary"
+  }
+]

@@ -1,0 +1,1460 @@
+{
+  "public.rpc_accept_invitation(text)": {
+    "schema": "public",
+    "name": "rpc_accept_invitation",
+    "input_types": "text",
+    "args": "p_token text",
+    "default_args": "p_token text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_accept_invitation(p_token text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'extensions'\nAS $function$\nDECLARE\n    v_actor uuid := auth.uid();\n    v_email text;\n    v_invitation public.invitations%ROWTYPE;\n    v_membership_inserted integer := 0;\n    v_state text;\nBEGIN\n    IF v_actor IS NULL THEN\n        RETURN jsonb_build_object('accepted', false, 'state', 'authentication_required');\n    END IF;\n\n    SELECT lower(btrim(u.email))\n    INTO v_email\n    FROM auth.users AS u\n    WHERE u.id = v_actor\n      AND u.email IS NOT NULL\n      AND u.email_confirmed_at IS NOT NULL;\n\n    IF NOT FOUND OR p_token IS NULL OR p_token !~ '^[0-9a-f]{48}$' THEN\n        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');\n    END IF;\n\n    SELECT i.* INTO v_invitation FROM public.invitations AS i\n    WHERE i.token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex')\n    FOR UPDATE;\n\n    IF NOT FOUND THEN\n        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');\n    END IF;\n    IF v_invitation.accepted_at IS NOT NULL THEN\n        IF v_invitation.accepted_by = v_actor THEN\n            RETURN jsonb_build_object('accepted', true, 'state', 'already_accepted');\n        END IF;\n        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');\n    END IF;\n    IF v_invitation.revoked_at IS NOT NULL\n       OR v_invitation.expires_at <= now()\n       OR v_invitation.email <> v_email\n       OR v_invitation.role NOT IN ('admin', 'operator', 'finance', 'viewer')\n       OR NOT EXISTS (SELECT 1 FROM public.tenants AS t WHERE t.id = v_invitation.tenant_id) THEN\n        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');\n    END IF;\n\n    INSERT INTO public.memberships (tenant_id, user_id, role)\n    VALUES (v_invitation.tenant_id, v_actor, v_invitation.role)\n    ON CONFLICT (user_id, tenant_id) DO NOTHING;\n    GET DIAGNOSTICS v_membership_inserted = ROW_COUNT;\n\n    v_state := CASE WHEN v_membership_inserted = 1 THEN 'accepted' ELSE 'already_member' END;\n\n    UPDATE public.invitations\n    SET accepted_at = now(), accepted_by = v_actor\n    WHERE id = v_invitation.id;\n\n    INSERT INTO public.audit_log (tenant_id, actor_user_id, action, entity_type, entity_id, metadata)\n    VALUES (\n        v_invitation.tenant_id,\n        v_actor,\n        CASE WHEN v_membership_inserted = 1 THEN 'invitation_accepted' ELSE 'invitation_already_member' END,\n        'invitation',\n        v_invitation.id,\n        jsonb_build_object('role', v_invitation.role)\n    );\n\n    RETURN jsonb_build_object('accepted', true, 'state', v_state);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public, extensions"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_assign_operation_v2(uuid, uuid, uuid, text, uuid, text, timestamp with time zone, text)": {
+    "schema": "public",
+    "name": "rpc_assign_operation_v2",
+    "input_types": "uuid, uuid, uuid, text, uuid, text, timestamp with time zone, text",
+    "args": "p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_driver_name text, p_vehicle_id uuid, p_vehicle_ref text, p_planned_departure timestamp with time zone, p_priority text",
+    "default_args": "p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_driver_name text, p_vehicle_id uuid, p_vehicle_ref text, p_planned_departure timestamp with time zone, p_priority text DEFAULT 'normal'::text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_assign_operation_v2(p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_driver_name text, p_vehicle_id uuid, p_vehicle_ref text, p_planned_departure timestamp with time zone, p_priority text DEFAULT 'normal'::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'operator']) THEN\n        RETURN jsonb_build_object('error', 'unauthorized');\n    END IF;\n    UPDATE public.operations AS o\n    SET driver_id = p_driver_id, driver_name = NULLIF(p_driver_name, ''),\n        vehicle_id = p_vehicle_id, vehicle_ref = NULLIF(p_vehicle_ref, ''),\n        planned_departure = p_planned_departure, priority = p_priority,\n        assigned_at = now(), status = CASE WHEN o.status IN ('planned', 'draft') THEN 'assigned' ELSE o.status END\n    WHERE o.id = p_operation_id AND o.tenant_id = p_tenant_id;\n    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    RETURN jsonb_build_object('success', true);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_create_inventory_lot(uuid, text, text, numeric, text, timestamp with time zone, text, text, text, text)": {
+    "schema": "public",
+    "name": "rpc_create_inventory_lot",
+    "input_types": "uuid, text, text, numeric, text, timestamp with time zone, text, text, text, text",
+    "args": "p_tenant_id uuid, p_sku text, p_lot_code text, p_qty_on_hand numeric, p_warehouse text, p_received_at timestamp with time zone, p_currency text, p_pedimento_ref text, p_description text, p_unit text",
+    "default_args": "p_tenant_id uuid, p_sku text, p_lot_code text, p_qty_on_hand numeric, p_warehouse text, p_received_at timestamp with time zone, p_currency text, p_pedimento_ref text, p_description text, p_unit text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_create_inventory_lot(p_tenant_id uuid, p_sku text, p_lot_code text, p_qty_on_hand numeric, p_warehouse text, p_received_at timestamp with time zone, p_currency text, p_pedimento_ref text, p_description text, p_unit text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_id uuid;\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    INSERT INTO public.inventory_lots (tenant_id,sku,lot_code,qty_on_hand,warehouse,received_at,currency,pedimento_ref,description,unit)\n    VALUES (p_tenant_id,p_sku,p_lot_code,p_qty_on_hand,p_warehouse,p_received_at,p_currency,p_pedimento_ref,p_description,p_unit) RETURNING id INTO v_id;\n    RETURN jsonb_build_object('id',v_id);\nEXCEPTION WHEN not_null_violation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_dashboard_recent_activity(uuid, timestamp with time zone, timestamp with time zone)": {
+    "schema": "public",
+    "name": "rpc_dashboard_recent_activity",
+    "input_types": "uuid, timestamp with time zone, timestamp with time zone",
+    "args": "p_tenant_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone",
+    "default_args": "p_tenant_id uuid, p_start_date timestamp with time zone DEFAULT NULL::timestamp with time zone, p_end_date timestamp with time zone DEFAULT NULL::timestamp with time zone",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_dashboard_recent_activity(p_tenant_id uuid, p_start_date timestamp with time zone DEFAULT NULL::timestamp with time zone, p_end_date timestamp with time zone DEFAULT NULL::timestamp with time zone)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object('id',o.reference_code,'client',COALESCE(o.client_display_name,'N/A'),\n        'status',o.status,'route',COALESCE(o.route_summary,o.destination_city,'N/A'),'eta',COALESCE(o.eta_display,'')) ORDER BY o.updated_at DESC)\n        FROM (SELECT * FROM public.operations AS x WHERE x.tenant_id=p_tenant_id AND (p_start_date IS NULL OR x.created_at>=p_start_date)\n            AND (p_end_date IS NULL OR x.created_at<=p_end_date) ORDER BY x.updated_at DESC LIMIT 10) AS o),'[]'::jsonb);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_list_invitations(uuid)": {
+    "schema": "public",
+    "name": "rpc_list_invitations",
+    "input_types": "uuid",
+    "args": "p_tenant_id uuid",
+    "default_args": "p_tenant_id uuid",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_list_invitations(p_tenant_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF auth.uid() IS NULL OR p_tenant_id IS NULL\n       OR NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN\n        RETURN jsonb_build_object('error', 'unauthorized');\n    END IF;\n\n    RETURN COALESCE((\n        SELECT jsonb_agg(jsonb_build_object(\n            'id', i.id,\n            'email', i.email,\n            'role', i.role,\n            'state', CASE\n                WHEN i.accepted_at IS NOT NULL THEN 'accepted'\n                WHEN i.revoked_at IS NOT NULL THEN 'revoked'\n                WHEN i.expires_at <= now() THEN 'expired'\n                ELSE 'pending'\n            END,\n            'created_at', i.created_at,\n            'expires_at', i.expires_at,\n            'accepted_at', i.accepted_at,\n            'revoked_at', i.revoked_at\n        ) ORDER BY i.created_at DESC)\n        FROM public.invitations AS i\n        WHERE i.tenant_id = p_tenant_id\n    ), '[]'::jsonb);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_move_deal(uuid, text)": {
+    "schema": "public",
+    "name": "rpc_move_deal",
+    "input_types": "uuid, text",
+    "args": "p_deal_id uuid, p_new_stage text",
+    "default_args": "p_deal_id uuid, p_new_stage text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_move_deal(p_deal_id uuid, p_new_stage text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid; v_old_stage text;\nBEGIN\n    SELECT d.tenant_id,d.stage INTO v_tenant_id,v_old_stage FROM public.crm_deals AS d WHERE d.id=p_deal_id FOR UPDATE;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    IF p_new_stage NOT IN ('lead','qualified','proposal','won','lost') THEN RETURN jsonb_build_object('error','invalid_stage'); END IF;\n    UPDATE public.crm_deals SET stage=p_new_stage,last_touch_at=now() WHERE id=p_deal_id;\n    INSERT INTO public.crm_deal_activity (tenant_id,deal_id,type,body,created_by)\n    VALUES (v_tenant_id,p_deal_id,'status_change',v_old_stage||' -> '||p_new_stage,auth.uid());\n    RETURN jsonb_build_object('success',true);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_revoke_invitation(uuid)": {
+    "schema": "public",
+    "name": "rpc_revoke_invitation",
+    "input_types": "uuid",
+    "args": "p_invitation_id uuid",
+    "default_args": "p_invitation_id uuid",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_revoke_invitation(p_invitation_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE\n    v_actor uuid := auth.uid();\n    v_invitation public.invitations%ROWTYPE;\nBEGIN\n    IF v_actor IS NULL OR p_invitation_id IS NULL THEN\n        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');\n    END IF;\n\n    SELECT i.* INTO v_invitation\n    FROM public.invitations AS i\n    WHERE i.id = p_invitation_id\n      AND public.tanda1_user_has_role(i.tenant_id, ARRAY['admin'])\n    FOR UPDATE;\n\n    IF NOT FOUND THEN\n        RETURN jsonb_build_object('accepted', false, 'state', 'invalid_invitation');\n    END IF;\n    IF v_invitation.accepted_at IS NOT NULL THEN\n        RETURN jsonb_build_object('accepted', false, 'state', 'already_accepted');\n    END IF;\n    IF v_invitation.revoked_at IS NOT NULL THEN\n        RETURN jsonb_build_object('accepted', true, 'state', 'already_revoked');\n    END IF;\n\n    UPDATE public.invitations\n    SET revoked_at = now(), revoked_by = v_actor\n    WHERE id = v_invitation.id;\n\n    INSERT INTO public.audit_log (tenant_id, actor_user_id, action, entity_type, entity_id)\n    VALUES (v_invitation.tenant_id, v_actor, 'invitation_revoked', 'invitation', v_invitation.id);\n\n    RETURN jsonb_build_object('accepted', true, 'state', 'revoked');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.touch_updated_at()": {
+    "schema": "public",
+    "name": "touch_updated_at",
+    "input_types": "",
+    "args": "",
+    "default_args": "",
+    "result": "trigger",
+    "definition": "CREATE OR REPLACE FUNCTION public.touch_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    NEW.updated_at := now();\n    RETURN NEW;\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": false,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": false,
+    "service_role": false
+  },
+  "public.rpc_add_deal_activity(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_add_deal_activity",
+    "input_types": "uuid, jsonb",
+    "args": "p_deal_id uuid, p_payload jsonb",
+    "default_args": "p_deal_id uuid, p_payload jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_add_deal_activity(p_deal_id uuid, p_payload jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid; v_id uuid;\nBEGIN\n    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    INSERT INTO public.crm_deal_activity (tenant_id,deal_id,type,body,created_by)\n    VALUES (v_tenant_id,p_deal_id,p_payload->>'type',p_payload->>'body',auth.uid()) RETURNING id INTO v_id;\n    RETURN jsonb_build_object('id',v_id);\nEXCEPTION WHEN not_null_violation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_add_deal_note(uuid, text)": {
+    "schema": "public",
+    "name": "rpc_add_deal_note",
+    "input_types": "uuid, text",
+    "args": "p_deal_id uuid, p_note text",
+    "default_args": "p_deal_id uuid, p_note text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_add_deal_note(p_deal_id uuid, p_note text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid; v_id uuid;\nBEGIN\n    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    IF NULLIF(btrim(p_note),'') IS NULL THEN RETURN jsonb_build_object('error','invalid_payload'); END IF;\n    INSERT INTO public.crm_deal_notes (tenant_id,deal_id,author_id,note) VALUES (v_tenant_id,p_deal_id,auth.uid(),p_note) RETURNING id INTO v_id;\n    RETURN jsonb_build_object('id',v_id);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_assign_operation(uuid, uuid, uuid, uuid, timestamp with time zone, text)": {
+    "schema": "public",
+    "name": "rpc_assign_operation",
+    "input_types": "uuid, uuid, uuid, uuid, timestamp with time zone, text",
+    "args": "p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_vehicle_id uuid, p_planned_departure timestamp with time zone, p_priority text",
+    "default_args": "p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_vehicle_id uuid, p_planned_departure timestamp with time zone, p_priority text DEFAULT 'normal'::text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_assign_operation(p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_vehicle_id uuid, p_planned_departure timestamp with time zone, p_priority text DEFAULT 'normal'::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'operator']) THEN\n        RETURN jsonb_build_object('error', 'unauthorized');\n    END IF;\n    UPDATE public.operations AS o\n    SET driver_id = p_driver_id, vehicle_id = p_vehicle_id,\n        planned_departure = p_planned_departure, priority = p_priority,\n        assigned_at = now(), status = CASE WHEN o.status IN ('planned', 'draft') THEN 'assigned' ELSE o.status END\n    WHERE o.id = p_operation_id AND o.tenant_id = p_tenant_id;\n    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    RETURN jsonb_build_object('success', true);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_create_cfdi(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_create_cfdi",
+    "input_types": "uuid, jsonb",
+    "args": "p_tenant_id uuid, p_payload jsonb",
+    "default_args": "p_tenant_id uuid, p_payload jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_create_cfdi(p_tenant_id uuid, p_payload jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_id uuid;\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    INSERT INTO public.billing_cfdis (tenant_id, operation_id, uuid, serie, folio, rfc_emisor, rfc_receptor,\n        receptor_name, subtotal, total, currency, status, has_carta_porte, has_complemento_pago, issued_at, pac_provider, notes)\n    VALUES (p_tenant_id, (p_payload->>'operation_id')::uuid, p_payload->>'uuid', p_payload->>'serie', p_payload->>'folio',\n        p_payload->>'rfc_emisor', p_payload->>'rfc_receptor', p_payload->>'receptor_name', COALESCE((p_payload->>'subtotal')::numeric, 0),\n        (p_payload->>'total')::numeric, COALESCE(p_payload->>'currency', 'MXN'), COALESCE(p_payload->>'status', 'draft'),\n        COALESCE((p_payload->>'has_carta_porte')::boolean, false), COALESCE((p_payload->>'has_complemento_pago')::boolean, false),\n        (p_payload->>'issued_at')::timestamptz, p_payload->>'pac_provider', p_payload->>'notes') RETURNING id INTO v_id;\n    RETURN jsonb_build_object('id', v_id);\nEXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation OR foreign_key_violation THEN\n    RETURN jsonb_build_object('error', 'invalid_payload');\n    WHEN unique_violation THEN RETURN jsonb_build_object('error', 'uuid_conflict');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_create_deal(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_create_deal",
+    "input_types": "uuid, jsonb",
+    "args": "p_tenant_id uuid, p_payload jsonb",
+    "default_args": "p_tenant_id uuid, p_payload jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_create_deal(p_tenant_id uuid, p_payload jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_id uuid;\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    INSERT INTO public.crm_deals (tenant_id,title,company,contact_name,contact_email,contact_phone,value,currency,stage,priority,notes,owner_user_id)\n    VALUES (p_tenant_id,p_payload->>'title',p_payload->>'company',p_payload->>'contact_name',p_payload->>'contact_email',p_payload->>'contact_phone',\n        (p_payload->>'value')::numeric,COALESCE(p_payload->>'currency','MXN'),COALESCE(p_payload->>'stage','lead'),\n        COALESCE(p_payload->>'priority','medium'),p_payload->>'notes',(p_payload->>'owner_user_id')::uuid) RETURNING id INTO v_id;\n    RETURN jsonb_build_object('id',v_id);\nEXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_create_operation(uuid, text, text, text, text, text, text, jsonb, jsonb, timestamp with time zone)": {
+    "schema": "public",
+    "name": "rpc_create_operation",
+    "input_types": "uuid, text, text, text, text, text, text, jsonb, jsonb, timestamp with time zone",
+    "args": "p_tenant_id uuid, p_reference_code text, p_route_summary text, p_client_display_name text, p_destination_city text, p_eta_display text, p_status text, p_origin_place jsonb, p_destination_place jsonb, p_eta timestamp with time zone",
+    "default_args": "p_tenant_id uuid, p_reference_code text, p_route_summary text DEFAULT NULL::text, p_client_display_name text DEFAULT NULL::text, p_destination_city text DEFAULT NULL::text, p_eta_display text DEFAULT NULL::text, p_status text DEFAULT 'planned'::text, p_origin_place jsonb DEFAULT NULL::jsonb, p_destination_place jsonb DEFAULT NULL::jsonb, p_eta timestamp with time zone DEFAULT NULL::timestamp with time zone",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_create_operation(p_tenant_id uuid, p_reference_code text, p_route_summary text DEFAULT NULL::text, p_client_display_name text DEFAULT NULL::text, p_destination_city text DEFAULT NULL::text, p_eta_display text DEFAULT NULL::text, p_status text DEFAULT 'planned'::text, p_origin_place jsonb DEFAULT NULL::jsonb, p_destination_place jsonb DEFAULT NULL::jsonb, p_eta timestamp with time zone DEFAULT NULL::timestamp with time zone)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE\n    v_id uuid;\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'operator']) THEN\n        RETURN jsonb_build_object('error', 'unauthorized');\n    END IF;\n\n    INSERT INTO public.operations (\n        tenant_id, reference_code, route_summary, client_display_name,\n        destination_city, eta_display, status, origin_place,\n        destination_place, eta\n    ) VALUES (\n        p_tenant_id, p_reference_code, p_route_summary, p_client_display_name,\n        p_destination_city, p_eta_display, p_status, p_origin_place,\n        p_destination_place, p_eta\n    ) RETURNING id INTO v_id;\n\n    RETURN jsonb_build_object('id', v_id);\nEXCEPTION\n    WHEN unique_violation THEN\n        RETURN jsonb_build_object('error', 'reference_conflict');\n    WHEN check_violation THEN\n        RETURN jsonb_build_object('error', 'invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_create_pedimento(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_create_pedimento",
+    "input_types": "uuid, jsonb",
+    "args": "p_tenant_id uuid, p_payload jsonb",
+    "default_args": "p_tenant_id uuid, p_payload jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_create_pedimento(p_tenant_id uuid, p_payload jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_id uuid;\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    INSERT INTO public.customs_pedimentos (tenant_id,pedimento_number,operation_id,aduana,regimen,tipo_operacion,status,fecha_pago,total_value,currency)\n    VALUES (p_tenant_id,p_payload->>'pedimento_number',(p_payload->>'operation_id')::uuid,p_payload->>'aduana',p_payload->>'regimen',\n        p_payload->>'tipo_operacion',COALESCE(p_payload->>'status','draft'),(p_payload->>'fecha_pago')::date,\n        (p_payload->>'total_value')::numeric,COALESCE(p_payload->>'currency','MXN')) RETURNING id INTO v_id;\n    RETURN jsonb_build_object('id',v_id);\nEXCEPTION WHEN invalid_text_representation OR not_null_violation OR check_violation OR foreign_key_violation THEN RETURN jsonb_build_object('error','invalid_payload');\n    WHEN unique_violation THEN RETURN jsonb_build_object('error','pedimento_conflict');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_deactivate_member(uuid, uuid)": {
+    "schema": "public",
+    "name": "rpc_deactivate_member",
+    "input_types": "uuid, uuid",
+    "args": "p_tenant_id uuid, p_member_user_id uuid",
+    "default_args": "p_tenant_id uuid, p_member_user_id uuid",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_deactivate_member(p_tenant_id uuid, p_member_user_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    IF p_member_user_id = auth.uid() THEN RETURN jsonb_build_object('error', 'cannot_deactivate_self'); END IF;\n    DELETE FROM public.memberships WHERE tenant_id = p_tenant_id AND user_id = p_member_user_id;\n    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    RETURN jsonb_build_object('success', true);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_generate_document(uuid, text, text, uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_generate_document",
+    "input_types": "uuid, text, text, uuid, jsonb",
+    "args": "p_tenant_id uuid, p_template_type text, p_entity_type text, p_entity_id uuid, p_options jsonb",
+    "default_args": "p_tenant_id uuid, p_template_type text, p_entity_type text, p_entity_id uuid, p_options jsonb DEFAULT '{}'::jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_generate_document(p_tenant_id uuid, p_template_type text, p_entity_type text, p_entity_id uuid, p_options jsonb DEFAULT '{}'::jsonb)\n RETURNS jsonb\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$ SELECT public.rpc_generate_document_f3($1, $2, $3, $4, $5); $function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "sql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_get_cfdi_detail(uuid)": {
+    "schema": "public",
+    "name": "rpc_get_cfdi_detail",
+    "input_types": "uuid",
+    "args": "p_cfdi_id uuid",
+    "default_args": "p_cfdi_id uuid",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_get_cfdi_detail(p_cfdi_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_cfdi public.billing_cfdis%ROWTYPE;\nBEGIN\n    SELECT c.* INTO v_cfdi FROM private.fiscal02_readable_cfdis AS c WHERE c.id = p_cfdi_id;\n    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_cfdi.tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    RETURN to_jsonb(v_cfdi) || jsonb_build_object('carta_porte',\n        (SELECT to_jsonb(cp) FROM public.billing_carta_porte AS cp WHERE cp.cfdi_id = p_cfdi_id));\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_get_driver_view(text)": {
+    "schema": "public",
+    "name": "rpc_get_driver_view",
+    "input_types": "text",
+    "args": "p_token text",
+    "default_args": "p_token text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_get_driver_view(p_token text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'extensions'\nAS $function$\nDECLARE\n    v_token record;\n    v_operation public.operations%ROWTYPE;\n    v_last_event public.tracking_events%ROWTYPE;\n    v_status text;\nBEGIN\n    SELECT * INTO v_token FROM public.tracking_validate_token(p_token, 'driver:write');\n    IF v_token.token_id IS NULL THEN\n        RETURN jsonb_build_object('status', 'not_found');\n    END IF;\n    IF v_token.token_state = 'revoked' THEN RETURN jsonb_build_object('status', 'revoked'); END IF;\n    IF v_token.token_state <> 'active' OR v_token.expires_at <= now() THEN\n        RETURN jsonb_build_object('status', 'expired');\n    END IF;\n    SELECT o.* INTO v_operation FROM public.operations AS o WHERE o.id = v_token.operation_id;\n    IF NOT FOUND THEN RETURN jsonb_build_object('status', 'not_found'); END IF;\n    SELECT e.* INTO v_last_event FROM public.tracking_events AS e\n    WHERE e.operation_id=v_token.operation_id AND e.event_type<>'incident'\n    ORDER BY e.server_timestamp DESC LIMIT 1;\n    v_status := CASE v_last_event.event_type WHEN 'departure' THEN 'in_transit' WHEN 'in_transit' THEN 'in_transit'\n        WHEN 'arrival' THEN 'at_destination' WHEN 'delivered' THEN 'delivered' ELSE 'assigned' END;\n    UPDATE public.tracking_tokens SET last_used_at = now() WHERE id = v_token.token_id;\n    RETURN jsonb_build_object(\n        'status', 'success',\n        'data', jsonb_strip_nulls(jsonb_build_object(\n            'orderRef', v_operation.reference_code,\n            'route', v_operation.route_summary,\n            'currentStatus', v_status,\n            'eta', CASE WHEN v_status <> 'delivered' THEN v_operation.eta_display END,\n            'clientName', left(v_operation.client_display_name,20),\n            'destinationCity', v_operation.destination_city,\n            'lastEvent', CASE WHEN v_last_event.municipality IS NOT NULL THEN jsonb_build_object(\n                'municipality',concat_ws(', ',v_last_event.municipality,v_last_event.state_name),\n                'timestamp',v_last_event.server_timestamp) END\n        ))\n    );\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public, extensions"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "service_role",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": false,
+    "service_role": true
+  },
+  "public.rpc_get_my_context()": {
+    "schema": "public",
+    "name": "rpc_get_my_context",
+    "input_types": "",
+    "args": "",
+    "default_args": "",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_get_my_context()\n RETURNS jsonb\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\n    SELECT jsonb_build_object(\n        'user_id', auth.uid(),\n        'email', (SELECT u.email FROM auth.users AS u WHERE u.id = auth.uid()),\n        'memberships', COALESCE((\n            SELECT jsonb_agg(jsonb_build_object(\n                'tenant_id', m.tenant_id,\n                'tenant_name', t.name,\n                'role', m.role\n            ) ORDER BY t.name)\n            FROM public.memberships AS m\n            JOIN public.tenants AS t ON t.id = m.tenant_id\n            WHERE m.user_id = auth.uid()\n        ), '[]'::jsonb)\n    );\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "sql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_get_operation(uuid)": {
+    "schema": "public",
+    "name": "rpc_get_operation",
+    "input_types": "uuid",
+    "args": "p_operation_id uuid",
+    "default_args": "p_operation_id uuid",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_get_operation(p_operation_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE\n    v_operation public.operations%ROWTYPE;\nBEGIN\n    SELECT o.* INTO v_operation\n    FROM public.operations AS o\n    WHERE o.id = p_operation_id;\n\n    IF NOT FOUND THEN\n        RETURN jsonb_build_object('error', 'not_found');\n    END IF;\n    IF NOT public.tanda1_user_is_member(v_operation.tenant_id) THEN\n        RETURN jsonb_build_object('error', 'unauthorized');\n    END IF;\n    RETURN to_jsonb(v_operation);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_get_public_tracking(text)": {
+    "schema": "public",
+    "name": "rpc_get_public_tracking",
+    "input_types": "text",
+    "args": "p_token text",
+    "default_args": "p_token text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_get_public_tracking(p_token text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'extensions'\nAS $function$\nDECLARE\n    v_token record;\n    v_operation public.operations%ROWTYPE;\n    v_last_event public.tracking_events%ROWTYPE;\n    v_events jsonb;\n    v_route_points jsonb;\n    v_status text;\n    v_soft_expired boolean;\nBEGIN\n    SELECT * INTO v_token FROM public.tracking_validate_token(p_token, 'public:read');\n    IF v_token.token_id IS NULL THEN\n        RETURN jsonb_build_object('status', 'not_found');\n    END IF;\n    IF v_token.token_state = 'revoked' THEN\n        RETURN jsonb_build_object('status', 'revoked');\n    END IF;\n    IF v_token.token_state IN ('hard_expired', 'rotated') OR v_token.expires_at + interval '48 hours' <= now() THEN\n        RETURN jsonb_build_object('status', 'hard_expired');\n    END IF;\n    SELECT o.* INTO v_operation FROM public.operations AS o WHERE o.id = v_token.operation_id;\n    IF NOT FOUND THEN RETURN jsonb_build_object('status', 'not_found'); END IF;\n\n    SELECT e.* INTO v_last_event FROM public.tracking_events AS e\n    WHERE e.operation_id = v_token.operation_id AND e.event_type <> 'incident' AND NOT e.is_suspicious\n    ORDER BY e.server_timestamp DESC LIMIT 1;\n\n    SELECT COALESCE(jsonb_agg(to_jsonb(x) - 'rank' - 'total' ORDER BY x.rank), '[]'::jsonb)\n    INTO v_events FROM (\n        SELECT 'evt-' || row_number() OVER (ORDER BY e.server_timestamp) AS id,\n            CASE e.event_type WHEN 'departure' THEN 'Salida de almac\u00e9n' WHEN 'in_transit' THEN 'En camino'\n                WHEN 'arrival' THEN 'En punto de entrega' WHEN 'delivered' THEN 'Entregado'\n                WHEN 'incident' THEN 'Retraso reportado' ELSE 'Actualizaci\u00f3n' END AS title,\n            CASE WHEN e.municipality IS NOT NULL THEN concat_ws(', ', e.municipality, e.state_name)\n                ELSE 'Actualizaci\u00f3n log\u00edstica' END AS subtitle,\n            e.server_timestamp AS timestamp,\n            CASE WHEN row_number() OVER (ORDER BY e.server_timestamp) = count(*) OVER () THEN 'current' ELSE 'done' END AS status,\n            CASE e.event_type WHEN 'departure' THEN 'truck' WHEN 'delivered' THEN 'check-circle'\n                WHEN 'incident' THEN 'alert-triangle' ELSE 'map-pin' END AS icon,\n            row_number() OVER (ORDER BY e.server_timestamp) AS rank,\n            count(*) OVER () AS total\n        FROM public.tracking_events AS e\n        WHERE e.operation_id = v_token.operation_id AND NOT e.is_suspicious\n        ORDER BY e.server_timestamp LIMIT 20\n    ) AS x;\n\n    SELECT COALESCE(jsonb_agg(jsonb_build_object('lat', round(x.lat::numeric,2), 'lng', round(x.lng::numeric,2)) ORDER BY x.recorded_at), '[]'::jsonb)\n    INTO v_route_points FROM (\n        SELECT r.lat,r.lng,r.recorded_at FROM public.tracking_route_points AS r\n        WHERE r.operation_id=v_token.operation_id ORDER BY r.recorded_at DESC LIMIT 200\n    ) AS x;\n\n    v_status := CASE v_last_event.event_type WHEN 'departure' THEN 'En Tr\u00e1nsito' WHEN 'in_transit' THEN 'En Tr\u00e1nsito'\n        WHEN 'arrival' THEN 'En Destino' WHEN 'delivered' THEN 'Entregado' ELSE 'En Espera' END;\n    v_soft_expired := v_token.token_state = 'soft_expired' OR v_token.expires_at <= now();\n    UPDATE public.tracking_tokens SET last_used_at = now() WHERE id = v_token.token_id;\n    RETURN jsonb_build_object(\n        'status', CASE WHEN v_soft_expired THEN 'soft_expired' ELSE 'success' END,\n        'expired', v_soft_expired,\n        'data', jsonb_strip_nulls(jsonb_build_object(\n            'orderRef', v_operation.reference_code,\n            'route', v_operation.route_summary,\n            'currentStatus', v_status,\n            'eta', v_operation.eta_display,\n            'events', v_events,\n            'currentLocation', CASE WHEN v_last_event.event_type <> 'delivered' AND v_last_event.municipality IS NOT NULL\n                AND v_last_event.lat IS NOT NULL AND v_last_event.lng IS NOT NULL\n                THEN jsonb_build_object('lat',round(v_last_event.lat,2),'lng',round(v_last_event.lng,2)) END,\n            'routePoints', CASE WHEN v_last_event.event_type <> 'delivered' THEN v_route_points END\n        ))\n    );\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public, extensions"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "service_role",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": false,
+    "service_role": true
+  },
+  "public.rpc_list_cfdis(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_list_cfdis",
+    "input_types": "uuid, jsonb",
+    "args": "p_tenant_id uuid, p_filters jsonb",
+    "default_args": "p_tenant_id uuid, p_filters jsonb DEFAULT '{}'::jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_list_cfdis(p_tenant_id uuid, p_filters jsonb DEFAULT '{}'::jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    RETURN COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.created_at DESC) FROM private.fiscal02_readable_cfdis AS c\n        WHERE c.tenant_id = p_tenant_id\n          AND (NOT (p_filters ? 'status') OR c.status = p_filters->>'status')\n          AND (NOT (p_filters ? 'rfc') OR c.rfc_emisor ILIKE '%' || (p_filters->>'rfc') || '%' OR c.rfc_receptor ILIKE '%' || (p_filters->>'rfc') || '%')\n          AND (NOT (p_filters ? 'searchText') OR c.folio ILIKE '%' || (p_filters->>'searchText') || '%'\n               OR c.receptor_name ILIKE '%' || (p_filters->>'searchText') || '%')), '[]'::jsonb);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_list_operations(uuid)": {
+    "schema": "public",
+    "name": "rpc_list_operations",
+    "input_types": "uuid",
+    "args": "p_tenant_id uuid",
+    "default_args": "p_tenant_id uuid",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_list_operations(p_tenant_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN\n        RETURN jsonb_build_object('error', 'unauthorized');\n    END IF;\n\n    RETURN COALESCE((\n        SELECT jsonb_agg(to_jsonb(o) ORDER BY o.created_at DESC)\n        FROM public.operations AS o\n        WHERE o.tenant_id = p_tenant_id\n    ), '[]'::jsonb);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_list_route_points(uuid, timestamp with time zone, timestamp with time zone, integer)": {
+    "schema": "public",
+    "name": "rpc_list_route_points",
+    "input_types": "uuid, timestamp with time zone, timestamp with time zone, integer",
+    "args": "p_operation_id uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_limit integer",
+    "default_args": "p_operation_id uuid, p_start timestamp with time zone DEFAULT NULL::timestamp with time zone, p_end timestamp with time zone DEFAULT NULL::timestamp with time zone, p_limit integer DEFAULT 2000",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_list_route_points(p_operation_id uuid, p_start timestamp with time zone DEFAULT NULL::timestamp with time zone, p_end timestamp with time zone DEFAULT NULL::timestamp with time zone, p_limit integer DEFAULT 2000)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid;\nBEGIN\n    SELECT o.tenant_id INTO v_tenant_id FROM public.operations AS o WHERE o.id=p_operation_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_is_member(v_tenant_id) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object('lat',x.lat,'lng',x.lng,'recorded_at',x.recorded_at,'accuracy_m',x.accuracy_m,'source',x.source) ORDER BY x.recorded_at)\n        FROM (SELECT r.lat,r.lng,r.recorded_at,r.accuracy_m,r.source FROM public.tracking_route_points AS r WHERE r.operation_id=p_operation_id\n            AND (p_start IS NULL OR r.recorded_at>=p_start) AND (p_end IS NULL OR r.recorded_at<=p_end)\n            ORDER BY r.recorded_at DESC LIMIT LEAST(GREATEST(p_limit,1),5000)) AS x),'[]'::jsonb);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_post_driver_event(text, text, text, numeric, numeric, numeric, text, text, character, text, text, timestamp with time zone, boolean)": {
+    "schema": "public",
+    "name": "rpc_post_driver_event",
+    "input_types": "text, text, text, numeric, numeric, numeric, text, text, character, text, text, timestamp with time zone, boolean",
+    "args": "p_token text, p_action text, p_source text, p_lat numeric, p_lng numeric, p_accuracy numeric, p_municipality text, p_state_name text, p_country_code character, p_incident_type text, p_incident_note text, p_client_timestamp timestamp with time zone, p_offline_queued boolean",
+    "default_args": "p_token text, p_action text, p_source text DEFAULT 'gps'::text, p_lat numeric DEFAULT NULL::numeric, p_lng numeric DEFAULT NULL::numeric, p_accuracy numeric DEFAULT NULL::numeric, p_municipality text DEFAULT NULL::text, p_state_name text DEFAULT NULL::text, p_country_code character DEFAULT 'MX'::bpchar, p_incident_type text DEFAULT NULL::text, p_incident_note text DEFAULT NULL::text, p_client_timestamp timestamp with time zone DEFAULT now(), p_offline_queued boolean DEFAULT false",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_post_driver_event(p_token text, p_action text, p_source text DEFAULT 'gps'::text, p_lat numeric DEFAULT NULL::numeric, p_lng numeric DEFAULT NULL::numeric, p_accuracy numeric DEFAULT NULL::numeric, p_municipality text DEFAULT NULL::text, p_state_name text DEFAULT NULL::text, p_country_code character DEFAULT 'MX'::bpchar, p_incident_type text DEFAULT NULL::text, p_incident_note text DEFAULT NULL::text, p_client_timestamp timestamp with time zone DEFAULT now(), p_offline_queued boolean DEFAULT false)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'extensions'\nAS $function$\nDECLARE\n    v_token record;\n    v_event_id uuid;\nBEGIN\n    SELECT * INTO v_token FROM public.tracking_validate_token(p_token, 'driver:write');\n    IF v_token.token_id IS NULL THEN\n        RETURN jsonb_build_object('http', 404, 'accepted', false, 'reason', 'not_found');\n    END IF;\n    IF v_token.token_state <> 'active' OR v_token.expires_at <= now() THEN\n        RETURN jsonb_build_object('http', 403, 'accepted', false, 'reason', 'expired');\n    END IF;\n    IF p_action NOT IN ('departure', 'in_transit', 'arrival', 'delivered', 'incident', 'location_reset') THEN\n        RETURN jsonb_build_object('http', 400, 'accepted', false, 'reason', 'invalid_action');\n    END IF;\n    IF p_source NOT IN ('gps', 'manual', 'none') THEN\n        RETURN jsonb_build_object('http', 400, 'accepted', false, 'reason', 'invalid_source');\n    END IF;\n\n    INSERT INTO public.tracking_events (\n        token_id, tenant_id, operation_id, event_type, source,\n        client_timestamp, lat, lng, accuracy_m, municipality, state_name,\n        country_code, incident_type, incident_note, offline_queued\n    ) VALUES (\n        v_token.token_id, v_token.tenant_id, v_token.operation_id, p_action, p_source,\n        COALESCE(p_client_timestamp, now()), p_lat, p_lng, p_accuracy, p_municipality,\n        p_state_name, COALESCE(p_country_code, 'MX'), p_incident_type, p_incident_note,\n        COALESCE(p_offline_queued, false)\n    ) RETURNING id INTO v_event_id;\n\n    UPDATE public.tracking_tokens\n    SET last_used_at = now(), event_count = event_count + 1,\n        delivered_at = CASE WHEN p_action = 'delivered' THEN now() ELSE delivered_at END\n    WHERE id = v_token.token_id;\n\n    RETURN jsonb_build_object('http', 200, 'accepted', true, 'eventId', v_event_id);\nEXCEPTION\n    WHEN check_violation THEN\n        RETURN jsonb_build_object('http', 400, 'accepted', false, 'reason', 'invalid_payload');\n    WHEN unique_violation THEN\n        RETURN jsonb_build_object('http', 200, 'accepted', false, 'reason', 'duplicate');\n    WHEN OTHERS THEN\n        RETURN jsonb_build_object('http', 500, 'accepted', false, 'reason', 'internal_error');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public, extensions"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "service_role",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": false,
+    "service_role": true
+  },
+  "public.rpc_reports_financial_summary(uuid, text)": {
+    "schema": "public",
+    "name": "rpc_reports_financial_summary",
+    "input_types": "uuid, text",
+    "args": "p_tenant_id uuid, p_period text",
+    "default_args": "p_tenant_id uuid, p_period text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_reports_financial_summary(p_tenant_id uuid, p_period text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_revenue numeric; v_expenses numeric;\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id,ARRAY['admin','finance']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    SELECT COALESCE(sum(i.amount) FILTER (WHERE i.direction='ar'),0),\n           COALESCE(sum(i.amount) FILTER (WHERE i.direction='ap'),0)\n    INTO v_revenue,v_expenses FROM private.fiscal02_legacy_finance_invoices AS i WHERE i.tenant_id=p_tenant_id;\n    RETURN jsonb_build_object('revenue_by_month','[]'::jsonb,'ar_open_by_month','[]'::jsonb,'ap_open_by_month','[]'::jsonb,\n        'cashflow_by_month','[]'::jsonb,'total_revenue_ytd',COALESCE(v_revenue,0),'total_expenses_ytd',COALESCE(v_expenses,0),\n        'net_position',COALESCE(v_revenue,0)-COALESCE(v_expenses,0));\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_toggle_deal_checklist_item(uuid, boolean)": {
+    "schema": "public",
+    "name": "rpc_toggle_deal_checklist_item",
+    "input_types": "uuid, boolean",
+    "args": "p_item_id uuid, p_is_done boolean",
+    "default_args": "p_item_id uuid, p_is_done boolean",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_toggle_deal_checklist_item(p_item_id uuid, p_is_done boolean)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid;\nBEGIN\n    SELECT c.tenant_id INTO v_tenant_id FROM public.crm_deal_checklist_items AS c WHERE c.id=p_item_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    UPDATE public.crm_deal_checklist_items SET is_done=p_is_done,completed_by=CASE WHEN p_is_done THEN auth.uid() ELSE NULL END,\n        completed_at=CASE WHEN p_is_done THEN now() ELSE NULL END WHERE id=p_item_id;\n    RETURN jsonb_build_object('success',true);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_update_cfdi(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_update_cfdi",
+    "input_types": "uuid, jsonb",
+    "args": "p_cfdi_id uuid, p_patch jsonb",
+    "default_args": "p_cfdi_id uuid, p_patch jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_update_cfdi(p_cfdi_id uuid, p_patch jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid;\nBEGIN\n    SELECT c.tenant_id INTO v_tenant_id FROM private.fiscal02_readable_cfdis AS c WHERE c.id = p_cfdi_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    UPDATE public.billing_cfdis AS c SET\n        status = COALESCE(p_patch->>'status', c.status),\n        cancelled_at = CASE WHEN p_patch ? 'cancelled_at' THEN (p_patch->>'cancelled_at')::timestamptz ELSE c.cancelled_at END,\n        notes = CASE WHEN p_patch ? 'notes' THEN p_patch->>'notes' ELSE c.notes END,\n        has_carta_porte = COALESCE((p_patch->>'has_carta_porte')::boolean, c.has_carta_porte),\n        has_complemento_pago = COALESCE((p_patch->>'has_complemento_pago')::boolean, c.has_complemento_pago)\n    WHERE c.id = p_cfdi_id;\n    RETURN jsonb_build_object('success', true);\nEXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error', 'invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_update_deal(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_update_deal",
+    "input_types": "uuid, jsonb",
+    "args": "p_deal_id uuid, p_patch jsonb",
+    "default_args": "p_deal_id uuid, p_patch jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_update_deal(p_deal_id uuid, p_patch jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid;\nBEGIN\n    SELECT d.tenant_id INTO v_tenant_id FROM public.crm_deals AS d WHERE d.id=p_deal_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    UPDATE public.crm_deals AS d SET title=COALESCE(p_patch->>'title',d.title),company=COALESCE(p_patch->>'company',d.company),\n        contact_name=COALESCE(p_patch->>'contact_name',d.contact_name),contact_email=COALESCE(p_patch->>'contact_email',d.contact_email),\n        contact_phone=COALESCE(p_patch->>'contact_phone',d.contact_phone),value=COALESCE((p_patch->>'value')::numeric,d.value),\n        currency=COALESCE(p_patch->>'currency',d.currency),stage=COALESCE(p_patch->>'stage',d.stage),\n        priority=COALESCE(p_patch->>'priority',d.priority),notes=COALESCE(p_patch->>'notes',d.notes),\n        owner_user_id=COALESCE((p_patch->>'owner_user_id')::uuid,d.owner_user_id),last_touch_at=now() WHERE d.id=p_deal_id;\n    RETURN jsonb_build_object('success',true);\nEXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_update_inventory_lot(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_update_inventory_lot",
+    "input_types": "uuid, jsonb",
+    "args": "p_id uuid, p_patch jsonb",
+    "default_args": "p_id uuid, p_patch jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_update_inventory_lot(p_id uuid, p_patch jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid;\nBEGIN\n    SELECT i.tenant_id INTO v_tenant_id FROM public.inventory_lots AS i WHERE i.id=p_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    UPDATE public.inventory_lots AS i SET qty_reserved=COALESCE((p_patch->>'qty_reserved')::numeric,i.qty_reserved),\n        status=COALESCE(p_patch->>'status',i.status),warehouse=COALESCE(p_patch->>'warehouse',i.warehouse),\n        description=COALESCE(p_patch->>'description',i.description) WHERE i.id=p_id;\n    RETURN jsonb_build_object('success',true);\nEXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_update_member_role(uuid, uuid, text)": {
+    "schema": "public",
+    "name": "rpc_update_member_role",
+    "input_types": "uuid, uuid, text",
+    "args": "p_tenant_id uuid, p_member_user_id uuid, p_new_role text",
+    "default_args": "p_tenant_id uuid, p_member_user_id uuid, p_new_role text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_update_member_role(p_tenant_id uuid, p_member_user_id uuid, p_new_role text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    IF p_new_role NOT IN ('admin', 'operator', 'finance', 'viewer') THEN RETURN jsonb_build_object('error', 'invalid_role'); END IF;\n    UPDATE public.memberships SET role = p_new_role WHERE tenant_id = p_tenant_id AND user_id = p_member_user_id;\n    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    RETURN jsonb_build_object('success', true);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_update_operation_details(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_update_operation_details",
+    "input_types": "uuid, jsonb",
+    "args": "p_operation_id uuid, p_patch jsonb",
+    "default_args": "p_operation_id uuid, p_patch jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_update_operation_details(p_operation_id uuid, p_patch jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid;\nBEGIN\n    SELECT o.tenant_id INTO v_tenant_id FROM public.operations AS o WHERE o.id = p_operation_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id, ARRAY['admin', 'operator']) THEN\n        RETURN jsonb_build_object('error', 'unauthorized');\n    END IF;\n    UPDATE public.operations AS o SET\n        route_summary = COALESCE(p_patch->>'route_summary', o.route_summary),\n        client_display_name = COALESCE(p_patch->>'client_display_name', o.client_display_name),\n        destination_city = COALESCE(p_patch->>'destination_city', o.destination_city),\n        eta_display = COALESCE(p_patch->>'eta_display', o.eta_display),\n        priority = COALESCE(p_patch->>'priority', o.priority),\n        execution_type = COALESCE(p_patch->>'execution_type', o.execution_type),\n        provider_name = COALESCE(p_patch->>'provider_name', o.provider_name),\n        notes = COALESCE(p_patch->>'notes', o.notes),\n        documentation_received_note = COALESCE(p_patch->>'documentation_received_note', o.documentation_received_note),\n        external_driver = COALESCE(p_patch->'external_driver', o.external_driver),\n        external_vehicle = COALESCE(p_patch->'external_vehicle', o.external_vehicle),\n        required_documents = COALESCE(p_patch->'required_documents', o.required_documents),\n        cargo_summary = COALESCE(p_patch->'cargo_summary', o.cargo_summary),\n        provider_cost_amount = COALESCE((p_patch->>'provider_cost_amount')::numeric, o.provider_cost_amount),\n        customer_price_amount = COALESCE((p_patch->>'customer_price_amount')::numeric, o.customer_price_amount)\n    WHERE o.id = p_operation_id;\n    RETURN jsonb_build_object('success', true);\nEXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range OR check_violation THEN\n    RETURN jsonb_build_object('error', 'invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_update_pedimento(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_update_pedimento",
+    "input_types": "uuid, jsonb",
+    "args": "p_id uuid, p_patch jsonb",
+    "default_args": "p_id uuid, p_patch jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_update_pedimento(p_id uuid, p_patch jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid;\nBEGIN\n    SELECT p.tenant_id INTO v_tenant_id FROM public.customs_pedimentos AS p WHERE p.id=p_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error','not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id,ARRAY['admin','operator']) THEN RETURN jsonb_build_object('error','unauthorized'); END IF;\n    UPDATE public.customs_pedimentos AS p SET status=COALESCE(p_patch->>'status',p.status),aduana=COALESCE(p_patch->>'aduana',p.aduana),\n        regimen=COALESCE(p_patch->>'regimen',p.regimen),fecha_pago=COALESCE((p_patch->>'fecha_pago')::date,p.fecha_pago),\n        fecha_entrada=COALESCE((p_patch->>'fecha_entrada')::date,p.fecha_entrada),fecha_salida=COALESCE((p_patch->>'fecha_salida')::date,p.fecha_salida),\n        total_value=COALESCE((p_patch->>'total_value')::numeric,p.total_value),currency=COALESCE(p_patch->>'currency',p.currency) WHERE p.id=p_id;\n    RETURN jsonb_build_object('success',true);\nEXCEPTION WHEN invalid_text_representation OR check_violation THEN RETURN jsonb_build_object('error','invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_update_tenant_settings(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_update_tenant_settings",
+    "input_types": "uuid, jsonb",
+    "args": "p_tenant_id uuid, p_payload jsonb",
+    "default_args": "p_tenant_id uuid, p_payload jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_update_tenant_settings(p_tenant_id uuid, p_payload jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n    IF NOT public.tanda1_user_has_role(p_tenant_id, ARRAY['admin']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    INSERT INTO public.tenant_settings (tenant_id, brand_name, primary_color, logo_url, timezone, notifications_enabled, allow_demo_mode)\n    VALUES (p_tenant_id, COALESCE(p_payload->>'brand_name', 'ROTERO'), COALESCE(p_payload->>'primary_color', '#0F2B5B'),\n        p_payload->>'logo_url', COALESCE(p_payload->>'timezone', 'America/Mexico_City'),\n        COALESCE((p_payload->>'notifications_enabled')::boolean, true), COALESCE((p_payload->>'allow_demo_mode')::boolean, false))\n    ON CONFLICT (tenant_id) DO UPDATE SET\n        brand_name = COALESCE(p_payload->>'brand_name', public.tenant_settings.brand_name),\n        primary_color = COALESCE(p_payload->>'primary_color', public.tenant_settings.primary_color),\n        logo_url = CASE WHEN p_payload ? 'logo_url' THEN p_payload->>'logo_url' ELSE public.tenant_settings.logo_url END,\n        timezone = COALESCE(p_payload->>'timezone', public.tenant_settings.timezone),\n        notifications_enabled = COALESCE((p_payload->>'notifications_enabled')::boolean, public.tenant_settings.notifications_enabled),\n        allow_demo_mode = COALESCE((p_payload->>'allow_demo_mode')::boolean, public.tenant_settings.allow_demo_mode);\n    RETURN jsonb_build_object('success', true);\nEXCEPTION WHEN invalid_text_representation THEN RETURN jsonb_build_object('error', 'invalid_payload');\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_upsert_carta_porte(uuid, jsonb)": {
+    "schema": "public",
+    "name": "rpc_upsert_carta_porte",
+    "input_types": "uuid, jsonb",
+    "args": "p_cfdi_id uuid, p_payload jsonb",
+    "default_args": "p_cfdi_id uuid, p_payload jsonb",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_upsert_carta_porte(p_cfdi_id uuid, p_payload jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_tenant_id uuid; v_id uuid;\nBEGIN\n    SELECT c.tenant_id INTO v_tenant_id FROM private.fiscal02_readable_cfdis AS c WHERE c.id = p_cfdi_id;\n    IF v_tenant_id IS NULL THEN RETURN jsonb_build_object('error', 'not_found'); END IF;\n    IF NOT public.tanda1_user_has_role(v_tenant_id, ARRAY['admin', 'finance']) THEN RETURN jsonb_build_object('error', 'unauthorized'); END IF;\n    INSERT INTO public.billing_carta_porte (tenant_id, cfdi_id, trans_type, vehicle_plate, carrier_name, origin, destination, goods_desc)\n    VALUES (v_tenant_id, p_cfdi_id, p_payload->>'trans_type', p_payload->>'vehicle_plate', p_payload->>'carrier_name',\n        p_payload->>'origin', p_payload->>'destination', p_payload->>'goods_desc')\n    ON CONFLICT (cfdi_id) DO UPDATE SET trans_type = EXCLUDED.trans_type, vehicle_plate = EXCLUDED.vehicle_plate,\n        carrier_name = EXCLUDED.carrier_name, origin = EXCLUDED.origin, destination = EXCLUDED.destination,\n        goods_desc = EXCLUDED.goods_desc RETURNING id INTO v_id;\n    UPDATE public.billing_cfdis SET has_carta_porte = true WHERE id = p_cfdi_id;\n    RETURN jsonb_build_object('id', v_id);\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.rpc_validate_module_access(uuid, text)": {
+    "schema": "public",
+    "name": "rpc_validate_module_access",
+    "input_types": "uuid, text",
+    "args": "p_tenant_id uuid, p_module_name text",
+    "default_args": "p_tenant_id uuid, p_module_name text",
+    "result": "jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION public.rpc_validate_module_access(p_tenant_id uuid, p_module_name text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE v_row public.tenant_setup_status%ROWTYPE;\nBEGIN\n    IF NOT public.tanda1_user_is_member(p_tenant_id) THEN RETURN jsonb_build_object('error', 'unauthorized', 'is_configured', false); END IF;\n    SELECT s.* INTO v_row FROM public.tenant_setup_status AS s WHERE s.tenant_id = p_tenant_id AND s.module_name = p_module_name;\n    RETURN jsonb_build_object('is_configured', COALESCE(v_row.is_configured, false), 'config_data', COALESCE(v_row.config_data, '{}'::jsonb));\nEND;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.tanda1_touch_updated_at()": {
+    "schema": "public",
+    "name": "tanda1_touch_updated_at",
+    "input_types": "",
+    "args": "",
+    "default_args": "",
+    "result": "trigger",
+    "definition": "CREATE OR REPLACE FUNCTION public.tanda1_touch_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\n        BEGIN\n            NEW.updated_at := now();\n            RETURN NEW;\n        END;\n        $function$\n",
+    "owner": "postgres",
+    "prosecdef": false,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "v",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "plpgsql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": false,
+    "service_role": false
+  },
+  "public.tanda1_user_has_role(uuid, text[])": {
+    "schema": "public",
+    "name": "tanda1_user_has_role",
+    "input_types": "uuid, text[]",
+    "args": "p_tenant_id uuid, p_roles text[]",
+    "default_args": "p_tenant_id uuid, p_roles text[]",
+    "result": "boolean",
+    "definition": "CREATE OR REPLACE FUNCTION public.tanda1_user_has_role(p_tenant_id uuid, p_roles text[])\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\n    SELECT EXISTS (\n        SELECT 1\n        FROM public.memberships AS m\n        WHERE m.user_id = auth.uid()\n          AND m.tenant_id = p_tenant_id\n          AND m.role = ANY(p_roles)\n    );\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "sql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.tanda1_user_is_member(uuid)": {
+    "schema": "public",
+    "name": "tanda1_user_is_member",
+    "input_types": "uuid",
+    "args": "p_tenant_id uuid",
+    "default_args": "p_tenant_id uuid",
+    "result": "boolean",
+    "definition": "CREATE OR REPLACE FUNCTION public.tanda1_user_is_member(p_tenant_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\n    SELECT EXISTS (\n        SELECT 1\n        FROM public.memberships AS m\n        WHERE m.user_id = auth.uid()\n          AND m.tenant_id = p_tenant_id\n    );\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": false,
+    "language": "sql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "authenticated",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": true,
+    "service_role": false
+  },
+  "public.tracking_hash_token(text)": {
+    "schema": "public",
+    "name": "tracking_hash_token",
+    "input_types": "text",
+    "args": "p_token text",
+    "default_args": "p_token text",
+    "result": "text",
+    "definition": "CREATE OR REPLACE FUNCTION public.tracking_hash_token(p_token text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE STRICT\n SET search_path TO 'pg_catalog', 'public', 'extensions'\nAS $function$\n    SELECT encode(extensions.digest(p_token, 'sha256'), 'hex');\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": false,
+    "proconfig": [
+      "search_path=pg_catalog, public, extensions"
+    ],
+    "provolatile": "i",
+    "proisstrict": true,
+    "proretset": false,
+    "language": "sql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "service_role",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": false,
+    "service_role": true
+  },
+  "public.tracking_validate_token(text, text)": {
+    "schema": "public",
+    "name": "tracking_validate_token",
+    "input_types": "text, text",
+    "args": "p_token text, p_required_scope text",
+    "default_args": "p_token text, p_required_scope text",
+    "result": "TABLE(token_id uuid, tenant_id uuid, operation_id uuid, token_scope text, token_state text, expires_at timestamp with time zone)",
+    "definition": "CREATE OR REPLACE FUNCTION public.tracking_validate_token(p_token text, p_required_scope text)\n RETURNS TABLE(token_id uuid, tenant_id uuid, operation_id uuid, token_scope text, token_state text, expires_at timestamp with time zone)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'extensions'\nAS $function$\n    SELECT t.id, t.tenant_id, t.operation_id, t.scope, t.state, t.expires_at\n    FROM public.tracking_tokens AS t\n    WHERE t.token_hash = public.tracking_hash_token(p_token)\n      AND t.scope = p_required_scope\n    LIMIT 1;\n$function$\n",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=pg_catalog, public, extensions"
+    ],
+    "provolatile": "s",
+    "proisstrict": false,
+    "proretset": true,
+    "language": "sql",
+    "acl": [
+      {
+        "grantor": "postgres",
+        "grantee": "postgres",
+        "privilege": "EXECUTE",
+        "grantable": false
+      },
+      {
+        "grantor": "postgres",
+        "grantee": "service_role",
+        "privilege": "EXECUTE",
+        "grantable": false
+      }
+    ],
+    "anon": false,
+    "authenticated": false,
+    "service_role": true
+  }
+}

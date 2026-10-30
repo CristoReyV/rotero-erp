@@ -386,13 +386,6 @@
       "admitted": false
     },
     {
-      "function": "rpc_list_route_points",
-      "arguments": "p_operation_id uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_limit integer",
-      "source_md5": "da71e1a89614d6a15be8d6ace2dcdafd",
-      "uniform_crlf_md5": "c28d7745f79aa22fe2bbf3be41b69b96",
-      "admitted": false
-    },
-    {
       "function": "rpc_upsert_quote",
       "arguments": "p_tenant_id uuid, p_deal_id uuid, p_payload jsonb",
       "source_md5": "266cb4d3000f2c5ecb6338e1cd45200d",

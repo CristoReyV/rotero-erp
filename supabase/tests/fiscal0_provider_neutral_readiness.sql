@@ -148,6 +148,10 @@ RESET ROLE;
 DO $finish$
 DECLARE r jsonb; c1 uuid:=current_setting('fiscal0.cfdi1')::uuid; c2 uuid:=current_setting('fiscal0.cfdi2')::uuid; c3 uuid:=current_setting('fiscal0.cfdi3')::uuid; original_uuid text;
 BEGIN
+  -- The trusted offline worker does not inherit the random, nonexistent subject
+  -- used by the preceding isolation negative. Real worker audit has no user sub.
+  PERFORM set_config('request.jwt.claim.sub','',true);
+  PERFORM set_config('request.jwt.claims','{"role":"service_role"}',true);
   SELECT uuid INTO original_uuid FROM public.billing_cfdis WHERE id=c1;
   UPDATE public.fiscal_requests SET status='submitting' WHERE id=ANY(ARRAY[current_setting('fiscal0.statusreq')::uuid,current_setting('fiscal0.cancelreq')::uuid]);
   r:=private.fiscal0_apply_provider_result(current_setting('fiscal0.statusreq')::uuid,'{"outcome":"stamped","provider_document_id":"provider-doc-1","fiscal_uuid":"11111111-1111-4111-8111-111111111111"}'); IF r?'error' THEN RAISE EXCEPTION 'FISCAL0 reconcile stamped'; END IF;

@@ -1,5 +1,9 @@
 \set ON_ERROR_STOP on
 -- Disposable local database, synthetic subjects only; all fixtures/ACL revert.
+CREATE TEMP TABLE m06_before_counts AS SELECT
+ (SELECT count(*) FROM private.operation_company_classification_events) evidence,
+ (SELECT count(*) FROM public.operations) operations,
+ (SELECT count(*) FROM public.tenants WHERE slug LIKE 'multi06-%') synthetic_tenants;
 BEGIN;
 CREATE FUNCTION pg_temp.m06_check(ok boolean,label text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'MULTI06 failed: %',label; END IF; END;
@@ -295,8 +299,9 @@ ROLLBACK;
 
 DO $clean$
 BEGIN
-    IF EXISTS(SELECT FROM private.operation_company_classification_events) OR EXISTS(SELECT FROM public.operations)
-        OR EXISTS(SELECT FROM public.tenants WHERE slug LIKE 'multi06-%')
+    IF (SELECT count(*) FROM private.operation_company_classification_events)<>(SELECT evidence FROM m06_before_counts)
+        OR (SELECT count(*) FROM public.operations)<>(SELECT operations FROM m06_before_counts)
+        OR (SELECT count(*) FROM public.tenants WHERE slug LIKE 'multi06-%')<>(SELECT synthetic_tenants FROM m06_before_counts)
         OR has_function_privilege('authenticated','public.rpc_multi06_list_operations(uuid,uuid,text,uuid,integer)','EXECUTE')
         OR has_table_privilege('authenticated','private.operation_company_classification_events','SELECT,INSERT') THEN
         RAISE EXCEPTION 'MULTI06 residue or activation grant remains';

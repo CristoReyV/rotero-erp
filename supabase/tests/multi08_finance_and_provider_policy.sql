@@ -60,7 +60,7 @@ DO $fixture$ DECLARE t uuid; x uuid; a uuid; b uuid; xc uuid; u uuid:=gen_random
  INSERT INTO private.finance_invoices_company_evidence(tenant_id,entity_id,company_id,decision,evidence_kind,evidence_reference,recorded_by)
   VALUES(t,i,a,'resolved','verified_source_record','synthetic-only',admin) RETURNING id INTO evidence;
  UPDATE public.finance_invoices SET company_id=a,company_classification_status='resolved',company_classification_event_id=evidence WHERE id=i;
- INSERT INTO public.finance_payments(tenant_id,invoice_id,amount) VALUES(t,i,10) RETURNING id INTO pay;
+ INSERT INTO public.finance_payments(tenant_id,invoice_id,amount,paid_at) VALUES(t,i,10,now()) RETURNING id INTO pay;
  INSERT INTO public.finance_invoices(tenant_id,direction,counterparty_name,amount) VALUES(t,'ar','Unknown historical',25) RETURNING id INTO pending;
  INSERT INTO public.billing_cfdis(tenant_id,rfc_emisor,rfc_receptor,total,status) VALUES(t,'AAA010101AA1','XXX010101XX1',116,'draft') RETURNING id INTO c;
  INSERT INTO public.billing_cfdis(tenant_id,rfc_emisor,rfc_receptor,total,status) VALUES(t,'BBB010101BB1','XXX010101XX1',116,'draft') RETURNING id INTO c2;

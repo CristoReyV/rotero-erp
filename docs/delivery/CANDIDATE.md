@@ -6,11 +6,11 @@ Estado: preparado y probado localmente, **NO LISTO para merge ni habilitación d
 
 Base remota verificada: `0e9e2eb4dc4e66698e026507b260e8196a549584` (PR fiscal #46 ya integrado). MULTI-04/05 no se duplican. Se incorporan selectivamente MULTI-08 `48dc7ad722268771d2c8c69c521a5b488f7066d0` y su cierre `eb33161c7dbb0cec309e9727a72d640613102d6a`, conservando trailers de origen. Sus prerrequisitos contienen la composición de MULTI-06/07 con Facturama. Las 45 migraciones aplicadas permanecen intactas. Las cuatro de MULTI-08 aún no aplicadas aceptan exclusivamente la representación uniforme LF/CRLF esperada, sin aceptar cambios arbitrarios de SQL. Se agregan cuatro migraciones de adopción empresarial (53 en total).
 
-## Bloqueo P0 demostrado en staging
+## Reconciliación CIERRE-02
 
-El historial remoto registra las mismas 45 migraciones de main; el catálogo real no corresponde completamente a sus definiciones canónicas. Hay 362 funciones públicas ejecutables por authenticated frente a 247 canónicas: 85 firmas RPC adicionales y 26 cuerpos RPC coincidentes en firma pero distintos. No son diferencias de finales de línea. Ejemplo: `rpc_get_operation` devuelve un JSON enriquecido en staging y otra definición en el replay.
+La comparación correcta A45/B45/C53 y las 177 decisiones están en [reconciliation/README.md](reconciliation/README.md). Hay 135 funciones adicionales (92 RPC), 34 distintas (29 RPC) y ocho ausentes (siete RPC). Las anteriores cifras 85/26 mezclaban parte del candidato con la referencia. No encontrar consumidor frontend no demuestra falta de uso.
 
-El ensayo sobre una restauración aislada del staging real se detiene en `delivery_source_drift: rpc_get_operation`. No se elimina ese guard, no se repara el historial ni se sobrescriben contratos extra. Responsable: mantenimiento backend/DB. Acción: versionar y revisar el delta real, consumidores y ACL de las 85 firmas y 26 cuerpos; decidir qué conservar en el núcleo legacy y qué adoptar/denegar en contexto empresarial; ensayar nuevamente sobre la restauración antes de aplicar el delta completo. El manifiesto canónico no autoriza los contratos adicionales.
+El delta pasó replay limpio y ensayo completo sobre restauración real sin quitar `delivery_source_drift`. Conserva las variantes legacy revisadas y cierra las vías no adoptadas. Corrige la asignación de filas por nombre ante otro orden físico de columnas. El estado remoto y la QA están en [reconciliation/VALIDATION.json](reconciliation/VALIDATION.json). WLS sigue sin habilitarse y el PR permanece draft.
 
 ## Modelo y activación
 

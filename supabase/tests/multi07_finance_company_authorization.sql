@@ -1,5 +1,12 @@
 \set ON_ERROR_STOP on
 -- New, disposable local runtime only. Synthetic rows and all test ACL roll back.
+CREATE TEMP TABLE m07_before_counts AS SELECT
+ (SELECT count(*) FROM public.finance_invoices) invoices,
+ (SELECT count(*) FROM public.operations) operations,
+ (SELECT count(*) FROM private.finance_invoices_company_evidence) invoice_evidence,
+ (SELECT count(*) FROM private.billing_documents_company_evidence) document_evidence,
+ (SELECT count(*) FROM private.billing_credit_notes_company_evidence) credit_evidence,
+ (SELECT count(*) FROM public.tenants WHERE slug LIKE 'm07-%') synthetic_tenants;
 BEGIN;
 CREATE FUNCTION pg_temp.m07_check(ok boolean,label text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'MULTI07 failed: %',label; END IF; END; $$;
@@ -125,7 +132,7 @@ BEGIN
     INSERT INTO public.finance_invoices(tenant_id,direction,counterparty_name,reference,amount,payroll_period_id)
         VALUES(t,'ap','Synthetic reserved payroll','PAYROLL',1,gen_random_uuid()) RETURNING id INTO child;
     PERFORM pg_temp.m07_resolve('finance_invoices',child,a);PERFORM set_config('m07.payroll',child::text,true);
-    INSERT INTO public.finance_payments(tenant_id,invoice_id,amount,bank_reference,note) VALUES(t,ia,20,'SYNTHETIC_PRIVATE_CANARY','SYNTHETIC_PRIVATE_CANARY') RETURNING id INTO payment;
+    INSERT INTO public.finance_payments(tenant_id,invoice_id,amount,paid_at,bank_reference,note) VALUES(t,ia,20,now(),'SYNTHETIC_PRIVATE_CANARY','SYNTHETIC_PRIVATE_CANARY') RETURNING id INTO payment;
     INSERT INTO public.billing_credit_notes(tenant_id,finance_invoice_id,total,status) VALUES(t,ia,10,'applied') RETURNING id INTO child;
     PERFORM pg_temp.m07_resolve('billing_credit_notes',child,a);
     INSERT INTO public.billing_payment_complements(tenant_id,finance_invoice_id,finance_payment_id,invoice_billing_document_id,amount)
@@ -143,7 +150,7 @@ BEGIN
     PERFORM pg_temp.m07_error(format('UPDATE public.finance_invoices SET billing_document_id=%L WHERE id=%L',db,ia),'23503');
     PERFORM pg_temp.m07_error(format('UPDATE public.finance_invoices SET operation_id=%L WHERE id=%L',current_setting('m07.ob'),ia),'23503');
     PERFORM pg_temp.m07_error(format('SELECT pg_temp.m07_resolve(''finance_invoices'',%L,%L)',current_setting('m07.ip'),current_setting('m07.xc')),'23503');
-    PERFORM pg_temp.m07_error(format('INSERT INTO public.finance_payments(tenant_id,invoice_id,amount) VALUES(%L,%L,1)',current_setting('m07.x'),ia),'23503');
+    PERFORM pg_temp.m07_error(format('INSERT INTO public.finance_payments(tenant_id,invoice_id,amount,paid_at) VALUES(%L,%L,1,now())',current_setting('m07.x'),ia),'23503');
     PERFORM pg_temp.m07_error(format('INSERT INTO public.billing_payment_complements(tenant_id,finance_invoice_id,finance_payment_id,amount,status) VALUES(%L,%L,%L,1,''cancelled'')',
         t,current_setting('m07.ib'),current_setting('m07.payment')),'23503');
     -- Even unresolved roots cannot bridge two already-known incompatible parents.
@@ -309,6 +316,9 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON public.finance_invoices,public.finance_paym
 -- Isolate RLS from the legacy policy helper's separate EXECUTE denial.
 GRANT EXECUTE ON FUNCTION private.f4_user_can_manage_finance(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION private.f4_amount_mxn(numeric,text,numeric) TO authenticated;
+-- Also satisfy the direct metadata dependency of restored legacy policies;
+-- the assertion must exercise RLS, not stop on that separate ACL denial.
+GRANT SELECT(user_id,tenant_id,role) ON public.memberships TO authenticated;
 SET LOCAL ROLE authenticated;
 DO $raw_rls$ DECLARE t text; n int;
 BEGIN
@@ -353,11 +363,12 @@ ROLLBACK;
 
 DO $clean$
 BEGIN
-    IF EXISTS(SELECT FROM public.finance_invoices) OR EXISTS(SELECT FROM public.operations)
-        OR EXISTS(SELECT FROM private.finance_invoices_company_evidence)
-        OR EXISTS(SELECT FROM private.billing_documents_company_evidence)
-        OR EXISTS(SELECT FROM private.billing_credit_notes_company_evidence)
-        OR EXISTS(SELECT FROM public.tenants WHERE slug LIKE 'm07-%')
+    IF (SELECT count(*) FROM public.finance_invoices)<>(SELECT invoices FROM m07_before_counts)
+        OR (SELECT count(*) FROM public.operations)<>(SELECT operations FROM m07_before_counts)
+        OR (SELECT count(*) FROM private.finance_invoices_company_evidence)<>(SELECT invoice_evidence FROM m07_before_counts)
+        OR (SELECT count(*) FROM private.billing_documents_company_evidence)<>(SELECT document_evidence FROM m07_before_counts)
+        OR (SELECT count(*) FROM private.billing_credit_notes_company_evidence)<>(SELECT credit_evidence FROM m07_before_counts)
+        OR (SELECT count(*) FROM public.tenants WHERE slug LIKE 'm07-%')<>(SELECT synthetic_tenants FROM m07_before_counts)
         OR has_function_privilege('authenticated','public.rpc_multi07_list_invoices(uuid,uuid[],text,text,text,uuid,integer,boolean)','EXECUTE') THEN
         RAISE EXCEPTION 'MULTI07 fixture or activation residue';
     END IF;
