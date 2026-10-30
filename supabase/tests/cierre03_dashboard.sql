@@ -87,6 +87,10 @@ BEGIN
 END $$;
 
 SELECT pg_temp.actor(current_setting('d.u')::uuid,current_setting('d.a')::uuid);
+-- A resolved operation does not classify arbitrary historical incident text.
+INSERT INTO public.operation_incidents(tenant_id,operation_id,title,description,category,is_blocking,status,reported_by)
+VALUES(current_setting('d.t')::uuid,current_setting('d.op')::uuid,
+ 'FINANCIAL_CANARY_HISTORICAL_TITLE','FINANCIAL_CANARY_HISTORICAL_DETAIL','general',true,'open',current_setting('d.u')::uuid);
 INSERT INTO public.audit_log(tenant_id,actor_user_id,action,entity_type,entity_id) VALUES
 (current_setting('d.t')::uuid,current_setting('d.u')::uuid,'operation_update','operation',current_setting('d.op')::uuid),
 (current_setting('d.t')::uuid,current_setting('d.u')::uuid,'FOREIGN_AUDIT_CANARY','operation',current_setting('d.ob')::uuid);
@@ -96,6 +100,7 @@ DO $$DECLARE r jsonb;BEGIN
  PERFORM pg_temp.ok(r->>'error' IS NULL AND r->'operations'->>'delivered'='1' AND r->'operations'->>'total'='3','operational dashboard scoped positive');
  PERFORM pg_temp.ok(NOT(r ? 'finance') AND r->>'financial_available'='false','finance role without explicit full grant gets no finance payload');
  PERFORM pg_temp.ok(r::text NOT LIKE '%77777%' AND r::text NOT LIKE '%FINANCIAL_CANARY%' AND r::text NOT LIKE '%FOREIGN_AUDIT_CANARY%','dashboard excludes financial and foreign audit values');
+ PERFORM pg_temp.ok(EXISTS(SELECT FROM jsonb_array_elements(r->'attention')a WHERE a->>'kind'='blocking_incident' AND a->>'title'='Incidencia bloqueante'),'historical incident remains counted with safe operational label');
  PERFORM pg_temp.ok(jsonb_array_length(r->'recent_activity')=1,'audit scope enforced before limit');
  PERFORM pg_temp.ok(public.rpc_delivery_dashboard(current_setting('d.t')::uuid,now(),now()-interval '1 hour')->>'error'='invalid_date_range','date range validated');
  PERFORM pg_temp.ok(public.rpc_delivery_search(current_setting('d.t')::uuid,'AR-',50)->'items'='[]','partial search no invoice suggestions');

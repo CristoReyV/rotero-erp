@@ -86,6 +86,9 @@ BEGIN
 END $$;
 
 INSERT INTO auth.users(id,email) VALUES(current_setting('d.u')::uuid,'job-'||current_setting('d.u')||'@example.test');
+INSERT INTO public.operation_incidents(tenant_id,operation_id,title,description,category,is_blocking,status,reported_by)
+VALUES(current_setting('d.t')::uuid,current_setting('d.op')::uuid,
+ 'FINANCIAL_CANARY_HISTORICAL_TITLE','FINANCIAL_CANARY_HISTORICAL_DETAIL','general',true,'open',current_setting('d.u')::uuid);
 UPDATE public.memberships SET role='admin' WHERE user_id=current_setting('d.u')::uuid;
 INSERT INTO public.membership_company_capabilities(tenant_id,user_id,company_id,capability_code,approval_reference,granted_by)
 VALUES(current_setting('d.t')::uuid,current_setting('d.u')::uuid,current_setting('d.a')::uuid,'automations.manage','local-C03',current_setting('d.u')::uuid);
@@ -105,6 +108,7 @@ SELECT pg_temp.ok(private.c03_run_operational_scope((current_setting('d.scope'):
 SELECT pg_temp.ok(NOT EXISTS(SELECT FROM public.internal_notifications WHERE tenant_id=current_setting('d.t')::uuid AND company_id IS DISTINCT FROM current_setting('d.a')::uuid),'job never materializes other company');
 SELECT pg_temp.ok(NOT EXISTS(SELECT FROM public.internal_notifications WHERE tenant_id=current_setting('d.x')::uuid),'job never touches other tenant');
 SELECT pg_temp.ok(NOT EXISTS(SELECT FROM public.internal_notifications WHERE tenant_id=current_setting('d.t')::uuid AND (area='finance' OR body LIKE '%54321%' OR body LIKE '%12345%' OR body LIKE '%FINANCIAL_CANARY%')),'worker has no financial candidates or payload');
+SELECT pg_temp.ok(NOT EXISTS(SELECT FROM public.internal_notifications WHERE tenant_id=current_setting('d.t')::uuid AND title LIKE '%FINANCIAL_CANARY%'),'worker never echoes unclassified historical incident title');
 SELECT pg_temp.ok(NOT private.c03_operational_grant(current_setting('d.t')::uuid,current_setting('d.a')::uuid,current_setting('d.u')::uuid,'financial.full.read'),'worker helper cannot grant finance authority');
 SELECT set_config('d.ncount',(SELECT count(*)::text FROM public.internal_notifications WHERE tenant_id=current_setting('d.t')::uuid),true);
 SET LOCAL ROLE authenticated;
