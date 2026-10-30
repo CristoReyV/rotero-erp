@@ -113,6 +113,33 @@ SELECT set_config('d.fin_file',public.rpc_delivery_finalize_upload(current_setti
 SELECT pg_temp.ok(current_setting('d.fin_file')<>'' AND public.rpc_delivery_file_download(current_setting('d.t')::uuid,current_setting('d.fin_file')::uuid)->>'id'=current_setting('d.fin_file'),'full financial download authorized');
 SELECT pg_temp.ok(jsonb_array_length(public.rpc_delivery_document_history(current_setting('d.t')::uuid,'finance_invoice',current_setting('d.invoice')::uuid)->'items')=1,'financial versions visible to explicit full reader');
 RESET ROLE;
+-- The third supported parent is a local draft, not an issued fiscal document.
+SET LOCAL ROLE rotero_finance_scope_owner;
+GRANT SELECT,INSERT ON private.billing_documents_company_evidence TO postgres;
+RESET ROLE;
+DO $$DECLARE doc uuid;e uuid;BEGIN
+ INSERT INTO public.billing_documents(tenant_id,operation_id,status,created_by)
+ VALUES(current_setting('d.t')::uuid,current_setting('d.op')::uuid,'draft',current_setting('d.full')::uuid) RETURNING id INTO doc;
+ INSERT INTO private.billing_documents_company_evidence(tenant_id,entity_id,company_id,decision,evidence_kind,evidence_reference,recorded_by)
+ VALUES(current_setting('d.t')::uuid,doc,current_setting('d.a')::uuid,'resolved','verified_source_record','LOCAL SYNTHETIC DRAFT',current_setting('d.full')::uuid) RETURNING id INTO e;
+ UPDATE public.billing_documents SET company_id=current_setting('d.a')::uuid,company_classification_status='resolved',company_classification_event_id=e WHERE id=doc;
+ PERFORM set_config('d.billing_document',doc::text,true);
+END $$;
+SET LOCAL ROLE authenticated;
+SELECT set_config('d.bill_upload',public.rpc_delivery_prepare_upload(current_setting('d.t')::uuid,gen_random_uuid(),
+ jsonb_build_object('entity_type','billing_document','entity_id',current_setting('d.billing_document'),'access_class','financial',
+ 'file_name','c03-billing-draft.txt','mime_type','text/plain','size_bytes',12,'checksum_sha256',repeat('d',64)))::text,true);
+SELECT pg_temp.ok(current_setting('d.bill_upload')::jsonb->>'id' IS NOT NULL,'full plus explicit write permits billing draft file');
+INSERT INTO storage.objects(bucket_id,name,owner_id,metadata) VALUES('tenant-documents',current_setting('d.bill_upload')::jsonb->>'path',current_setting('d.full'),'{"size":12,"mimetype":"text/plain"}');
+SELECT set_config('d.bill_file',public.rpc_delivery_finalize_upload(current_setting('d.t')::uuid,(current_setting('d.bill_upload')::jsonb->>'id')::uuid)->>'id',true);
+SELECT pg_temp.ok(public.rpc_delivery_file_download(current_setting('d.t')::uuid,current_setting('d.bill_file')::uuid)->>'id'=current_setting('d.bill_file'),'billing draft authenticated download positive');
+RESET ROLE;
+SELECT pg_temp.actor(current_setting('d.u')::uuid,current_setting('d.a')::uuid);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.ok(public.rpc_delivery_document_history(current_setting('d.t')::uuid,'billing_document',current_setting('d.billing_document')::uuid)->>'error'='unauthorized','partial cannot enumerate billing parent files');
+SELECT pg_temp.ok((SELECT count(*)=0 FROM storage.objects WHERE name=current_setting('d.bill_upload')::jsonb->>'path'),'partial direct Storage denied for billing parent');
+RESET ROLE;
+SELECT pg_temp.actor(current_setting('d.full')::uuid,current_setting('d.a')::uuid);
 DO $$DECLARE payroll uuid:=gen_random_uuid();BEGIN
  IF to_regclass('public.payroll_periods') IS NOT NULL THEN
   EXECUTE 'INSERT INTO public.payroll_periods(id,tenant_id,name,period_start,period_end) VALUES($1,$2,$3,current_date,current_date+14)'
@@ -135,6 +162,7 @@ SELECT pg_temp.actor(current_setting('d.full')::uuid,current_setting('d.a')::uui
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok(public.rpc_delivery_file_download(current_setting('d.t')::uuid,current_setting('d.fin_file')::uuid)->>'error'='unauthorized','binding revocation closes authenticated file downloads');
 SELECT pg_temp.ok((SELECT count(*)=0 FROM storage.objects WHERE name=current_setting('d.fin_upload')::jsonb->>'path'),'binding revocation closes direct Storage');
+SELECT pg_temp.ok(public.rpc_delivery_file_download(current_setting('d.t')::uuid,current_setting('d.bill_file')::uuid)->>'error'='unauthorized','binding revocation also closes billing parent');
 RESET ROLE;
 SELECT pg_temp.ok((SELECT count(*)=1 FROM storage.objects WHERE name=current_setting('d.fin_upload')::jsonb->>'path'),'financial bytes retained after revocation');
 SELECT 'C03_FINANCIAL_DOCUMENT_ASSERTIONS='||current_setting('d.assertions');

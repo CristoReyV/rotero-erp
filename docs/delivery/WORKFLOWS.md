@@ -7,7 +7,7 @@ los pendientes funcionales y UAT.
 
 ## Contratos y autorización
 
-Las cinco migraciones `20261030*_cierre03_*` parten del catálogo reconciliado de
+Las siete migraciones `20261030*_cierre03_*` parten del catálogo reconciliado de
 53 migraciones. Verifican los cuerpos consumidos antes de componer núcleos
 privados y conservan estados, cumplimiento de proveedores y reglas de negocio.
 Los manifiestos de `supabase/contracts/cierre03/` fijan esos orígenes.
@@ -49,6 +49,14 @@ La planificación parcial conserva importes, moneda, catálogo y notas restringi
 La revisión técnica no altera `updated_at` cuando es el único cambio: las métricas
 de duración y reglas de antigüedad conservan su reloj de negocio. Los cambios
 reales siguen ejecutando las reglas temporales anteriores.
+
+Los resúmenes y jobs no reproducen títulos históricos sin clasificación. La ficha
+señala ese texto como pendiente; resolver o descartar una incidencia antigua no
+convierte su descripción previa en un hecho operacional nuevo. Cada detalle se
+lee de su acción de origen (alta, resolución o descarte). Los detalles de altas
+operacionales autorizadas se conservan después de resolverlas. Los hechos
+inmutables anteriores permanecen intactos y no legitiman descripciones copiadas
+por otra acción.
 
 Transitar no elude Tracking, POD, cumplimiento ni Billing emitido. El ensayo SQL
 positivo completo utiliza prerrequisitos sintéticos locales. No se fabrican estados
@@ -100,7 +108,7 @@ acciones explícitas separadas, con reautorización.
 
 ## Validación y límites
 
-El replay limpio usa los 53 blobs aprobados y estas cinco migraciones exactas.
+El replay limpio usa los 53 blobs aprobados y estas siete migraciones exactas.
 Las suites SQL sintéticas verifican denegaciones efectivas, relaciones, revisiones,
 Storage, documentos financieros, revocación y jobs con reloj controlado. El arnés
 de concurrencia usa dos conexiones reales. Los arneses versionados exigen proyecto

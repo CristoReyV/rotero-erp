@@ -1,11 +1,17 @@
 # Candidato integrado de cierre
 
-Estado: **LISTO CON BLOQUEOS para revisión; NO LISTO para merge ni habilitación de WLS**. CIERRE-02 aplicó las ocho migraciones revisadas a staging, verificó el catálogo y ejecutó QA exclusiva sintética. El PR permanece draft y el deploy principal no cambió. Evidencia actual: [reconciliation/REMOTE_VALIDATION.json](reconciliation/REMOTE_VALIDATION.json).
+Estado: **LISTO CON BLOQUEOS para revisión; NO LISTO para merge ni habilitación de WLS**. CIERRE-03 dejó staging en 60 migraciones verificadas y completó QA sintética de los workflows adoptados. El PR permanece draft. Evidencia actual: [WORKFLOWS_VALIDATION.json](WORKFLOWS_VALIDATION.json). La reconciliación anterior se conserva en [reconciliation/REMOTE_VALIDATION.json](reconciliation/REMOTE_VALIDATION.json).
 
 CIERRE-03 adopta comandos operativos, documentos privados y versiones, dashboard,
 búsqueda y ejecución manual acotada de seis automatizaciones. Sus contratos,
 permisos y límites actuales están en [WORKFLOWS.md](WORKFLOWS.md). La evidencia
 CIERRE-02 inferior es histórica; no acredita estas nuevas acciones.
+
+Las tres identidades dedicadas de CIERRE-03 se conservan bajo DPAPI para QA
+continua, con concesiones de siete días. Los scopes de jobs están deshabilitados
+al cerrar y los overrides temporales se retiraron tras registrar sus claves;
+los defaults operativos y la auditoría permanecen. No se modifica ROTERO QA
+compartido ni se asignan personas reales.
 
 ## Base y composición
 
@@ -81,9 +87,9 @@ No se localizaron candidatos por los tres nombres exactos en la consulta acotada
 ## Siguientes gates, UAT y producción (sin ejecutar)
 
 1. Backend/DB: reconciliación completada (177 decisiones, delta aplicado y catálogo verificado). Antes de habilitar WLS falta clasificar históricos y revisar relaciones reales, sin empresa por defecto.
-2. Responsable funcional + backend: completar gestión operativa/documental, dashboard/automatizaciones pendientes, matriz de acciones y clasificación explícita. Revisar evidencia por entidad, sin empresa por defecto, creador ni nombre parecido.
+2. Responsable funcional + backend: adoptar la gestión empresarial de tokens Tracking y los consumidores todavía cerrados, además de clasificar evidencia real. Los comandos, tres padres documentales, dashboard y seis reglas manuales acotadas ya tienen validación CIERRE-03; esto no completa el scheduler ni todos los módulos.
 3. Administración de identidades: verificar UUID/titularidad de las tres personas, aprobar accesos/capacidades sin ejecutarlos durante este encargo. Completar domicilios/RFC/config fiscal verificados.
-4. QA staging sintética ejecutada con los límites anteriores. Pendientes: foco real, finalización HTTP de logout, datos reales conciliados y UAT. No reabrir legacy para hacer pasar UAT ni confundir pruebas sintéticas con asignaciones reales.
+4. QA staging sintética CIERRE-02/03 ejecutada con los límites anteriores. Pendientes: foco real, revocación completa de access tokens, datos reales conciliados y UAT. El cierre comprueba cero sesiones QA almacenadas; el navegador puede observar HTTP 204 seguido de aborto/timeout. No reabrir legacy para hacer pasar UAT ni confundir pruebas sintéticas con asignaciones reales.
 5. UAT Luis Roberto: ROTERO/ROTERITO por separado y consolidado exacto, utilidad/costos/márgenes y exportaciones conciliados; Jhoselin: cambio empresa, tardías y revocación; Karina: AR/AP/pagos/créditos, exclusión laboratorio y conciliación contable/Excel. Cada uno prueba sólo tras verificación/grant aprobado. Incluir contraparte parcial sin full y usuario sin empresa.
 6. Producción: autorización aparte; inventario y delta del catálogo real, ensayo/backup DB+Storage restaurado, referencias de secretos sólo servidor, CSD reales bajo custodia y validación aparte, provider/profile/env explícitos, idempotencia/incertidumbre y monitoreo. Soft sigue deshabilitado hasta validar su emisión/recuperación. No fallback entre proveedores.
 7. Recuperación: snapshot previo, manifiesto por objetos/lotes y evidencia; revisión de jobs y sesiones antes de restaurar. Nunca revertir sólo ACL/cutover para reabrir bypass ni restaurar Auth globalmente sobre sesiones ajenas. Mantener cierre seguro y corregir adelante; rollback de aplicación únicamente a un conjunto DB+frontend compatible y aprobado. Migraciones aditivas no se borran ni se repara su historial. No se ejecutó producción, rollback ni restore remoto.
