@@ -1,5 +1,5 @@
 {
-  "scope": "local disposable loopback; remote backend not modified",
+  "scope": "Historical local rehearsal before CIERRE-02; current applied staging state is in reconciliation/REMOTE_VALIDATION.json",
   "migrations": 53,
   "sql_suites": [
     {
@@ -1118,7 +1118,7 @@
     "logout_limitation": "HTTP204 and local redirect observed; request completion includes net::ERR_ABORTED. Complete remote-session revocation is not proven."
   },
   "applied_45_migrations_unchanged": true,
-  "staging": "blocked: source drift; no migrations/grants/fixtures/Edge deployment/authenticated QA",
+  "staging": "Eight reviewed migrations applied; exact catalog verified and exclusive synthetic QA completed, with documented limitations. See reconciliation/REMOTE_VALIDATION.json",
   "backup_restore": {
     "database_copy_tables_verified": 134,
     "storage_objects_verified": 15,
@@ -1139,5 +1139,6 @@
   "provider_calls_executed": 0,
   "original_worktrees": 28,
   "original_worktrees_preserved": true,
-  "original_refs_excluding_codex_preserved": true
+  "original_refs_excluding_codex_preserved": true,
+  "current_evidence": "reconciliation/REMOTE_VALIDATION.json"
 }

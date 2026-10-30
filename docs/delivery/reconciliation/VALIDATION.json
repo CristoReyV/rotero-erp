@@ -381,19 +381,26 @@
   "staging": {
     "project_ref": "mxpmgihuheagrcowwbia",
     "health": "ACTIVE_HEALTHY",
-    "delta_applied": false,
+    "delta_applied": true,
     "dry_run_exact_eight": true,
     "vault_roles_seeds_not_updated": true,
-    "advisors_and_logs_connector": "permission unavailable; no repeated retries"
+    "advisors_and_logs_connector": "permission unavailable; no repeated retries",
+    "history_after": 53,
+    "exact_restore_catalog_match": true,
+    "only_eight_reviewed_migrations": true,
+    "fiscal_sandbox_version": 6
   },
   "QA": {
-    "enterprise_UI": "pending exclusive fixture preparation after backend gates",
+    "enterprise_UI": "executed against ready preview with exclusive synthetic partial/full identities; see REMOTE_VALIDATION.json",
     "shared_existing_QA_tenant_other_auth_accounts": 2,
     "existing_only_company_inactive": true,
     "real_people_grants": false,
-    "new_business_fixtures_remote": false,
+    "new_business_fixtures_remote": true,
     "new_provider_calls": false,
-    "exclusive_synthetic_lab_authorized": true
+    "exclusive_synthetic_lab_authorized": true,
+    "fixtures_retired_with_required_audit_retention": true,
+    "temporary_QA_full_fixture": "explicitly authorized permission-combination fixture; revoked and removed, no real-person assignment",
+    "focus": "not proven"
   },
   "release": {
     "PR": 47,
@@ -437,5 +444,6 @@
       "passed": true,
       "rejection": "c02_storage_transition_drift"
     }
-  ]
+  ],
+  "remote_evidence": "REMOTE_VALIDATION.json"
 }

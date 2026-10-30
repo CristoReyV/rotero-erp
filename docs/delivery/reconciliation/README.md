@@ -1,8 +1,9 @@
 # CIERRE-02: catálogo reconciliado
 
-El candidato sigue en draft. La reconciliación SQL tiene ensayo limpio y sobre
-restauración real. La aplicación remota y la QA se registran por separado en
-`VALIDATION.json`; un replay no acredita una aplicación en staging.
+El candidato sigue en draft. Pasaron el replay limpio y el ensayo sobre restore.
+Se aplicaron exactamente las ocho migraciones revisadas a staging (45 → 53),
+con catálogo posterior idéntico al ensayo. La QA sintética real, su retirada y
+sus límites están en `REMOTE_VALIDATION.json`. WLS permanece sin habilitación.
 
 ## Comparación y decisiones
 
@@ -116,7 +117,8 @@ transiciones completas, administración documental, búsqueda de otros dominios,
 materialización/mark/dismiss, nómina, automatización empresarial, inventario y
 flujos administrativos no admitidos. Jobs guardados no equivalen a jobs adoptados.
 La lectura completa, exportación financiera y consolidación siguen requiriendo
-concesiones distintas y vinculación verificada. No se asigna full a QA o técnicos.
+concesiones distintas y vinculación verificada. No hay asignaciones reales a QA,
+técnicos ni personas; la excepción sintética autorizada abajo se retiró al cerrar.
 
 La cuenta QA anterior comparte tenant con otras dos cuentas Auth y su única
 empresa está inactiva. No se habilita ni se modifica ese entorno. El usuario
@@ -125,7 +127,35 @@ dos empresas, identidades para permisos parciales y full/consolidado, y un tenan
 mínimo de contraste. Su preparación exige revisión previa de hooks/defaults/jobs,
 custodia DPAPI, concesiones mínimas y retirada por IDs. Las vinculaciones de
 fixtures representan combinaciones de permisos, nunca verificaciones o asignaciones
-de personas reales. El estado efectivo de esa QA se registra aparte.
+de personas reales. Se ejecutó con dos tenants y tres empresas sintéticos, tres
+identidades nuevas y concesiones mínimas. Se retiraron cuentas/sesiones, grants,
+objetos privados y defaults eliminables. Permanecen raíces/evidencias inmutables,
+empresas inactivas y una vinculación revocada con su membership; los tenants
+sintéticos conservan el corte seguro para no reabrir vías legacy ni jobs.
+
+Pasaron API con admin sin grants, parcial, full/consolidado; UI listado → ficha →
+archivo → CSV, AR parcial y CSV financiero full; cinco Reportes HTTP 200, recarga,
+navegación y logout normal. Revocación y empresa inactiva deniegan de inmediato.
+No se observaron materialización, mark/dismiss ni mutaciones de negocio en esos
+recorridos; no es una certificación de jobs ajenos. El arnés bloqueó inicialmente
+RPC de lectura por una allowlist incompleta: se corrigió sólo el observador y se
+repitió Finance de forma focalizada. No se atribuye ese fallo al producto.
+
+El foco real permanece pendiente: Chromium con ventana no produjo una transición
+de visibilidad verificable. Logout mostró HTTP 204 y `net::ERR_ABORTED`, limpió UI
+y restringió Reportes; la finalización HTTP y revocación global no se presuponen.
+La retirada administrativa verificó cero cuentas/sesiones de esas tres identidades.
+
+El inventario auxiliar inicial se sobrescribió al verificar la retirada. Se
+conservan UUID de raíces, identidades y evidencia, y los IDs de defaults en SQL
+de limpieza acotado; no se recuperaron UUID de ciertas concesiones/memberships
+temporales ya eliminadas. La ausencia final y el alcance exclusivo sí se verificaron.
+
+Sobre 134 tablas originales, 132 conservaron exactamente sus digests por columnas
+originales. No faltó ninguna fila previa: los otros cambios fueron una ejecución
+programada a las 05:00 UTC y fechas first_seen_at/last_seen_at de notificaciones,
+compatibles con el job horario preservado y registrado por cron. No se limpiaron
+ni revirtieron esos efectos concurrentes. No hubo backfill empresarial real.
 
 No se habilita WLS ni se asignan personas reales. Excel continúa en HOLD.
 El aislamiento integral del ERP, UAT, otros roles, datos poblados y producción
