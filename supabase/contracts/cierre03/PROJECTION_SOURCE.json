@@ -1,0 +1,14 @@
+[
+  {
+    "signature": "private.c03_attention_items(uuid, text)",
+    "source_md5_lf": "67d8fa66f3b47ee48d19b56647078c6d",
+    "source_sha256_lf": "8a4a7575df463fe456046bd85e70806731bb7b23352c3e2718b449ae6cfbb28f",
+    "change": "projection only; predicate, formulas, timing, owner and ACL preserved"
+  },
+  {
+    "signature": "private.c03_operational_candidates(uuid, uuid, timestamp with time zone, text)",
+    "source_md5_lf": "9f123456e258360d4b1b7b2cb38864c6",
+    "source_sha256_lf": "4f103089d9aa6b12c46de719ed1b3b203db82637e75c16a110a8775453ae5382",
+    "change": "projection only; predicate, formulas, timing, owner and ACL preserved"
+  }
+]

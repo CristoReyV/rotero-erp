@@ -49,7 +49,16 @@ BEGIN
     SELECT id INTO v_tenant FROM public.tenants WHERE slug='f6-tenant'; SELECT id INTO v_other FROM public.tenants WHERE slug='f6-other';
     INSERT INTO public.memberships(tenant_id,user_id,role) VALUES(v_tenant,v_admin,'admin'),(v_tenant,v_admin_b,'admin'),(v_tenant,v_finance,'finance'),(v_tenant,v_operator,'operator');
     INSERT INTO public.logistics_providers(tenant_id,external_key,display_name,tax_id) VALUES(v_tenant,'PRV-F6','Proveedor F6','PRF010101AA1') RETURNING id INTO v_provider;
-    INSERT INTO public.customers(tenant_id,display_name,tax_id) VALUES(v_tenant,'Cliente ambiguo A','AMB010101AA1'),(v_tenant,'Cliente ambiguo B','AMB010101AA1');
+    BEGIN
+        INSERT INTO public.customers(tenant_id,display_name,tax_id) VALUES(v_tenant,'Cliente ambiguo A','AMB010101AA1'),(v_tenant,'Cliente ambiguo B','AMB010101AA1');
+        PERFORM set_config('f6.unique_customer_tax_id','false',true);
+    EXCEPTION WHEN unique_violation THEN
+        IF NOT EXISTS(SELECT FROM pg_index WHERE indexrelid=to_regclass('public.customers_tenant_tax_id_uidx') AND indisunique AND indisvalid) THEN RAISE;END IF;
+        -- B rejects this ambiguity at the database boundary. Keep that stronger
+        -- constraint and test the reachable single-customer/provider-ambiguity case.
+        PERFORM set_config('f6.unique_customer_tax_id','true',true);
+        INSERT INTO public.customers(tenant_id,display_name,tax_id) VALUES(v_tenant,'Cliente unico A','AMB010101AA1');
+    END;
     INSERT INTO public.logistics_providers(tenant_id,display_name,tax_id) VALUES(v_tenant,'Proveedor ambiguo A','AMP010101AA1'),(v_tenant,'Proveedor ambiguo B','AMP010101AA1');
     INSERT INTO public.operations(tenant_id,external_key,reference_code,client_display_name,status) VALUES(v_other,'FOREIGN-F6','OP-FOREIGN-F6','Otro tenant','planned') RETURNING id INTO v_foreign_operation;
     INSERT INTO public.finance_invoices(tenant_id,direction,counterparty_name,reference,amount,currency,status,due_date) VALUES(v_tenant,'ar','Cliente Finance F6','AR-F6',100,'MXN','open',current_date+5) RETURNING id INTO v_invoice;
@@ -105,7 +114,7 @@ BEGIN
       {"external_key":"OP-BAD-EXEC","customer_external_key":"CLI-F6","service_type":"FTL","execution_type":"own_fleet","origin_municipality":"A","origin_state":"NL","destination_municipality":"B","destination_state":"QRO","operational_window_start":"2026-09-01T10:00:00Z","operational_window_end":"2026-09-02T10:00:00Z","cargo_description":"Carga"},
       {"external_key":"OP-AMB","customer_tax_id":"AMB010101AA1","provider_tax_id":"AMP010101AA1","service_type":"FTL","origin_municipality":"A","origin_state":"NL","destination_municipality":"B","destination_state":"QRO","operational_window_start":"2026-09-01T10:00:00Z","operational_window_end":"2026-09-02T10:00:00Z","cargo_description":"Carga"}
     ]');
-    IF v_result#>>'{summary,errors}'<>'7' OR v_result::text NOT LIKE '%invalid_operational_window%' OR v_result::text NOT LIKE '%invalid_operation_scope%' OR v_result::text NOT LIKE '%invalid_currency%' OR v_result::text NOT LIKE '%negative_economics%' OR v_result::text NOT LIKE '%unsafe_status%' OR v_result::text NOT LIKE '%invalid_execution_type%' OR v_result::text NOT LIKE '%ambiguous_customer%' OR v_result::text NOT LIKE '%ambiguous_provider%' THEN RAISE EXCEPTION 'F6 operation rejection matrix failed: %',v_result; END IF;
+    IF v_result#>>'{summary,errors}'<>'7' OR v_result::text NOT LIKE '%invalid_operational_window%' OR v_result::text NOT LIKE '%invalid_operation_scope%' OR v_result::text NOT LIKE '%invalid_currency%' OR v_result::text NOT LIKE '%negative_economics%' OR v_result::text NOT LIKE '%unsafe_status%' OR v_result::text NOT LIKE '%invalid_execution_type%' OR (current_setting('f6.unique_customer_tax_id')<>'true' AND v_result::text NOT LIKE '%ambiguous_customer%') OR v_result::text NOT LIKE '%ambiguous_provider%' THEN RAISE EXCEPTION 'F6 operation rejection matrix failed: %',v_result; END IF;
 
     v_result:=public.rpc_bulk_update_operations(v_tenant,ARRAY[v_operation],'set_priority','{"priority":"high"}');
     IF v_result->>'updated'<>'1' THEN RAISE EXCEPTION 'F6 bulk priority failed: %',v_result; END IF;

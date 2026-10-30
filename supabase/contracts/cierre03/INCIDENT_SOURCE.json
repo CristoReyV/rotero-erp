@@ -1,0 +1,14 @@
+[
+  {
+    "signature": "public.rpc_delivery_operation_child_action(uuid, uuid, text, jsonb, uuid, bigint)",
+    "source_md5_lf": "6728a374fe460ecffa7c567fcc500258",
+    "source_sha256_lf": "b83d16f83175b3a37caaec5408f1cc636981d1d2830def3ff31118219d635fb3",
+    "change": "incident descriptions require creation provenance; action-specific notes; no historical record or immutable fact updated"
+  },
+  {
+    "signature": "public.rpc_delivery_operation_children(uuid, uuid)",
+    "source_md5_lf": "85788ef0a9dc72a55ed1b993ff64e77b",
+    "source_sha256_lf": "3e4829f1424116107c8c74fb360f16a9a4fcd6e598167423ab34e7b9c0a789a9",
+    "change": "incident descriptions require creation provenance; action-specific notes; no historical record or immutable fact updated"
+  }
+]

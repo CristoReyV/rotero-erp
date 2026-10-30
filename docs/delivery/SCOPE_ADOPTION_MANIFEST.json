@@ -1,0 +1,1752 @@
+{
+  "functions": [
+    {
+      "function": "rpc_create_tracking_token",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid, p_scope text, p_ttl_hours integer",
+      "source_md5": "5cfcf30dc81c4fd35ecd381f9187f345",
+      "uniform_crlf_md5": "25c6084284e616bd971b81251ff65ed4",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_tracking_token",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid, p_scope text, p_force_rotate boolean",
+      "source_md5": "09870d05073d2c11e6b219a6ef0ec2af",
+      "uniform_crlf_md5": "ea9865a0168ff284e752bbf3fafd4822",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_finance_invoice",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "b7c1cd09c07b51b912ca53dbc1ab24e8",
+      "uniform_crlf_md5": "32a193664b1c91398d00b00615aebace",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_operation",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "99df64027e59c04364985277795dc842",
+      "uniform_crlf_md5": "7f70581207944309fd66cb7de966331c",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_import_mappings",
+      "arguments": "p_tenant_id uuid, p_entity_type text",
+      "source_md5": "21cd20a520da00cce7256b8d438c8300",
+      "uniform_crlf_md5": "336ac27ad854a828c85b222d344a4946",
+      "admitted": false
+    },
+    {
+      "function": "rpc_save_import_mapping",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "1813df41b52fe99669615338c33c2a25",
+      "uniform_crlf_md5": "796fed257b1371585ff52f605dfa9b66",
+      "admitted": false
+    },
+    {
+      "function": "rpc_delete_import_mapping",
+      "arguments": "p_tenant_id uuid, p_mapping_id uuid",
+      "source_md5": "71d01f20b4b3fb1fb05b24f7834d978e",
+      "uniform_crlf_md5": "304f7883346aaa9ca05728fb6e7b5978",
+      "admitted": false
+    },
+    {
+      "function": "rpc_bulk_update_operations",
+      "arguments": "p_tenant_id uuid, p_operation_ids uuid[], p_action text, p_payload jsonb",
+      "source_md5": "664b054486dbbfdf336e25a68ef7a2c5",
+      "uniform_crlf_md5": "aa5e26694e3e50c511d5c34948576907",
+      "admitted": false
+    },
+    {
+      "function": "rpc_record_data_action",
+      "arguments": "p_tenant_id uuid, p_action text, p_entity_type text, p_count integer, p_detail text",
+      "source_md5": "8c3be5d297bbce3f918083e503accd65",
+      "uniform_crlf_md5": "e00f864581f1d7082bfaf562ba7760fd",
+      "admitted": false
+    },
+    {
+      "function": "rpc_export_data_page",
+      "arguments": "p_tenant_id uuid, p_entity_type text, p_filters jsonb, p_cursor jsonb, p_limit integer",
+      "source_md5": "335081d2983946f29c447a6e030d75a5",
+      "uniform_crlf_md5": "f241441097c754512881102d6d679906",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_service_claim_from_incident",
+      "arguments": "p_incident_id uuid, p_payload jsonb",
+      "source_md5": "17824d62b7a79d41bf1f0c3f0d0e7469",
+      "uniform_crlf_md5": "1b27fa98f96073a760ecd9323c3ee60d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_members",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "aac7007c03a7c5bfb9c33b9150414de9",
+      "uniform_crlf_md5": "d0eedc32df7886606ee5c3ddf0959540",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_operations",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "f0c862896c3576a7322d23d23ffce069",
+      "uniform_crlf_md5": "a9f121de8d799a183bfc5e4a86fe2a56",
+      "admitted": true
+    },
+    {
+      "function": "rpc_reports_operations_summary",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "d5e3a144491c72431da6d6b2cc7661c4",
+      "uniform_crlf_md5": "86d27d74d4e2443ff0766d3043e246ce",
+      "admitted": true
+    },
+    {
+      "function": "rpc_assign_operation",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_vehicle_id uuid, p_planned_departure timestamp with time zone, p_priority text",
+      "source_md5": "25d629dd0595b6edd706a64525b04153",
+      "uniform_crlf_md5": "4c347216dfc32fbbe668ebdaac92120d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_assign_operation_v2",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid, p_driver_id uuid, p_driver_name text, p_vehicle_id uuid, p_vehicle_ref text, p_planned_departure timestamp with time zone, p_priority text",
+      "source_md5": "feaed63fca22874f0c4cd86b6f078c98",
+      "uniform_crlf_md5": "32d9d1b62db767eaaa9ec4bd6dd83d19",
+      "admitted": false
+    },
+    {
+      "function": "rpc_dashboard_recent_activity",
+      "arguments": "p_tenant_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone",
+      "source_md5": "a111e9e28f9e3fb3a842d22ff5420c70",
+      "uniform_crlf_md5": "228347872ccea254ecdbd97022a9c750",
+      "admitted": true
+    },
+    {
+      "function": "rpc_reports_financial_summary",
+      "arguments": "p_tenant_id uuid, p_period text",
+      "source_md5": "bf99dfb445b1bea862f5b7767581353e",
+      "uniform_crlf_md5": "1d003139c41cf38d52edcb2349c6eb9e",
+      "admitted": true
+    },
+    {
+      "function": "rpc_create_deal",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "6d60fd17d5fd874e4932caaebc0b1648",
+      "uniform_crlf_md5": "22a23288050ec90e7cac491824d3f022",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_deal",
+      "arguments": "p_deal_id uuid, p_patch jsonb",
+      "source_md5": "649736cc9857e2b9574c994c32c77c5f",
+      "uniform_crlf_md5": "e19abb2b022b70cf5d24be2db0f496e2",
+      "admitted": false
+    },
+    {
+      "function": "rpc_move_deal",
+      "arguments": "p_deal_id uuid, p_new_stage text",
+      "source_md5": "93adeef15ca719a1ee948c51faae073f",
+      "uniform_crlf_md5": "baae10f03bc948c57c57411344b909cb",
+      "admitted": false
+    },
+    {
+      "function": "rpc_add_deal_activity",
+      "arguments": "p_deal_id uuid, p_payload jsonb",
+      "source_md5": "73220d8c48705826edb72e11b90fbfde",
+      "uniform_crlf_md5": "befd1a0211795cad8dc4fed0241961fb",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_cfdis",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "80a142215abbd8895ae420f3fd153524",
+      "uniform_crlf_md5": "ad4c145f10f58a3ee3a73a7072203c50",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_cfdi_detail",
+      "arguments": "p_cfdi_id uuid",
+      "source_md5": "37f02199ababfa15597007f0aee6d941",
+      "uniform_crlf_md5": "c7fdf30a83ec9e3a7d78a0c538ddbdd0",
+      "admitted": true
+    },
+    {
+      "function": "rpc_create_cfdi",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "38e66700021866087bcf4c40af1b5228",
+      "uniform_crlf_md5": "6a6457d7fd29e03eac129556279bb60d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_cfdi",
+      "arguments": "p_cfdi_id uuid, p_patch jsonb",
+      "source_md5": "7218b0e37aa63bd828f5c81d71f01bf1",
+      "uniform_crlf_md5": "4ee535b575a11e21f9e44655692ab955",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_carta_porte",
+      "arguments": "p_cfdi_id uuid, p_payload jsonb",
+      "source_md5": "9c7095788fd268f81df6634537efd42b",
+      "uniform_crlf_md5": "b4c3160c22a0dcdb00eca82ccb61a886",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_inventory_lot",
+      "arguments": "p_tenant_id uuid, p_sku text, p_lot_code text, p_qty_on_hand numeric, p_warehouse text, p_received_at timestamp with time zone, p_currency text, p_pedimento_ref text, p_description text, p_unit text",
+      "source_md5": "e306e10357cbd743c93fa4d4a0da4ed2",
+      "uniform_crlf_md5": "aeee4d519712c9b8a2abd4d6163bd233",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_inventory_lot",
+      "arguments": "p_id uuid, p_patch jsonb",
+      "source_md5": "5c4bb6969a6f79718d3f25179d91934b",
+      "uniform_crlf_md5": "b55dd0ff4ac8561ecd622656d6c161ea",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_pedimento",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "db82de22bd584f46607321ecaa05827c",
+      "uniform_crlf_md5": "d598f88ca45b13bf3bb22c18f8b2632b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_pedimento",
+      "arguments": "p_id uuid, p_patch jsonb",
+      "source_md5": "10abe1e9bb0f89b1d9954465125533b5",
+      "uniform_crlf_md5": "26352f0e10303bf1e4ccba1c42577c25",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_tenant_settings",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "df05e5181d43cd5a5998a230f2f7dc5c",
+      "uniform_crlf_md5": "1e145d8778a93e29e1058e393a9427c0",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_member_role",
+      "arguments": "p_tenant_id uuid, p_member_user_id uuid, p_new_role text",
+      "source_md5": "cd8f2abb461d0ec51dab0d761189d6a6",
+      "uniform_crlf_md5": "2c64c3b7e3320033a1dbe2e7c63f4ad4",
+      "admitted": false
+    },
+    {
+      "function": "rpc_deactivate_member",
+      "arguments": "p_tenant_id uuid, p_member_user_id uuid",
+      "source_md5": "234102156712bfcba225aa01903c3ff6",
+      "uniform_crlf_md5": "2331b9a5074eee8b3e18006c811f4b81",
+      "admitted": false
+    },
+    {
+      "function": "rpc_validate_module_access",
+      "arguments": "p_tenant_id uuid, p_module_name text",
+      "source_md5": "9604e7eda3e28bd08ce1aa93706de0cb",
+      "uniform_crlf_md5": "b9702363ce3a7f838ce7b114f6cdaacc",
+      "admitted": false
+    },
+    {
+      "function": "rpc_accept_invitation",
+      "arguments": "p_token text",
+      "source_md5": "8c17899b982f45a6ed7d1c73f66aab51",
+      "uniform_crlf_md5": "49166f1c81fd2effcfaf34c034cf7dbc",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_invitations",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "be04a76c8ec1dd9aef4a12d12a15fbb9",
+      "uniform_crlf_md5": "2d28ac7145c128d1dd67c29ae6a4c6a4",
+      "admitted": false
+    },
+    {
+      "function": "rpc_revoke_invitation",
+      "arguments": "p_invitation_id uuid",
+      "source_md5": "702d15a6176bb0e781c19a20b3f56946",
+      "uniform_crlf_md5": "6543e64ca96f4885583fb6e9b87070b3",
+      "admitted": false
+    },
+    {
+      "function": "rpc_demo_configure_module",
+      "arguments": "p_tenant_id uuid, p_module_name text",
+      "source_md5": "2164abee722b6d25451d31f64046a4bf",
+      "uniform_crlf_md5": "133483d37ada0e0ecd1d795c53074d46",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_tracking_token",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid, p_scope text",
+      "source_md5": "54c1fbcc629cc45cc073525d4d7340c6",
+      "uniform_crlf_md5": "ed2cbab38740a96224f92dd4acfb3944",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_tracking_token",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid, p_scope text, p_ttl_hours integer, p_force_rotate boolean",
+      "source_md5": "1b691bc22f01cdc19f12d44b8930e083",
+      "uniform_crlf_md5": "2a2d7d2249a7b9965f87f5365065a13d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_revoke_tracking_token",
+      "arguments": "p_token_id uuid",
+      "source_md5": "10aa0a46dc69ede0264ba001ce8ebb7c",
+      "uniform_crlf_md5": "8f11d307a1b8ffc455663eda72c11ee4",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_tracking_tokens",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "cf2934e667cc32052cdf171d30eacdb8",
+      "uniform_crlf_md5": "69ca0608a0fc42551c8ea6a2829c46b4",
+      "admitted": false
+    },
+    {
+      "function": "rpc_dashboard_overview",
+      "arguments": "p_tenant_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone",
+      "source_md5": "4a32a8d4c7030d9ae772a14fe30ce902",
+      "uniform_crlf_md5": "f090891dab06dee212562b4ff090e471",
+      "admitted": true
+    },
+    {
+      "function": "rpc_reports_pipeline_summary",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "5429b9305b839513ec126a2dd9b2777f",
+      "uniform_crlf_md5": "fd9125d22809ae982f99b86082f70953",
+      "admitted": true
+    },
+    {
+      "function": "rpc_dashboard_alerts",
+      "arguments": "p_tenant_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone",
+      "source_md5": "901d36e73b3a914716bee93ba1dc3e00",
+      "uniform_crlf_md5": "f38fda7f6fc06c7655d53252cda13936",
+      "admitted": true
+    },
+    {
+      "function": "rpc_reports_inventory_summary",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "29a8bb71b3a502a6c69f007f546bd337",
+      "uniform_crlf_md5": "6becc75f231faa364307074f9e063209",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_inventory_lots",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "eed9e691a489ec833b53774f446980dd",
+      "uniform_crlf_md5": "d67f95ab5d8555f2304e8f7db9c84e80",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_pedimentos",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "b0f645bd72549e6ab46c81ac6484dc9f",
+      "uniform_crlf_md5": "70c56c7dc600224029dbe11dac542dde",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_deals",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "8de84f9efcd58ce0753690be19156598",
+      "uniform_crlf_md5": "0d11da8b84e86dc2310bb18e5e26830e",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_deal",
+      "arguments": "p_deal_id uuid",
+      "source_md5": "31e69d8e778b5d195284c2f4b0e8a121",
+      "uniform_crlf_md5": "6350c6fd73a50b525757d01b9bbddc18",
+      "admitted": false
+    },
+    {
+      "function": "rpc_delete_operation_crossing",
+      "arguments": "p_crossing_id uuid",
+      "source_md5": "c1bfe4376540b760bf93bcb285f07fda",
+      "uniform_crlf_md5": "96f36df9dcd60c7b8d917d6718943caf",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_deal_activities",
+      "arguments": "p_deal_id uuid",
+      "source_md5": "ef7b7bcf489c5ebb342bc5630aaeabbb",
+      "uniform_crlf_md5": "6f77fd5da16e526caf507c3e0916a216",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_tenant_settings",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "c1d468613591a4ad45a930b2b34e28a4",
+      "uniform_crlf_md5": "1eb1662543a774f75e21df672bea2b28",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_audit_log",
+      "arguments": "p_tenant_id uuid, p_limit integer, p_offset integer, p_entity_type text, p_action text, p_start timestamp with time zone, p_end timestamp with time zone",
+      "source_md5": "520f406dcbc8e0aa47a400421aa689bc",
+      "uniform_crlf_md5": "7b5b01bf1c771f43c606bb74966ed146",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_quote",
+      "arguments": "p_tenant_id uuid, p_deal_id uuid, p_payload jsonb",
+      "source_md5": "266cb4d3000f2c5ecb6338e1cd45200d",
+      "uniform_crlf_md5": "e11e3806628ad1f50516ac9b1fa5dc4b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_claim_documents",
+      "arguments": "p_claim_id uuid",
+      "source_md5": "9e80b12ced00f5563314d0a9572683a1",
+      "uniform_crlf_md5": "d83c6e69df0c8c6901be749c611054e2",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_customers",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "59254c8e20e655b2d555e86a9beeb245",
+      "uniform_crlf_md5": "8bfe536fb2f9c388ae7a5a786d1ffbcd",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_customer_360",
+      "arguments": "p_customer_id uuid",
+      "source_md5": "067a2312bfd39f2e995c0186a6c2e92a",
+      "uniform_crlf_md5": "cdbad2443632ec1c3705d4d1b299027e",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_customer",
+      "arguments": "p_tenant_id uuid, p_customer_id uuid, p_payload jsonb",
+      "source_md5": "0144ec6e041d03ec2f2c66dc49a2583c",
+      "uniform_crlf_md5": "e20f3e0dd8d129cd38fd94792622c838",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_providers",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "877135a219046c8ae1655baaa7987c31",
+      "uniform_crlf_md5": "18d393a821e6bfadc278b359d6f80f5d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_convert_quote_to_operation",
+      "arguments": "p_deal_id uuid, p_conversion_note text",
+      "source_md5": "76760af74b1bc1985d0f42eb586f910d",
+      "uniform_crlf_md5": "0aefabf7dbc7ca439e1ff62aca2ca20a",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_provider",
+      "arguments": "p_tenant_id uuid, p_provider_id uuid, p_payload jsonb",
+      "source_md5": "c8b1619d337f64df771b8caa4ed801c5",
+      "uniform_crlf_md5": "4147e6c768d533288f86c77a25ea892a",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_quotes",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "d635565562b2d6a198ab17834f6ea261",
+      "uniform_crlf_md5": "c9b4aceab5cb8763e8c0556ffcc991b3",
+      "admitted": false
+    },
+    {
+      "function": "rpc_duplicate_quote",
+      "arguments": "p_deal_id uuid",
+      "source_md5": "de07efeabf1ff793dcc8a75e47af19d6",
+      "uniform_crlf_md5": "5ef3fc0d683f5dab9917fb42ac222030",
+      "admitted": false
+    },
+    {
+      "function": "rpc_return_quote_to_draft",
+      "arguments": "p_deal_id uuid",
+      "source_md5": "459af3d0393ee35b64d5f038128db101",
+      "uniform_crlf_md5": "b2569a97f71750711bc18451e637e95d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_submit_quote_for_review",
+      "arguments": "p_deal_id uuid",
+      "source_md5": "65496b6cbe411bdcced631814e68bb62",
+      "uniform_crlf_md5": "d33000e28416eb9e32a095f6bb0f8af7",
+      "admitted": false
+    },
+    {
+      "function": "rpc_approve_quote",
+      "arguments": "p_deal_id uuid, p_approval_note text",
+      "source_md5": "3a6d99f67a6f0de362dcddd341e459e8",
+      "uniform_crlf_md5": "a4e6b58966110c1884ad8a797cf859fc",
+      "admitted": false
+    },
+    {
+      "function": "rpc_reject_quote",
+      "arguments": "p_deal_id uuid, p_rejection_note text",
+      "source_md5": "416d4d420cb215f58179702f55c363fe",
+      "uniform_crlf_md5": "d4a3e06ab28645911220c4e15b8a0d40",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_claim_service_policy",
+      "arguments": "p_tenant_id uuid, p_policy_id uuid, p_payload jsonb",
+      "source_md5": "da93ed16a72001c3f903f7638a0179f0",
+      "uniform_crlf_md5": "c764fdae479139a37d830cd1b371444c",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_service_claim",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "4a05724a60f147a1020b955cb62b61ee",
+      "uniform_crlf_md5": "7f616dfe3001356c11e427c552a59778",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_claim_financial",
+      "arguments": "p_claim_id uuid, p_financial_id uuid, p_payload jsonb",
+      "source_md5": "93f58a534aee12d774c256cbf332e96d",
+      "uniform_crlf_md5": "ef256ebcc1eef0bc4fecfad51ed5c872",
+      "admitted": false
+    },
+    {
+      "function": "rpc_assign_operation_v3",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid, p_execution_type text, p_provider_id uuid, p_provider_name text, p_external_driver jsonb, p_external_vehicle jsonb, p_driver_id uuid, p_driver_name text, p_vehicle_id uuid, p_vehicle_ref text, p_planned_departure timestamp with time zone, p_priority text, p_reason text, p_force_override boolean",
+      "source_md5": "890ff3b76e336c8093cc8f681a6432e8",
+      "uniform_crlf_md5": "6ecee6e75f1a1a4d712cb0114a5fd904",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_operation_assignment_history",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "a65baddfcd00c773f1e8083539125232",
+      "uniform_crlf_md5": "8663420a8ab3b7a59f272d4f7cf243ac",
+      "admitted": true
+    },
+    {
+      "function": "rpc_create_operation",
+      "arguments": "p_tenant_id uuid, p_reference_code text, p_route_summary text, p_client_display_name text, p_destination_city text, p_eta_display text, p_status text, p_origin_place jsonb, p_destination_place jsonb, p_eta timestamp with time zone",
+      "source_md5": "63a623bc006972504060c64a864b97f5",
+      "uniform_crlf_md5": "300cc8bd6e440697c96d8287372297ea",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_operation_details",
+      "arguments": "p_operation_id uuid, p_patch jsonb",
+      "source_md5": "77faba19eda0a480f0987497dc12307f",
+      "uniform_crlf_md5": "f962b4c3d5cb38acd7c1a299eab619cb",
+      "admitted": false
+    },
+    {
+      "function": "rpc_complete_operation_planning_v2",
+      "arguments": "p_operation_id uuid, p_service_type text, p_origin_place jsonb, p_destination_place jsonb, p_operational_window_start timestamp with time zone, p_operational_window_end timestamp with time zone, p_notes text, p_cargo_summary jsonb, p_route_summary text, p_destination_city text, p_eta timestamp with time zone, p_eta_display text, p_operation_scope text, p_execution_type text, p_provider_cost_amount numeric, p_customer_price_amount numeric, p_pricing_currency text, p_service_catalog_item_id uuid, p_service_catalog_snapshot jsonb, p_boxes_placed_days integer, p_documentation_received_at timestamp with time zone, p_documentation_received_note text",
+      "source_md5": "b315b4ecc499f5a07e129a778fe1d9fa",
+      "uniform_crlf_md5": "41f4120f774dee6c309649a63871d1d8",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_operation_operational_control",
+      "arguments": "p_operation_id uuid, p_payload jsonb",
+      "source_md5": "e09eb7cf1622c25e02a693b4d7e9b568",
+      "uniform_crlf_md5": "41d7afe4688951a9788f84b6281b2244",
+      "admitted": false
+    },
+    {
+      "function": "rpc_cancel_operation",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "b6434314479a4f0ea9534852435c92bf",
+      "uniform_crlf_md5": "b6434314479a4f0ea9534852435c92bf",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_claim_saved_views",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "5d2eb421ff24cbc441fcb60c37ec16b1",
+      "uniform_crlf_md5": "5d2eb421ff24cbc441fcb60c37ec16b1",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_operation_requirements",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "80cc311111e6db46e0a043760030d974",
+      "uniform_crlf_md5": "f2c117f88ca243845dedf8ecefc6965d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_operation_tracking_events",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "f9bf5748a89c1c87ff6e376d47d74c97",
+      "uniform_crlf_md5": "1cacb928cf4521e2e116267d2bed5596",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_operation_incidents",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "a0772f7eeebcadd4624b044532b82cea",
+      "uniform_crlf_md5": "461d25141cecb77acc8f7a43fc8601c8",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_operation_incident_summary",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "4792e2c856471d627bff0e3490218ce1",
+      "uniform_crlf_md5": "3b4ad5a5901e4eaaba4bebed1a1affe7",
+      "admitted": true
+    },
+    {
+      "function": "rpc_create_operation_incident",
+      "arguments": "p_operation_id uuid, p_category text, p_title text, p_description text, p_is_blocking boolean, p_tracking_event_id uuid",
+      "source_md5": "04b018261c28212e4c0c9089c2defa5f",
+      "uniform_crlf_md5": "730ec8e0bb3c1060eba0a4143abf6965",
+      "admitted": false
+    },
+    {
+      "function": "rpc_resolve_operation_incident",
+      "arguments": "p_incident_id uuid, p_resolution_note text",
+      "source_md5": "0d2fafea5235773ba655f5d16bfceb0b",
+      "uniform_crlf_md5": "3b73ecda783fba662918db5000a12fe0",
+      "admitted": false
+    },
+    {
+      "function": "rpc_dismiss_operation_incident",
+      "arguments": "p_incident_id uuid, p_dismiss_note text",
+      "source_md5": "15c444d8be74e2407331c080f6130593",
+      "uniform_crlf_md5": "6d61051e18cf667f2875236cf3bd7bd3",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_operation_evidence",
+      "arguments": "p_operation_id uuid, p_incident_id uuid",
+      "source_md5": "6ec52744314079a3a989a1de7a0754cb",
+      "uniform_crlf_md5": "c197a8ff22832e57e3fe6d12f335d45b",
+      "admitted": true
+    },
+    {
+      "function": "rpc_add_operation_evidence",
+      "arguments": "p_operation_id uuid, p_incident_id uuid, p_kind text, p_note text, p_file_ref text, p_external_url text",
+      "source_md5": "60247773a4d42248d6b38da3c5c48047",
+      "uniform_crlf_md5": "648e4562eecb15b34d916f93350c66ca",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_operation_documents",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "8c64a4645b702b76463121a5e3af47bd",
+      "uniform_crlf_md5": "c8208ab7844e83789b17839a0583ecb7",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_operation_document_summary",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "582fe678ef602ce639f056f63a0e1233",
+      "uniform_crlf_md5": "f7212de4d103c84c61243c500a901a89",
+      "admitted": true
+    },
+    {
+      "function": "rpc_upsert_operation_document",
+      "arguments": "p_operation_id uuid, p_document_type text, p_requirement_level text, p_status text, p_document_reference text, p_file_ref text, p_external_url text, p_note text",
+      "source_md5": "7ea7a9542da247ba0f78180f8660755d",
+      "uniform_crlf_md5": "129cefb7a3e2e428af169c7ee061a6cd",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_operation_crossings",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "a2e86956bcf683f52901edfe8375b66d",
+      "uniform_crlf_md5": "477bb73b8994883bce6a60a20122af4e",
+      "admitted": true
+    },
+    {
+      "function": "rpc_upsert_operation_crossing",
+      "arguments": "p_operation_id uuid, p_payload jsonb",
+      "source_md5": "0e7704f2c37dfca3a92e1965671e1bce",
+      "uniform_crlf_md5": "edcdfe162175c3e38b4ab902662b0e76",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_operation_billing",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "8f238832547b8567dcbf91c52b9cf158",
+      "uniform_crlf_md5": "c4b399760c5edfd9c0da602625e76997",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_operation_billing_summary",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "7b1ecf00a610b9c10fffb6fc8cd399db",
+      "uniform_crlf_md5": "c14b9f73fb611e28c72e5ab4a95c08e6",
+      "admitted": true
+    },
+    {
+      "function": "rpc_transition_operation_status",
+      "arguments": "p_operation_id uuid, p_to_status text",
+      "source_md5": "bc317002949eedc3bc262b0fa40db61a",
+      "uniform_crlf_md5": "bff9b6e6c0af30c3256f95d44d266793",
+      "admitted": false
+    },
+    {
+      "function": "rpc_override_operation_status",
+      "arguments": "p_operation_id uuid, p_to_status text, p_reason text",
+      "source_md5": "07b4ac81b07aa0012a27b14d7d5ce3ae",
+      "uniform_crlf_md5": "6891260ff4b8de3eadb938f9ad9898d1",
+      "admitted": false
+    },
+    {
+      "function": "rpc_close_operation",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "21a95efb7cfe7b8fb9b72f1488535038",
+      "uniform_crlf_md5": "e10ce8e7c8356fe783c6dc903926bf66",
+      "admitted": false
+    },
+    {
+      "function": "rpc_close_operation_override",
+      "arguments": "p_operation_id uuid, p_override_reason text",
+      "source_md5": "48c3718230a364857c2a0599dc997a4f",
+      "uniform_crlf_md5": "45519f5c91993cdf8ec1db27be9c18f0",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_business_contact",
+      "arguments": "p_tenant_id uuid, p_contact_id uuid, p_payload jsonb",
+      "source_md5": "c63d3386b8de79bfcd53fd9abede0371",
+      "uniform_crlf_md5": "aa1388bd2463e390285cf483c2539667",
+      "admitted": false
+    },
+    {
+      "function": "rpc_mark_generated_document_printed",
+      "arguments": "p_document_id uuid",
+      "source_md5": "bc25d6f76403a9c1903e99a335093c44",
+      "uniform_crlf_md5": "5ba9d53f5520bea3e8a8060e0378ea3a",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_partner_history_page",
+      "arguments": "p_tenant_id uuid, p_entity_type text, p_entity_id uuid, p_history_type text, p_cursor jsonb, p_limit integer",
+      "source_md5": "b7cfa907ad4da0908137fd278a551d21",
+      "uniform_crlf_md5": "2befcb6931ed3580206cb4e06e822995",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_fiscal_provider_config",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "164f5161bd49890ce9efed2c8bbe7a8e",
+      "uniform_crlf_md5": "7d46832d0dbb08bdb6d046ff5e30bc51",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_document_upload_contract",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "3ad6920b464ae56cd3d73bfba4b1b75d",
+      "uniform_crlf_md5": "5bbe098206e17bc0513d213770fb1380",
+      "admitted": false
+    },
+    {
+      "function": "rpc_register_document_file",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "39876322d5ce7fee5d8b327973c902ab",
+      "uniform_crlf_md5": "f27f6d55adf70ab94adb4302552b6885",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_document_files",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "fcf6b83c700793b4583f576e8538401b",
+      "uniform_crlf_md5": "9b5a73a1733ca4832df346bb530f3c1d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_mark_document_file_status",
+      "arguments": "p_file_id uuid, p_status text, p_notes text",
+      "source_md5": "1548f6d02d0a7651de29b1c29925742a",
+      "uniform_crlf_md5": "bcff543c291c10a8d1d2bbc63ff64d86",
+      "admitted": false
+    },
+    {
+      "function": "rpc_relate_document_file",
+      "arguments": "p_file_id uuid, p_entity_type text, p_entity_id uuid, p_notes text",
+      "source_md5": "23c38d54cff6ab9de8a10994a5fdcb40",
+      "uniform_crlf_md5": "91db1c4371a03a4d59bcc27ce7774fab",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_document_relations",
+      "arguments": "p_tenant_id uuid, p_entity_type text, p_entity_id uuid",
+      "source_md5": "78693bf28f76a9accadd5b1675558e28",
+      "uniform_crlf_md5": "51ffbfa6f222ee6df133a737531b7c6a",
+      "admitted": false
+    },
+    {
+      "function": "rpc_attach_operation_document_file",
+      "arguments": "p_operation_id uuid, p_document_type text, p_file_id uuid, p_note text",
+      "source_md5": "4b7af11b8ee44f62028664d492bc2e0d",
+      "uniform_crlf_md5": "b53af101de7efccfc4192789dd0d3c7f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_add_operation_file_evidence",
+      "arguments": "p_operation_id uuid, p_file_id uuid, p_incident_id uuid, p_note text",
+      "source_md5": "f7134104b7262f606917735f8fa90e6d",
+      "uniform_crlf_md5": "617dd856ab8912d277b4ed5086897a58",
+      "admitted": false
+    },
+    {
+      "function": "rpc_relate_quote_documents_to_operation",
+      "arguments": "p_quote_id uuid, p_operation_id uuid",
+      "source_md5": "dc093018e9585d0bb25abb9d81013e5a",
+      "uniform_crlf_md5": "10aefdbc84551cddf6c69f37f963b7a0",
+      "admitted": false
+    },
+    {
+      "function": "rpc_generate_document_f3",
+      "arguments": "p_tenant_id uuid, p_template_type text, p_entity_type text, p_entity_id uuid, p_options jsonb",
+      "source_md5": "136d824a3de7e9d0ea87f139d6309d0b",
+      "uniform_crlf_md5": "d789e39c6f2b7a3100933210a1788116",
+      "admitted": false
+    },
+    {
+      "function": "rpc_generate_document",
+      "arguments": "p_tenant_id uuid, p_template_type text, p_entity_type text, p_entity_id uuid, p_options jsonb",
+      "source_md5": "7b2ba0d24c2778c9d7549c9c5ec82af5",
+      "uniform_crlf_md5": "7b2ba0d24c2778c9d7549c9c5ec82af5",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_generated_documents",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "8cc08e30461f217a97e0493e86bd7563",
+      "uniform_crlf_md5": "ee36891d8630e89a3477e4a7f6badead",
+      "admitted": false
+    },
+    {
+      "function": "rpc_cancel_generated_document",
+      "arguments": "p_document_id uuid, p_reason text",
+      "source_md5": "89479cbd7acd966742e46d980397146c",
+      "uniform_crlf_md5": "a2cb9a9a50646214d4455acc92a57467",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_document_templates_v2",
+      "arguments": "p_tenant_id uuid, p_template_type text",
+      "source_md5": "f69f3861d0c016e76802ebb02ef66016",
+      "uniform_crlf_md5": "3e8fcc704d6e535565ba8461b68441e1",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_document_source_options",
+      "arguments": "p_tenant_id uuid, p_template_type text, p_search text",
+      "source_md5": "69133b84ec357379317722d4b5269433",
+      "uniform_crlf_md5": "b9ccd8fed45a36e6a64751b18b5fd590",
+      "admitted": false
+    },
+    {
+      "function": "rpc_record_payment",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "c6748e2c192761c59490f64d1a8eaa65",
+      "uniform_crlf_md5": "376a4008f98a93779f2785592ac0e1bd",
+      "admitted": true
+    },
+    {
+      "function": "rpc_update_finance_invoice_status",
+      "arguments": "p_tenant_id uuid, p_id uuid, p_status text",
+      "source_md5": "ef2ee571c92a3e57227c0a6897ce25db",
+      "uniform_crlf_md5": "0059c83dcba2ab4b8c5c79e1cff78bad",
+      "admitted": true
+    },
+    {
+      "function": "rpc_finance_overview",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "2d9f713aadc5163ccc789266ccdad1bc",
+      "uniform_crlf_md5": "2d9f713aadc5163ccc789266ccdad1bc",
+      "admitted": true
+    },
+    {
+      "function": "rpc_finance_overview",
+      "arguments": "p_tenant_id uuid, p_start_date text, p_end_date text",
+      "source_md5": "4b914a4e9e4b2e91b35a36bc40ca619c",
+      "uniform_crlf_md5": "4b914a4e9e4b2e91b35a36bc40ca619c",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_finance_invoices",
+      "arguments": "p_tenant_id uuid, p_limit integer, p_status text, p_direction text",
+      "source_md5": "08e7051322e4146365aa4f6a402058be",
+      "uniform_crlf_md5": "4e2965bd8c186d807033f2c525ce9a09",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_finance_invoices",
+      "arguments": "p_tenant_id uuid, p_limit integer, p_status text, p_direction text, p_start_date text, p_end_date text",
+      "source_md5": "e749209e2b7f1ea25b388a36df4d6da4",
+      "uniform_crlf_md5": "e749209e2b7f1ea25b388a36df4d6da4",
+      "admitted": true
+    },
+    {
+      "function": "rpc_finance_overview",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "65505458bb84307a2a395f80bc164079",
+      "uniform_crlf_md5": "a786751826cecd362546377fe842ee9f",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_finance_due_alerts",
+      "arguments": "p_tenant_id uuid, p_days_ahead integer",
+      "source_md5": "ab3101a05bb0e52120e937884385a110",
+      "uniform_crlf_md5": "ab3101a05bb0e52120e937884385a110",
+      "admitted": true
+    },
+    {
+      "function": "rpc_export_finance_ledger",
+      "arguments": "p_tenant_id uuid, p_date_from text, p_date_to text",
+      "source_md5": "6abfe982012e9642a0fb94a946662df1",
+      "uniform_crlf_md5": "6abfe982012e9642a0fb94a946662df1",
+      "admitted": true
+    },
+    {
+      "function": "rpc_export_finance_ledger",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "27b183b95c534c80f13b6bc8754e3553",
+      "uniform_crlf_md5": "c00b0c1e4111d3b909f209cacacff046",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_attention_items",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "598640c67ef5e55ee98945cb4146b54b",
+      "uniform_crlf_md5": "a064a5e6d016d65bb9372d08e7ba4648",
+      "admitted": false
+    },
+    {
+      "function": "rpc_refresh_internal_notifications",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "2da5f15fc69c82b9ba2e48eaf0deb182",
+      "uniform_crlf_md5": "9c84dd2b01f531fe531c1a55e0b687f1",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_internal_notification_unread_count",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "e07b9cab3806011e90141156dc09bca4",
+      "uniform_crlf_md5": "70e0e6991882d2c79a84703b904a0919",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_executive_dashboard",
+      "arguments": "p_tenant_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone",
+      "source_md5": "bd60a21518d3dc4a3ef5e10cdb85d019",
+      "uniform_crlf_md5": "1e79d21b3d06ae0194b1122025f2b2e0",
+      "admitted": false
+    },
+    {
+      "function": "rpc_mark_internal_notifications_read",
+      "arguments": "p_tenant_id uuid, p_notification_ids uuid[]",
+      "source_md5": "8981f1e0189df669c46cd00577e1432e",
+      "uniform_crlf_md5": "364bca98b4425b17b2474694b2acdd0b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_dismiss_internal_notification",
+      "arguments": "p_tenant_id uuid, p_notification_id uuid",
+      "source_md5": "583e6d97e932abd556559fa9c77eadec",
+      "uniform_crlf_md5": "12cf4f078c5c7b2dc9907c624d04866b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_dismiss_internal_notification",
+      "arguments": "p_notification_id uuid",
+      "source_md5": "ceb887fa22bf348a619f5f17985dc4c2",
+      "uniform_crlf_md5": "7f275b3eb5aaebc4101ba5446d0ec397",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_saved_views",
+      "arguments": "p_tenant_id uuid, p_module text",
+      "source_md5": "2ba91cc4fded6d1c87f9ec1b0ee3c426",
+      "uniform_crlf_md5": "92cf4735380bf39c5bd1f3a14b134913",
+      "admitted": false
+    },
+    {
+      "function": "rpc_save_view",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "25f558e01daf64ee434a13803b65a0ad",
+      "uniform_crlf_md5": "21895e3a418fc07e8dcdad0c02732ce1",
+      "admitted": false
+    },
+    {
+      "function": "rpc_delete_saved_view",
+      "arguments": "p_tenant_id uuid, p_view_id uuid",
+      "source_md5": "543471f9ecf20e0a75f9405ef725ceb4",
+      "uniform_crlf_md5": "91cdfbd3360cc77a7e0a4d7dd742a8b2",
+      "admitted": false
+    },
+    {
+      "function": "rpc_global_search",
+      "arguments": "p_tenant_id uuid, p_query text, p_limit integer",
+      "source_md5": "5397fd4bbff25bf7244f2cf25a46c76c",
+      "uniform_crlf_md5": "368396e3d6c67caa53961017cf09afd5",
+      "admitted": false
+    },
+    {
+      "function": "rpc_validate_bulk_import",
+      "arguments": "p_tenant_id uuid, p_entity_type text, p_mode text, p_rows jsonb",
+      "source_md5": "9472bda57cfd22309c8d9d011c3f2524",
+      "uniform_crlf_md5": "92943a12caab7438edc007ef2591559a",
+      "admitted": false
+    },
+    {
+      "function": "rpc_start_bulk_import",
+      "arguments": "p_tenant_id uuid, p_entity_type text, p_filename text, p_mode text, p_idempotency_key text, p_total_rows integer, p_validation_summary jsonb",
+      "source_md5": "a89a2fe2b9ec8245e00fb5134d24a636",
+      "uniform_crlf_md5": "ab1ad5afba5db3aed516f19cc76c7803",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_import_batches",
+      "arguments": "p_tenant_id uuid, p_limit integer",
+      "source_md5": "15ba53b26959764e0bddd6b948f29e82",
+      "uniform_crlf_md5": "d4e54cc170702dfb77dd801af2fa691a",
+      "admitted": false
+    },
+    {
+      "function": "rpc_apply_bulk_import",
+      "arguments": "p_tenant_id uuid, p_batch_id uuid, p_chunk_key text, p_rows jsonb, p_is_last boolean",
+      "source_md5": "3d08f1a151d706ea2ee8c2fb1a25121c",
+      "uniform_crlf_md5": "3217c91ea9ac82b0cd57428505c01693",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_internal_notifications",
+      "arguments": "p_tenant_id uuid, p_limit integer, p_unread_only boolean",
+      "source_md5": "e4379b91d61b7d54bac0e490a1b4ef73",
+      "uniform_crlf_md5": "993d0328fa9c0bf26469d758ac38af90",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_automation_rules",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "c4ef7051519c0a08241daecb5a566729",
+      "uniform_crlf_md5": "2a2352809895227da4808e227076e3d3",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_automation_rule",
+      "arguments": "p_tenant_id uuid, p_rule_id uuid, p_payload jsonb",
+      "source_md5": "f786217fef098ae972733a0eab6a5386",
+      "uniform_crlf_md5": "962f1e2fc376bb137a119470a5a4a665",
+      "admitted": false
+    },
+    {
+      "function": "rpc_evaluate_automations",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "2934cedabdacb11cf07588435ed784e9",
+      "uniform_crlf_md5": "6f002a76f185382394ad46442df0bfe8",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_automation_health",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "77242be52dd6bf94de5230b58028af86",
+      "uniform_crlf_md5": "d522ca930963cd3e8c62bc8ea230a27f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_daily_digest",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "69fabec9c3205ab21a7b1065585ef5ab",
+      "uniform_crlf_md5": "c8ab6a42860c1e71096dd2487ad6244c",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_rate",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "4c41b7f5980a7a4b0cad6e98dbcf93ee",
+      "uniform_crlf_md5": "55bb402674843fae73ee5ef0fde4d26f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_rate_reference_data",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "535dcc153d064bf9db1c73ba68f41edf",
+      "uniform_crlf_md5": "64a4ae0a908c37bda9a5a286d24b4d64",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_lane",
+      "arguments": "p_tenant_id uuid, p_lane_id uuid, p_payload jsonb",
+      "source_md5": "241f816515979082e4c85d2565c09079",
+      "uniform_crlf_md5": "530b94ddfd231c6922e4b30362753423",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_rate_version",
+      "arguments": "p_rate_card_id uuid, p_payload jsonb",
+      "source_md5": "0eae8b15355095e89b680db6e9ad1e9c",
+      "uniform_crlf_md5": "50985cb6adbc180a34852b3c40292bf2",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_rates",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "b52f1fd645cef40202d0c61b746edcf0",
+      "uniform_crlf_md5": "66ffc88f282a0a5b0bc08077595dabb2",
+      "admitted": false
+    },
+    {
+      "function": "rpc_compare_provider_rates",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "7306d070f3385c586b102304612a9ffd",
+      "uniform_crlf_md5": "8e7745d20d70ff5a79546ff54ce9cc2f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_apply_rate_to_quote",
+      "arguments": "p_deal_id uuid, p_rate_version_id uuid",
+      "source_md5": "241f2205442aed289e617e7071c493e6",
+      "uniform_crlf_md5": "1b718cbdc45455c6aa7e798a5bd7d7ff",
+      "admitted": false
+    },
+    {
+      "function": "rpc_archive_rate",
+      "arguments": "p_rate_card_id uuid",
+      "source_md5": "8f5fb9744b67160ee7cfbe70fdcd27d7",
+      "uniform_crlf_md5": "6f1aa6b15fe8f7d9c1322a3479889131",
+      "admitted": false
+    },
+    {
+      "function": "rpc_duplicate_rate",
+      "arguments": "p_rate_card_id uuid",
+      "source_md5": "3cda0ea198616bb183fa59b5ef1c01c3",
+      "uniform_crlf_md5": "3349cc2eb55f586e8535aae9542f9686",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_partner_contacts",
+      "arguments": "p_tenant_id uuid, p_entity_type text, p_entity_id uuid",
+      "source_md5": "22a87213e60420f3143f774e96702e2f",
+      "uniform_crlf_md5": "9d643af99cab144e34a039fb69f347d0",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_partner_terms",
+      "arguments": "p_tenant_id uuid, p_entity_type text, p_entity_id uuid, p_payment_terms_days integer",
+      "source_md5": "7103a5bcd699ee6d1a4faeb864276aa2",
+      "uniform_crlf_md5": "da049cef72077acb8ea6656a98272395",
+      "admitted": false
+    },
+    {
+      "function": "rpc_export_rates",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "b51d26b7e16e2bddcc95377094c586d0",
+      "uniform_crlf_md5": "cebed0db2ed196d342871ed9b27fdbbc",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_partner_compliance_status",
+      "arguments": "p_tenant_id uuid, p_partner_type text, p_partner_id uuid, p_as_of date",
+      "source_md5": "4a6103150fd1c702df54e5496d5effed",
+      "uniform_crlf_md5": "4a6103150fd1c702df54e5496d5effed",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_compliance_requirements",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "e8cb0c755fde40629728a75bb5985310",
+      "uniform_crlf_md5": "f3e74a9dd11c21889bc04bfdb3a67e06",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_compliance_requirement",
+      "arguments": "p_tenant_id uuid, p_requirement_id uuid, p_payload jsonb",
+      "source_md5": "4138b696ed8b84c128eafc3d4e995221",
+      "uniform_crlf_md5": "6c47e27371b47e011301f941a5e645e4",
+      "admitted": false
+    },
+    {
+      "function": "rpc_archive_compliance_requirement",
+      "arguments": "p_requirement_id uuid",
+      "source_md5": "86f137a9e5596b46a52f8e611b206e9c",
+      "uniform_crlf_md5": "efca4ab82ebf9ba7656c53f2bf08fc60",
+      "admitted": false
+    },
+    {
+      "function": "rpc_submit_partner_compliance_record",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "5c4879704e0945e08fa495f8bf875823",
+      "uniform_crlf_md5": "e4dee4f6ab0d46632d9cddc95b41a62c",
+      "admitted": false
+    },
+    {
+      "function": "rpc_refresh_compliance_notifications",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "e08e620dd31e215ceace3defedecc68b",
+      "uniform_crlf_md5": "e08e620dd31e215ceace3defedecc68b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_review_partner_compliance_record",
+      "arguments": "p_record_id uuid, p_decision text, p_note text",
+      "source_md5": "ee92d879fd7e63c54aeb91f10d9e9471",
+      "uniform_crlf_md5": "879191ce24d74bb8d6330cc0b9ee00bc",
+      "admitted": false
+    },
+    {
+      "function": "rpc_waive_partner_requirement",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "703c13e44bafd909d599ce3da13952f3",
+      "uniform_crlf_md5": "4fb4d81f096206ce996d9cbc759f81f7",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_provider_operational_eligibility",
+      "arguments": "p_tenant_id uuid, p_provider_id uuid",
+      "source_md5": "314e99d84260b27b3b7fa4d1be088c6e",
+      "uniform_crlf_md5": "67672c408920ebdcfc4df829053a7090",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_partner_contract",
+      "arguments": "p_tenant_id uuid, p_contract_id uuid, p_payload jsonb",
+      "source_md5": "3ec3a20742848809392c3f31dacba0ce",
+      "uniform_crlf_md5": "0c18736ea4b8bc1a86e3b480658b66c2",
+      "admitted": false
+    },
+    {
+      "function": "rpc_activate_partner_contract",
+      "arguments": "p_contract_id uuid",
+      "source_md5": "15a494b4f396e50839dcc822b97f7ee3",
+      "uniform_crlf_md5": "295f4f4c73e027993be15f4b5d6d7a33",
+      "admitted": false
+    },
+    {
+      "function": "rpc_renew_partner_contract",
+      "arguments": "p_contract_id uuid, p_payload jsonb",
+      "source_md5": "aa9f954154190a325b2df32a5eb2d24b",
+      "uniform_crlf_md5": "75d888b33c08d6aa15a25dafb5d85a92",
+      "admitted": false
+    },
+    {
+      "function": "rpc_terminate_partner_contract",
+      "arguments": "p_contract_id uuid, p_reason text",
+      "source_md5": "ac6d79673a564810f7d2dec72eafba93",
+      "uniform_crlf_md5": "8a13dc34293673a28cafd1c923eafc8c",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_compliance_matrix",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "a3e1f3d2524dabb9593a1ce6556d8eb3",
+      "uniform_crlf_md5": "b1f82e8e8ee338b642ac435279c11610",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_compliance_expirations",
+      "arguments": "p_tenant_id uuid, p_days integer",
+      "source_md5": "05583e4bcd4f0fbdd19007848b3b6473",
+      "uniform_crlf_md5": "cdef2a9f82a4941f98b531bbd04f3e28",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_provider_compliance_badges",
+      "arguments": "p_tenant_id uuid, p_provider_ids uuid[]",
+      "source_md5": "749f9dacd67122e914b7cef4759c6ba8",
+      "uniform_crlf_md5": "482dc0a078bd0663701413439b512c24",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_compliance_dashboard",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "03435760357e0ae4dd14ddf8b21cdec2",
+      "uniform_crlf_md5": "34eb1b6f9ef5dac2d9e0988248b95eec",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_compliance_attention_items",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "461556bb28c6904ac9a31226f52c34d4",
+      "uniform_crlf_md5": "a647fa0831e76e66050eb3476063ead9",
+      "admitted": false
+    },
+    {
+      "function": "rpc_search_compliance",
+      "arguments": "p_tenant_id uuid, p_query text, p_limit integer",
+      "source_md5": "38825799aadfc4896cee82893bbb1a49",
+      "uniform_crlf_md5": "900b09b1d4b361929ea37a0566ef2583",
+      "admitted": false
+    },
+    {
+      "function": "rpc_export_partner_compliance",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "9d8c527083e0dd35898c67542d06499e",
+      "uniform_crlf_md5": "a7e244e3bc05148b7fe10277bcb71d0c",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_provider_compliance_override",
+      "arguments": "p_operation_id uuid, p_provider_id uuid, p_reason text",
+      "source_md5": "678477bd6ec75b2662e4bacc4cb7ac17",
+      "uniform_crlf_md5": "800366bf764e705e1a2d1c0d05fd9000",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_operation_dispatch_readiness",
+      "arguments": "p_operation_id uuid",
+      "source_md5": "be6787fc7e72d4685e9752c1bfa0f321",
+      "uniform_crlf_md5": "6fb80644e5b4dbf6966387e35d06dda3",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_service_claim",
+      "arguments": "p_claim_id uuid",
+      "source_md5": "e727e6d7a619268e322e7a028b7032a8",
+      "uniform_crlf_md5": "2e2ab42cc44c68934c4e539f383ec1ac",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_claim_reference_data",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "355b236ca53a37c6e4c460fd9304fa8f",
+      "uniform_crlf_md5": "90d0157cf076d5060fbf052f0dc9c9e4",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_service_claims",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "d74e2f94f77b846a365ee0778ace8eae",
+      "uniform_crlf_md5": "466c99b603896888038f2695749a0143",
+      "admitted": false
+    },
+    {
+      "function": "rpc_transition_service_claim",
+      "arguments": "p_claim_id uuid, p_to_status text, p_note text",
+      "source_md5": "8da3017b8b3af702b2fb519178a4603c",
+      "uniform_crlf_md5": "be3b4aeb41248cf3f264960def42a364",
+      "admitted": false
+    },
+    {
+      "function": "rpc_reopen_service_claim",
+      "arguments": "p_claim_id uuid, p_reason text",
+      "source_md5": "035ef04cf557938201cd60855c2b0770",
+      "uniform_crlf_md5": "199fb033167d1cc1b6e1a41134855476",
+      "admitted": false
+    },
+    {
+      "function": "rpc_assign_service_claim",
+      "arguments": "p_claim_id uuid, p_user_id uuid",
+      "source_md5": "7073d48e78de46d3b81d0507dabe7b23",
+      "uniform_crlf_md5": "f028eb331dd88e99e4f5bf32a194341f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_claim_classification",
+      "arguments": "p_claim_id uuid, p_responsibility text, p_root_cause text, p_note text",
+      "source_md5": "7c10217095d4caa48a50ba87ec1a36bd",
+      "uniform_crlf_md5": "0e2b99b243e37097efc70cf653f7e9cf",
+      "admitted": false
+    },
+    {
+      "function": "rpc_add_claim_note",
+      "arguments": "p_claim_id uuid, p_note text",
+      "source_md5": "b0a4737bb15e1746ae2d68f782ae233a",
+      "uniform_crlf_md5": "5fd00e2b22ad9e1e9ef44e98e1251438",
+      "admitted": false
+    },
+    {
+      "function": "rpc_log_claim_contact",
+      "arguments": "p_claim_id uuid, p_party text, p_contact_id uuid, p_channel text, p_summary text, p_occurred_at timestamp with time zone",
+      "source_md5": "7540d81f4f09bd8808139f9806cb4b20",
+      "uniform_crlf_md5": "0ce496dc93fa7caed17737077072e5b9",
+      "admitted": false
+    },
+    {
+      "function": "rpc_upsert_claim_action",
+      "arguments": "p_claim_id uuid, p_action_id uuid, p_payload jsonb",
+      "source_md5": "af118464baefded57227a3602d167b45",
+      "uniform_crlf_md5": "3d91eb8828ab5039044bb43f7b2e6817",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_claim_action_status",
+      "arguments": "p_action_id uuid, p_status text, p_completion_note text",
+      "source_md5": "f010de608d8ed682e5d11ab583add059",
+      "uniform_crlf_md5": "a6e38989f22f464dd67d1c781b7ac76f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_record_claim_settlement",
+      "arguments": "p_claim_id uuid, p_payload jsonb",
+      "source_md5": "509522ce79cecca4ddd202800653d767",
+      "uniform_crlf_md5": "6cc28e8b9c28f7aa0db6b3308ced6058",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_claim_finance_handoff",
+      "arguments": "p_claim_id uuid",
+      "source_md5": "30b3ea57d03e6c0cf4a841f39c8f9ab5",
+      "uniform_crlf_md5": "4c4d521a1fafbad219f444f9ad7a81c3",
+      "admitted": false
+    },
+    {
+      "function": "rpc_register_claim_document",
+      "arguments": "p_claim_id uuid, p_payload jsonb",
+      "source_md5": "54d4be9255b1d095166402405b044d4e",
+      "uniform_crlf_md5": "039f95507c8a5a644b136a315abbcec5",
+      "admitted": false
+    },
+    {
+      "function": "rpc_relate_claim_document",
+      "arguments": "p_claim_id uuid, p_file_id uuid, p_note text",
+      "source_md5": "510fc9590264ad1240b3050a3e1c067c",
+      "uniform_crlf_md5": "c1f666150f29d302c176fc86eedff22d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_partner_claims",
+      "arguments": "p_partner_type text, p_partner_id uuid, p_limit integer",
+      "source_md5": "a6fdeaf62654c456721e3bd10b52af73",
+      "uniform_crlf_md5": "38178834232508972c7c04ce6b20a48f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_claims_dashboard",
+      "arguments": "p_tenant_id uuid, p_from timestamp with time zone, p_to timestamp with time zone",
+      "source_md5": "a6d45cfe875cde40ddf4a084936fdf04",
+      "uniform_crlf_md5": "17771231d1d04bbc847d32ea7e9404b9",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_claim_attention_items",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "d688becea00e2fac0c5a0cf666f3420d",
+      "uniform_crlf_md5": "c6f1173e06c4a6dee840750dad8d171b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_search_claims",
+      "arguments": "p_tenant_id uuid, p_query text, p_limit integer",
+      "source_md5": "ac34ccb41cdc140efd8fc56bef04203b",
+      "uniform_crlf_md5": "f274ba6df5a91322e8361a02f41fb450",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_claim_reporting",
+      "arguments": "p_tenant_id uuid, p_from timestamp with time zone, p_to timestamp with time zone",
+      "source_md5": "37d2cfa3e1b3185329adb19ee22711d5",
+      "uniform_crlf_md5": "4994c36ad9e312170d6db30375f23a37",
+      "admitted": false
+    },
+    {
+      "function": "rpc_export_claims",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "9ad899c95ddb77343be7170331909d14",
+      "uniform_crlf_md5": "9ad899c95ddb77343be7170331909d14",
+      "admitted": false
+    },
+    {
+      "function": "rpc_save_claim_view",
+      "arguments": "p_tenant_id uuid, p_view_id uuid, p_payload jsonb",
+      "source_md5": "8d77aa4c18f1cf4ae1c28f4aca5c3385",
+      "uniform_crlf_md5": "078470ade04dfa52060b626c2c3109fb",
+      "admitted": false
+    },
+    {
+      "function": "rpc_delete_claim_view",
+      "arguments": "p_tenant_id uuid, p_view_id uuid",
+      "source_md5": "d45047eb65bcef0208b73f4a547120da",
+      "uniform_crlf_md5": "d45047eb65bcef0208b73f4a547120da",
+      "admitted": false
+    },
+    {
+      "function": "rpc_refresh_claim_notifications",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "739401b9265f7a71956f077a190b2b34",
+      "uniform_crlf_md5": "739401b9265f7a71956f077a190b2b34",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_descargo_lines",
+      "arguments": "p_pedimento_id uuid",
+      "source_md5": "b72aa5540884bfabb9dc08974d79aa15",
+      "uniform_crlf_md5": "c5d11892b647fa7f2235062dfb322681",
+      "admitted": false
+    },
+    {
+      "function": "rpc_add_descargo_line",
+      "arguments": "p_pedimento_id uuid, p_payload jsonb",
+      "source_md5": "523b1bfff6b0e05cf105326f6b63f679",
+      "uniform_crlf_md5": "dbb8116c3f67bb38514c1e578a6db2a9",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_deal_notes",
+      "arguments": "p_deal_id uuid",
+      "source_md5": "44f589048deccc31619d9b0fe3450e1e",
+      "uniform_crlf_md5": "9e056ef38e435319017cf1f33498d3ad",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_deal_checklist",
+      "arguments": "p_deal_id uuid",
+      "source_md5": "f8abe0b3fd331b2629c113381e0c0b98",
+      "uniform_crlf_md5": "1b84c723ff34aa63e05303e2e97f68b8",
+      "admitted": false
+    },
+    {
+      "function": "rpc_add_deal_note",
+      "arguments": "p_deal_id uuid, p_note text",
+      "source_md5": "f726987111398bb70cbeae832ac151b1",
+      "uniform_crlf_md5": "340b6ed02c99c419aac555991c0b814f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_toggle_deal_checklist_item",
+      "arguments": "p_item_id uuid, p_is_done boolean",
+      "source_md5": "9ae5f7abc9ae5a50d53d03a0a38f152f",
+      "uniform_crlf_md5": "1aed20a8f44f0204cf9da27c1a487756",
+      "admitted": false
+    },
+    {
+      "function": "rpc_create_invitation",
+      "arguments": "p_tenant_id uuid, p_email text, p_role text",
+      "source_md5": "5954cf308d51c5d8bf9a7471d8eef495",
+      "uniform_crlf_md5": "c88f6be3971b4454b985b2a8e8e5fa1b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_partner_compliance_bundle",
+      "arguments": "p_tenant_id uuid, p_partner_type text, p_partner_id uuid",
+      "source_md5": "960ecd944aa1e2321ddc25c2dbe80c4b",
+      "uniform_crlf_md5": "74067873366e53b8cf0253dccae31238",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_rate_360",
+      "arguments": "p_rate_card_id uuid",
+      "source_md5": "5a155038f177e68ee11b92e00aba55e2",
+      "uniform_crlf_md5": "3fd3f595c670b8d60bdde301845e4bc3",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_customer_partner_360",
+      "arguments": "p_customer_id uuid",
+      "source_md5": "3fb7a8ac3bc36bbc5706ece16d643899",
+      "uniform_crlf_md5": "6496dd1e6aa2eec4dda654a7d6a364aa",
+      "admitted": false
+    },
+    {
+      "function": "rpc_list_internal_notifications_page",
+      "arguments": "p_tenant_id uuid, p_unread_only boolean, p_cursor jsonb, p_limit integer",
+      "source_md5": "7f4ca0abf060baa865507ed5060ac8c3",
+      "uniform_crlf_md5": "6a4804f32b4f39f0c4c3551ccd345c9f",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_fiscal_operational_status",
+      "arguments": "p_tenant_id uuid",
+      "source_md5": "a20a8915a09d0567197892c4a785f34f",
+      "uniform_crlf_md5": "2f6d8d458b628dd5739a48fa045fb37d",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_cfdi_fiscal_input",
+      "arguments": "p_cfdi_id uuid, p_fiscal_input jsonb, p_cfdi_version text",
+      "source_md5": "cf83ede0ceb9e82831e2840d900c5c13",
+      "uniform_crlf_md5": "7f4ed35ae4afef4e577527a33915aafb",
+      "admitted": false
+    },
+    {
+      "function": "rpc_update_fiscal_provider_config",
+      "arguments": "p_tenant_id uuid, p_provider_code text, p_enabled boolean, p_environment text, p_capabilities jsonb",
+      "source_md5": "7f9e04f5d927818b1f1ff3374fca3c64",
+      "uniform_crlf_md5": "ea65689f7547ee4283dfe903d2a9c2a8",
+      "admitted": false
+    },
+    {
+      "function": "rpc_reports_tanda1",
+      "arguments": "p_tenant_id uuid, p_date_from text, p_date_to text",
+      "source_md5": "67075e444de80fa24c784e43c483d14e",
+      "uniform_crlf_md5": "8e6caf5659f1cf6a6b5ae7025a29c30c",
+      "admitted": true
+    },
+    {
+      "function": "rpc_create_payment_complement",
+      "arguments": "p_tenant_id uuid, p_payload jsonb",
+      "source_md5": "455ccd948d72703ee97710bb2abc75d2",
+      "uniform_crlf_md5": "9722a1b56ec27420b51dd98678cc8b89",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_provider_360",
+      "arguments": "p_provider_id uuid",
+      "source_md5": "2d8521d42cc088fd9ff580dd48fd7b61",
+      "uniform_crlf_md5": "0354e6ed1d0bf22808a7a7424caf3b75",
+      "admitted": false
+    },
+    {
+      "function": "rpc_reset_cfdi_fiscal_draft",
+      "arguments": "p_cfdi_id uuid, p_reason text",
+      "source_md5": "c25c982984674f9103c8cf50a61d1a47",
+      "uniform_crlf_md5": "fe9ecef4fa5259d4ffd29218ada71a7b",
+      "admitted": false
+    },
+    {
+      "function": "rpc_prepare_cfdi_for_api",
+      "arguments": "p_cfdi_id uuid",
+      "source_md5": "406a1e8e7026f1eefe48579e72e457ec",
+      "uniform_crlf_md5": "380b667d7d0eb5d585820cbfb12136f6",
+      "admitted": false
+    },
+    {
+      "function": "rpc_retry_fiscal_request",
+      "arguments": "p_request_id uuid",
+      "source_md5": "7a5aa9c10b0057768820c3914980f572",
+      "uniform_crlf_md5": "284aef569e24aec4e631ad885a4858ce",
+      "admitted": false
+    },
+    {
+      "function": "rpc_request_fiscal_cancellation",
+      "arguments": "p_cfdi_id uuid, p_reason text",
+      "source_md5": "35a5bef004b7a273c1f577fe7c186fc0",
+      "uniform_crlf_md5": "7b173e4aa5fb30cb25f6bd0d4139d620",
+      "admitted": false
+    },
+    {
+      "function": "rpc_queue_fiscal_status_check",
+      "arguments": "p_cfdi_id uuid",
+      "source_md5": "fd50f0acc8d12c54a037e6bfa39826e4",
+      "uniform_crlf_md5": "a6385f56630b4f140d4352431e2779a8",
+      "admitted": false
+    },
+    {
+      "function": "rpc_get_finance_invoice_detail",
+      "arguments": "p_tenant_id uuid, p_invoice_id uuid",
+      "source_md5": "7a451f10b5ea2e0049932991ce943b40",
+      "uniform_crlf_md5": "3c5e7c31e5b1b80753c7c09d9608f15a",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_finance_invoices",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "e56cc2d5962dcef13cf18e7cb028d126",
+      "uniform_crlf_md5": "01623f0644aec1c23d2cd8a139e752bb",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_finance_payments",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "ad496e0cf84d65b6a6f068235dc883f6",
+      "uniform_crlf_md5": "a6f685fc08167a2d366fabe1a05e26e4",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_finance_due_alerts",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "930e1e506f365d6579577e5411561f54",
+      "uniform_crlf_md5": "e1615f67070dc1ee85ff64c1827c485e",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_operation_finance_summary",
+      "arguments": "p_tenant_id uuid, p_operation_id uuid",
+      "source_md5": "3c0f3e0c0fce41a8226afe80acaede25",
+      "uniform_crlf_md5": "a0c600db0e716b6976d2cc9048efffe1",
+      "admitted": true
+    },
+    {
+      "function": "rpc_finance_profitability",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "370d1281916a82b10baf9859b924a483",
+      "uniform_crlf_md5": "9c867301f3150f80ecd20d2aa9b29d43",
+      "admitted": true
+    },
+    {
+      "function": "rpc_list_payment_complements",
+      "arguments": "p_tenant_id uuid, p_filters jsonb",
+      "source_md5": "50a154d8c8353a6567bcd50836652fa3",
+      "uniform_crlf_md5": "6aac2abf86921dbd77653804571bc85c",
+      "admitted": true
+    },
+    {
+      "function": "rpc_void_finance_invoice",
+      "arguments": "p_tenant_id uuid, p_id uuid, p_reason text",
+      "source_md5": "06d7ebaff20ab5122161ca1f04828679",
+      "uniform_crlf_md5": "f52b1fbb9597c1657dc180769bfa3f90",
+      "admitted": true
+    },
+    {
+      "function": "rpc_get_fiscal_readiness",
+      "arguments": "p_cfdi_id uuid",
+      "source_md5": "f4dc20c311e3a22460ff6c7fc1419e16",
+      "uniform_crlf_md5": "58fff55b531f0e77371189a48a186855",
+      "admitted": true
+    },
+    {
+      "function": "rpc_queue_fiscal_stamp",
+      "arguments": "p_cfdi_id uuid",
+      "source_md5": "84667286ffdb243c08a55270ae448334",
+      "uniform_crlf_md5": "4caf11292020f9c84bc69ca43471236e",
+      "admitted": false
+    }
+  ],
+  "direct_tables_closed": [
+    "audit_log",
+    "automation_daily_digests",
+    "automation_rules",
+    "automation_runs",
+    "billing_carta_porte",
+    "billing_cfdis",
+    "billing_credit_notes",
+    "billing_documents",
+    "billing_payment_complements",
+    "business_contacts",
+    "claim_service_policies",
+    "commercial_lanes",
+    "commercial_rate_cards",
+    "commercial_rate_charges",
+    "commercial_rate_versions",
+    "crm_deal_activity",
+    "crm_deal_checklist_items",
+    "crm_deal_notes",
+    "crm_deals",
+    "crm_quote_rate_snapshots",
+    "customers",
+    "customs_descargo_lines",
+    "customs_pedimentos",
+    "data_import_batches",
+    "data_import_chunks",
+    "data_import_mappings",
+    "document_files",
+    "document_relations",
+    "document_template_versions",
+    "document_templates",
+    "drivers",
+    "finance_invoices",
+    "finance_payments",
+    "fiscal_provider_attempts",
+    "fiscal_provider_configs",
+    "fiscal_requests",
+    "generated_documents",
+    "internal_notification_rules",
+    "internal_notifications",
+    "inventory_lots",
+    "invitations",
+    "logistics_providers",
+    "operation_assignment_history",
+    "operation_billing",
+    "operation_crossings",
+    "operation_documents",
+    "operation_evidence",
+    "operation_incidents",
+    "operations",
+    "partner_compliance_records",
+    "partner_compliance_requirements",
+    "partner_contracts",
+    "provider_compliance_overrides",
+    "service_catalog_items",
+    "service_claim_actions",
+    "service_claim_contacts",
+    "service_claim_events",
+    "service_claim_financials",
+    "service_claims",
+    "tenant_settings",
+    "tenant_setup_status",
+    "tracking_events",
+    "tracking_route_points",
+    "tracking_tokens",
+    "user_saved_views",
+    "vehicles"
+  ]
+}

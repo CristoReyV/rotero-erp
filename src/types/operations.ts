@@ -21,6 +21,7 @@ export interface Operation {
     reference_code?: string;
     created_at?: string;
     updated_at?: string;
+    workflow_revision?: number;
     customer_id?: string | null;
     client_display_name?: string | null;
     source_deal_id?: string | null;

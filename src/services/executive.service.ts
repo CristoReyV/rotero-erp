@@ -1,3 +1,5 @@
+import { companyWorkflowActive } from './companyWorkflow.service';
+import { scopedResponse } from '@/store/companyStore';
 import { supabase } from '@/lib/supabase';
 import type {
     AttentionItem,
@@ -17,7 +19,11 @@ function assertResult<T>(data: unknown, error: { message: string } | null): T {
     return data as T;
 }
 
-export async function getExecutiveDashboard(tenantId: string, start: Date, end: Date): Promise<ExecutiveDashboard> {
+export async function getExecutiveDashboard(
+    tenantId: string,
+    start: Date,
+    end: Date,
+): Promise<ExecutiveDashboard> {
     const { data, error } = await supabase.rpc('rpc_get_executive_dashboard', {
         p_tenant_id: tenantId,
         p_start_date: start.toISOString(),
@@ -32,21 +38,28 @@ export async function listAttentionItems(tenantId: string): Promise<AttentionIte
 }
 
 export async function refreshInternalNotifications(tenantId: string): Promise<void> {
-    const { data, error } = await supabase.rpc('rpc_refresh_internal_notifications', { p_tenant_id: tenantId });
+    const { data, error } = await supabase.rpc('rpc_refresh_internal_notifications', {
+        p_tenant_id: tenantId,
+    });
     assertResult(data, error);
 }
 
-export async function listInternalNotifications(tenantId: string, unreadOnly = false, cursor:NotificationFeed['next_cursor']=null): Promise<NotificationFeed> {
-    const { data, error } = await supabase.rpc('rpc_list_internal_notifications_page', {
+export async function listInternalNotifications(
+    tenantId: string,
+    unreadOnly = false,
+    cursor: NotificationFeed['next_cursor'] = null,
+): Promise<NotificationFeed> {
+    const { data, error } = await supabase.rpc('rpc_delivery_notifications', {
         p_tenant_id: tenantId,
-        p_unread_only: unreadOnly,
-        p_cursor:cursor,
-        p_limit:25,
     });
     return assertResult<NotificationFeed>(data, error);
 }
 
 export async function markInternalNotificationsRead(tenantId: string, ids: string[] | null): Promise<void> {
+    if (companyWorkflowActive()) {
+        const { data, error } = await supabase.rpc('rpc_delivery_notification_action', { p_tenant_id: tenantId, p_action: 'read', p_ids: ids });
+        assertResult(data, error); return;
+    }
     const { data, error } = await supabase.rpc('rpc_mark_internal_notifications_read', {
         p_tenant_id: tenantId,
         p_notification_ids: ids,
@@ -55,6 +68,10 @@ export async function markInternalNotificationsRead(tenantId: string, ids: strin
 }
 
 export async function dismissInternalNotification(tenantId: string, notificationId: string): Promise<void> {
+    if (companyWorkflowActive()) {
+        const { data, error } = await supabase.rpc('rpc_delivery_notification_action', { p_tenant_id: tenantId, p_action: 'dismiss', p_ids: [notificationId] });
+        assertResult(data, error); return;
+    }
     const { data, error } = await supabase.rpc('rpc_dismiss_internal_notification', {
         p_tenant_id: tenantId,
         p_notification_id: notificationId,
@@ -62,13 +79,19 @@ export async function dismissInternalNotification(tenantId: string, notification
     assertResult(data, error);
 }
 
-export async function globalSearch(tenantId: string, query: string, limit = 5): Promise<GlobalSearchResult[]> {
-    const { data, error } = await supabase.rpc('rpc_global_search', {
-        p_tenant_id: tenantId,
-        p_query: query,
-        p_limit: limit,
+export async function globalSearch(
+    tenantId: string,
+    query: string,
+    limit = 5,
+): Promise<GlobalSearchResult[]> {
+    return scopedResponse(async () => {
+        const { data, error } = await supabase.rpc('rpc_delivery_search', {
+            p_tenant_id: tenantId,
+            p_query: query,
+            p_limit: limit,
+        });
+        return assertResult<{ items: GlobalSearchResult[] }>(data, error).items;
     });
-    return assertResult<{ items: GlobalSearchResult[] }>(data, error).items;
 }
 
 export async function listSavedViews(tenantId: string, module: ProductivityModule): Promise<SavedView[]> {
@@ -76,24 +99,45 @@ export async function listSavedViews(tenantId: string, module: ProductivityModul
         const { data, error } = await supabase.rpc('rpc_list_claim_saved_views', { p_tenant_id: tenantId });
         return assertResult<SavedView[]>(data, error);
     }
-    const { data, error } = await supabase.rpc('rpc_list_saved_views', { p_tenant_id: tenantId, p_module: module });
+    const { data, error } = await supabase.rpc('rpc_list_saved_views', {
+        p_tenant_id: tenantId,
+        p_module: module,
+    });
     return assertResult<{ items: SavedView[] }>(data, error).items;
 }
 
 export async function saveView(tenantId: string, payload: SaveViewPayload): Promise<SavedView> {
     if (payload.module === 'claims') {
-        const { data, error } = await supabase.rpc('rpc_save_claim_view', { p_tenant_id: tenantId, p_view_id: payload.id ?? null, p_payload: payload });
+        const { data, error } = await supabase.rpc('rpc_save_claim_view', {
+            p_tenant_id: tenantId,
+            p_view_id: payload.id ?? null,
+            p_payload: payload,
+        });
         return assertResult<SavedView>(data, error);
     }
-    const { data, error } = await supabase.rpc('rpc_save_view', { p_tenant_id: tenantId, p_payload: payload });
+    const { data, error } = await supabase.rpc('rpc_save_view', {
+        p_tenant_id: tenantId,
+        p_payload: payload,
+    });
     return assertResult<SavedView>(data, error);
 }
 
-export async function deleteSavedView(tenantId: string, viewId: string, module?: ProductivityModule): Promise<void> {
+export async function deleteSavedView(
+    tenantId: string,
+    viewId: string,
+    module?: ProductivityModule,
+): Promise<void> {
     if (module === 'claims') {
-        const { data, error } = await supabase.rpc('rpc_delete_claim_view', { p_tenant_id: tenantId, p_view_id: viewId });
-        assertResult(data, error); return;
+        const { data, error } = await supabase.rpc('rpc_delete_claim_view', {
+            p_tenant_id: tenantId,
+            p_view_id: viewId,
+        });
+        assertResult(data, error);
+        return;
     }
-    const { data, error } = await supabase.rpc('rpc_delete_saved_view', { p_tenant_id: tenantId, p_view_id: viewId });
+    const { data, error } = await supabase.rpc('rpc_delete_saved_view', {
+        p_tenant_id: tenantId,
+        p_view_id: viewId,
+    });
     assertResult(data, error);
 }

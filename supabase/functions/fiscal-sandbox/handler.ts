@@ -11,6 +11,14 @@ const preview = /^https:\/\/deploy-preview-\d+--rotero-erp-staging\.netlify\.app
 const local = /^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/;
 const stagingOrigin = 'https://rotero-erp-staging.netlify.app';
 export const STAGING_SUPABASE_URL = 'https://mxpmgihuheagrcowwbia.supabase.co';
+export function fiscalCompanyHeaders(headers: Headers): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const name of ['x-rotero-scope', 'x-rotero-company-id', 'x-rotero-company-ids']) {
+        const value = headers.get(name);
+        if (value && value.length <= 4096) result[name] = value;
+    }
+    return result;
+}
 export function isFiscalSandboxRuntime(config: {
     enabled?: string;
     environment?: string;
@@ -35,7 +43,8 @@ export function createFiscalHandler(deps: FiscalHandlerDependencies) {
             'Vary': 'Origin',
             ...(allowedOrigin(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
+            'Access-Control-Allow-Headers':
+                'authorization, apikey, content-type, x-client-info, x-rotero-scope, x-rotero-company-id, x-rotero-company-ids',
         };
         const json = (body: Json, status = 200) => new Response(JSON.stringify(body), { status, headers });
         if (origin && !allowedOrigin(origin)) {

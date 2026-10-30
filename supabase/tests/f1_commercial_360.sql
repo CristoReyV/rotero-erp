@@ -2,6 +2,22 @@
 
 BEGIN;
 
+-- Follow the checked private legacy core behind an additive authorization wrapper.
+-- Preserve all original source assertions and behavior fixtures, including locks.
+CREATE FUNCTION pg_temp.contract_source(p regprocedure) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE d text:=pg_get_functiondef(p); core text; cp regprocedure;
+BEGIN
+ core:=substring(d FROM 'private[.]delivery_core_[a-f0-9]{20}');
+ IF core IS NOT NULL THEN
+  cp:=to_regproc(core);
+  IF cp IS NULL OR NOT EXISTS(SELECT FROM pg_proc WHERE oid=cp AND prosecdef AND proowner='postgres'::regrole)
+   OR has_function_privilege('authenticated',cp,'EXECUTE') OR has_function_privilege('anon',cp,'EXECUTE')
+   OR has_function_privilege('service_role',cp,'EXECUTE') THEN RAISE EXCEPTION 'unsafe or missing wrapped legacy implementation'; END IF;
+  d:=d||E'\n'||pg_get_functiondef(cp);
+ END IF;RETURN d;
+END $$;
+
+
 DO $contract$
 DECLARE
     v_signature text;
@@ -94,7 +110,7 @@ BEGIN
     IF to_regprocedure('public.rpc_transition_quote_status(uuid,text,text)') IS NOT NULL THEN
         RAISE EXCEPTION 'F1 CONTRACT FAILED: parallel generic lifecycle remains';
     END IF;
-    v_definition := pg_get_functiondef('public.rpc_convert_quote_to_operation(uuid,text)'::regprocedure);
+    v_definition := pg_temp.contract_source('public.rpc_convert_quote_to_operation(uuid,text)'::regprocedure);
     IF v_definition ~ '\mSQLERRM\M' THEN
         RAISE EXCEPTION 'F1 CONTRACT FAILED: converter exposes internal database errors';
     END IF;

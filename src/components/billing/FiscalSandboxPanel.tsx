@@ -99,6 +99,18 @@ export function FiscalSandboxPanel(
                 Estado: {context.status}
                 {context.uncertain ? ' · Resultado incierto; consulta antes de continuar.' : ''}
             </p>
+            <p className='text-sm'>Origen de este documento: Facturama · sandbox.</p>
+            {context.future_provider?.configured && (
+                <p className='text-sm'>
+                    Proveedor configurado para futuras emisiones:{' '}
+                    {context.future_provider.code === 'soft_management' ? 'Softmanagement' : 'Facturama'} ·
+                    {' '}
+                    {context.future_provider.environment}. Ejecución deshabilitada
+                    {context.future_provider.validation === 'pending_validation'
+                        ? '; pendiente de validación'
+                        : ''}. La consulta y evidencia de este documento conservan su origen.
+                </p>
+            )}
             {context.remote_cancel_status && (
                 <p className='text-sm'>
                     Cancelación del proveedor: {context.remote_cancel_status === 'canceled'

@@ -440,8 +440,9 @@ const BillingPage = () => {
                                             <div>
                                                 <h3 className="text-sm font-bold text-slate-800">Control fiscal</h3>
                                                 <p className="mt-1 text-[11px] text-slate-500">
-                                                    {fiscalActions.externalDisabledReason || 'Proveedor habilitado explícitamente para este tenant y entorno.'}
+                                                    {fiscalActions.externalDisabledReason || 'Acciones habilitadas para el proveedor y ambiente de origen.'}
                                                 </p>
+                                                <p className="mt-1 text-[11px] text-slate-500">Disponibles: Facturama (solo sandbox) y Softmanagement (pendiente de validación). Configurar un proveedor no habilita su ejecución.</p>
                                             </div>
                                             {!fiscalReadiness.validation.valid && fiscalReadiness.validation.missing_fields.length > 0 && (
                                                 <p className="rounded-lg bg-amber-50 p-3 text-[11px] text-amber-800">

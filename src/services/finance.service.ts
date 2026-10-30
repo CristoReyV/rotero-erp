@@ -7,6 +7,7 @@ import type {
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 const ERRORS: Record<string, string> = {
+    company_finance_write_pending: 'Esta cuenta u operación tiene empresa asignada. Sus escrituras financieras requieren habilitación explícita; no se realizó ningún cambio.',
     unauthorized: 'No tienes permiso para este contexto financiero.', invalid_payload: 'Revisa los datos de la cuenta.',
     invalid_filters: 'Revisa los filtros seleccionados.', invalid_customer: 'El cliente no pertenece a la empresa activa.',
     invalid_provider: 'El proveedor no pertenece a la empresa activa.', invalid_operation: 'La operación no pertenece a la empresa activa.',

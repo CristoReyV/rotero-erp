@@ -6,7 +6,8 @@ export type FiscalStatus =
 export type FiscalSafeError =
     | 'provider_not_configured' | 'validation_failed' | 'provider_unavailable' | 'provider_timeout'
     | 'provider_rejected' | 'already_processing' | 'already_stamped' | 'invalid_transition'
-    | 'cancellation_failed' | 'artifact_unavailable' | 'status_conflict';
+    | 'cancellation_failed' | 'artifact_unavailable' | 'status_conflict'
+    | 'company_provider_configuration_required' | 'company_fiscal_transport_disabled' | 'fiscal_reconciliation_required';
 
 export interface CFDI {
     id: string; // The database UUID
@@ -62,7 +63,12 @@ export interface FiscalReadiness {
     cfdi_id: string;
     fiscal_status: FiscalStatus;
     validation: { valid: boolean; missing_fields: string[]; cfdi_version: string };
-    provider: { configured: boolean; code: string | null; environment: 'sandbox' | 'production' };
+    provider: {
+        configured: boolean; code: string | null; environment: 'sandbox' | 'production';
+        enabled?: boolean;
+        validation?: 'sandbox_only' | 'pending_validation' | 'not_configured';
+        capabilities?: Partial<Record<'stamp' | 'status' | 'cancel', boolean>>;
+    };
     request_fingerprint?: string | null;
     provider_document_id?: string | null;
     fiscal_uuid?: string | null;

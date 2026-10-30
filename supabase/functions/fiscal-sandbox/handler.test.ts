@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ACK_RECOVERY_PENDING_MESSAGE, FacturamaSandbox } from '../_shared/facturama.ts';
-import { createFiscalHandler, isFiscalSandboxRuntime, STAGING_SUPABASE_URL } from './handler.ts';
+import {
+    createFiscalHandler,
+    fiscalCompanyHeaders,
+    isFiscalSandboxRuntime,
+    STAGING_SUPABASE_URL,
+} from './handler.ts';
 
 const origin = 'https://rotero-erp-staging.netlify.app';
 const id = '70000000-0000-4000-8000-000000000001';
@@ -161,4 +166,17 @@ test('runtime configuration remains exclusively enabled sandbox on the exact sta
     ) {
         assert.equal(isFiscalSandboxRuntime(config), false);
     }
+});
+
+test('company selectors forward no identity, credentials or unrelated headers', () => {
+    const input = new Headers({
+        authorization: 'Bearer synthetic-marker',
+        apikey: 'synthetic-marker',
+        'x-rotero-scope': 'company',
+        'x-rotero-company-id': id,
+        'x-untrusted': 'ignored',
+    });
+    assert.deepEqual(fiscalCompanyHeaders(input), { 'x-rotero-scope': 'company', 'x-rotero-company-id': id });
+    input.set('x-rotero-company-ids', 'x'.repeat(4097));
+    assert.equal('x-rotero-company-ids' in fiscalCompanyHeaders(input), false);
 });

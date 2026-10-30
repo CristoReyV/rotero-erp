@@ -171,6 +171,10 @@ async function pageHarness(options: Parameters<typeof setup>[0] = {}) {
         react: hooks, 'react/jsx-runtime': { ...jsxRuntime },
         '@/store/authStore': { useAuthStore: (select: (value: { activeTenant: string | null; }) => unknown) => select({ activeTenant }) },
         '@/lib/supabase': { supabase: env.client },
+        // This harness exercises the existing full-finance branch. Company
+        // boundary decisions are tested separately; no real client is loaded.
+        '@/store/companyStore': { hasCompanyCapability: () => true },
+        '@/components/reports/CompanyReports': { CompanyReports: () => null },
         '@/services/reports.service': env.old,
         '@/services/reportsLoader': { createReportsLoader },
         '@/services/reportsTanda1.service': { createReportsTanda1Service },
@@ -309,7 +313,10 @@ test('actual page effect shows Tanda 1 even when a legacy RPC fails', async () =
     const page = await pageHarness({ failLegacy: true });
     page.render(); page.runEffect(); await page.flush();
     const html = page.render();
-    assert.ok(html.includes('Datos insuficientes para reportes'));
+    // The approved company delivery page uses a recoverable authorization
+    // failure; it must not substitute fabricated legacy metrics.
+    assert.ok(html.includes('No fue posible verificar los reportes autorizados para este alcance.'));
+    assert.ok(html.includes('Reintentar'));
     assert.ok(html.includes('Volumen operativo'));
     assert.ok(html.includes('Facturadas (conteo)'));
     assert.equal(html.includes('No fue posible cargar el resumen operativo.'), false);
