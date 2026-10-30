@@ -290,6 +290,9 @@ BEGIN
     INSERT INTO public.tenants(name,slug) VALUES ('Consumed A','consumed-a'),('Consumed B','consumed-b');
     SELECT id INTO v_tenant_a FROM public.tenants WHERE slug='consumed-a';
     SELECT id INTO v_tenant_b FROM public.tenants WHERE slug='consumed-b';
+    -- Reconciled staging audit/creator FKs require synthetic Auth targets.
+    -- They have no credentials and disappear with this transaction's rollback.
+    INSERT INTO auth.users(id) VALUES(v_admin),(v_operator),(v_finance),(v_viewer);
     INSERT INTO public.memberships(tenant_id,user_id,role) VALUES
         (v_tenant_a,v_admin,'admin'),(v_tenant_a,v_operator,'operator'),(v_tenant_a,v_finance,'finance'),(v_tenant_a,v_viewer,'viewer');
     PERFORM set_config('consumed.tenant_a',v_tenant_a::text,true);
