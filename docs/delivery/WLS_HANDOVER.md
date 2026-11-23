@@ -1,144 +1,128 @@
-# Entrega de ROTERO ERP para WLS
+# Aceptación de ROTERO ERP para WLS
 
-Este bloque prepara Tracking empresarial en el candidato del PR #47. Requiere
-aplicar y ensayar la migración 61 junto con la actualización de `track-public`
-antes de conceder `tracking.manage` en staging. CIERRE-03 conserva su evidencia
-histórica en [WORKFLOWS_VALIDATION.json](WORKFLOWS_VALIDATION.json).
+**Decisión actual: no habilitar WLS.** El PR #47 permanece en draft. La
+aplicación revisada parte de `08c4fbd37da6377505eda7194edc19aae0981e8f`.
+Este seguimiento cambia la prueba SQL y este documento. El SHA y Deploy
+Preview vigentes se verifican juntos al entregar.
 
-| Requisito | Estado y alcance de la evidencia |
-| --- | --- |
-| Alta, planeación y asignación | **Aprobado local** desde los comandos scoped con rol operator y proveedor sintético. La QA CIERRE-03 de interfaz fue con admin de alcance parcial. |
-| Tracking público y chofer | **Aprobado local SQL** para emisión, consulta de metadatos, separación de ambos scopes, expiración, revocación, salida, llegada y entrega. Pendiente probar las Edge Functions y el navegador del preview con datos reales sintéticos. |
-| Doble acción y respuesta perdida | **Aprobado local SQL** para reemitir una solicitud sin crear otro enlace y para repetir el mismo evento sin registrarlo dos veces. Dos sesiones SQL compitieron por rotar el mismo enlace, una obtuvo conflicto y quedó un sólo enlace activo. |
-| Comandos de tránsito y entrega | **Aprobado local SQL**. Tránsito requiere ambos enlaces vigentes. Entrega exige un evento válido del transportista de la asignación vigente. |
-| POD y cierre normal | **POD aprobado en regresión SQL** de carga, propietario, acceso, vínculo, versiones y retirada. Evidencia previa de bytes CIERRE-03 reutilizable tras comprobar equivalencia. **Cierre pendiente** de un Billing emitido legítimo para el recorrido de QA. Se comprobó la denegación sin ese requisito. |
-| Empresas y roles | **Aprobado local SQL** en empresas A/B, tenant X, operación sin clasificación, empresa inactiva, revocación de concesión y acceso directo denegado. El frontend permite a operator acceder a Dashboard, Operaciones y Documentos tras el control de empresa. QA real de login con operator pendiente. Viewer sigue cerrado. |
-| Finanzas y consolidación | **Aprobado local** para contratos MULTI-07/08 de acceso parcial, full explícito, exportación y consolidación. QA de aplicación conserva la evidencia sintética de CIERRE-03. Los grants por persona están pendientes de verificar identidad y recibir aprobación. |
-| Documentos privados, 360 y CSV | **Aprobado local** el contrato scoped y sus regresiones. Las URLs firmadas previas vencen según su vigencia. Generación de plantillas compartidas requiere adopción propia. |
-| Claims, Inventarios, Aduanas, Comercial, importación | **Pendiente funcional**. Los RPC principales responden `company_adoption_pending` durante el corte y los enlaces del menú candidato se retiran. Un acceso directo explica la indisponibilidad sin montar el módulo legacy. Listados de reportes y búsquedas ya adoptados mantienen su contrato. |
-| Dashboard, búsqueda y jobs | **Aprobado local** para CIERRE-03 y seis reglas operativas bajo scope explícito. Automatización continua por empresa y reglas de otros dominios pendientes. |
-| Reportes | **Aprobado local** el contrato de cuatro secciones legacy y Tanda 1 de siete claves, errores y cambios de contexto. La prueba remota anterior usó contrato vacío. Pendiente ejecutar con datos sintéticos poblados por empresa. |
-| Login, recuperación, logout, notificaciones | **Aprobado en Node** para las regresiones de Auth y lecturas automáticas. Persistencia y revocación de refresh se comprueban aparte de UI/HTTP. No se ha demostrado foco real ni revocación inmediata de todos los access tokens. |
-| Fiscal | **Regresión SQL aprobada** para Facturama sandbox y reconciliación de estados, REP y evidencia PDF dentro de los contratos existentes. Softmanagement se conserva inactivo. Pendientes pruebas de producción y aceptación contable. |
-| Excel | **Lote local HOLD**. Archivo fuente intacto, 75 grupos de folios repetidos y 37 celdas con errores. Ningún registro tiene aprobación de importación. |
+El conector de Supabase responde, pero el proyecto `mxpmgihuheagrcowwbia`
+no aparece en su lista y deniega proyecto, historial y funciones. Las 60
+migraciones son el último estado confirmado en CIERRE-03. La 61 pasó replay
+local y sigue pendiente de ensayo sobre el respaldo vigente de staging.
+Las versiones públicas de Edge tampoco se dan por verificadas en esta fase.
+[Validación anterior](WORKFLOWS_VALIDATION.json)
 
-Ejecución local de este bloque: replay de las 61 migraciones, 40 aserciones de
-Tracking, una carrera con dos sesiones, 67 pruebas Node, typecheck y build
-staging. El ensayo local no reemplaza la restauración del catálogo real.
+## Matriz única de salida
 
-## Operación y capacitación
+“Día uno” identifica el alcance que se propone habilitar después de probarlo
+en el preview con el backend autorizado. La evidencia local o histórica se
+indica para que WLS pueda distinguirla de una aceptación real.
 
-1. **Operador de A.** Iniciar sesión con membership operator y concesiones
-   específicas. Elegir A, crear la operación y completar servicio, ubicaciones y
-   ventana, luego asignar proveedor y salida. Confirmar que las consultas y CSV
-   excluyen los datos de B y las columnas financieras.
-2. **Operador de A.** Abrir la ficha 360 y emitir un enlace público y otro para
-   el chofer. Copiar la dirección mientras se muestra. Si se pierde la
-   respuesta, actualizar los metadatos y rotar el enlace que figure vigente.
-   Revocar el anterior al retirar acceso. Comprobar expiración tras una solicitud nueva.
-3. **Chofer.** Abrir su enlace en un contexto distinto. Registrar salida,
-   tránsito y llegada en orden. Confirmar entrega desde la página del chofer.
-   La cola de eventos pendientes permanece en la pestaña. Mantenerla abierta
-   hasta confirmar el envío y usar Reintentar envío si se pierde la respuesta.
-4. **Operador de A.** Avanzar a tránsito cuando los dos enlaces y requisitos
-   estén listos. Consultar la entrega, cargar el POD privado y asociarlo en el
-   expediente. Intentar cierre sin Billing emitido y comprobar la explicación.
-   Completar el cierre sólo cuando contabilidad aporte el requisito legítimo.
-5. **Finanzas.** Con acceso parcial, comparar cobranza y sus exportaciones.
-   Con full explícito en A y B, reconciliar AR/AP, documentos, pagos, créditos,
-   REP y totales por empresa. Consolidar sólo el conjunto concedido. Revocar
-   full en A y comprobar que B sigue accesible y el consolidado queda cerrado.
-6. **QA negativa.** Repetir con usuario sin concesiones y con IDs válidos de
-   B/tenant X. Verificar falta de permiso para links, adjuntos y acciones. Probar
-   bloqueo al desactivar la empresa y al revocar el enlace del chofer. Registrar
-   la acción, ruta sin parámetros, método, código HTTP, resultado y persistencia.
-   Revisar escritorio y pantallas de 390×844 y 360×800. Para foco, ir a una pestaña
-   vacía y volver. Exigir un cambio observado de foco o visibilidad, comprobar
-   la actualización y verificar cero escrituras automáticas.
-7. **Contabilidad/UAT.** Comparar Tanda 1 y las cuatro secciones contra el mismo
-   periodo y empresa. Aceptar ausencia de datos como pendiente de carga. Probar
-   exportaciones, cierre por clic del menú y acceso restringido a `/reports`
-   tras salir. Registrar HTTP y finalización de petición independientemente.
+| Corte | Recorrido | Evidencia y estado | Responsable y próximo paso |
+| --- | --- | --- | --- |
+| Día uno | Acceso y contexto de empresa | El preview anterior mostró login y restringió Reportes sin sesión. Node cubrió recuperación y logout. Login real del operator y persistencia en este candidato siguen pendientes. | QA. Usar identidad sintética con membership operator, comprobar contexto, recarga, foco efectivo y cierre de la sesión propia. |
+| Día uno | Alta, planeación, asignación y tránsito | SQL aprobado con operator, empresa explícita y proveedor sintético. Los enlaces vigentes son requisito de tránsito. La prueba real CIERRE-03 fue con admin de alcance parcial. | QA + Operaciones. Recorrer la ficha 360 con operator y comprobar persistencia de cada transición en A. |
+| Día uno | Seguimiento público, chofer, entrega y POD privado | SQL aprobado para emisión, rotación concurrente, caducidad, revocación, separación de scopes y entrega. El reintento del chofer se probó con respuestas controladas en tres tamaños. Storage y POD tienen evidencia local y evidencia real previa de CIERRE-03. La reasignación y el recorrido de los tres endpoints en staging siguen pendientes de QA autenticada. | QA + administrador de staging. Tras la restauración y el delta, usar dos asignaciones sintéticas válidas y comprobar invalidación, entrega y acceso privado a los bytes del POD. |
+| Día uno | Dashboard, búsqueda, notificaciones y jobs acotados | CIERRE-03 validó consultas por empresa y seis reglas manuales con destinatarios explícitos. Montar y navegar sólo consultan notificaciones. | QA. Confirmar aislamiento y lecturas en el preview si cambian las entradas. Ejecutar sólo una tarea dirigida al tenant sintético y comprobar dedup y retirada del scope. |
+| Día uno | Operaciones y Finanzas con exportaciones | SQL y QA previa cubrieron 360/CSV operacional, AR parcial, acceso financiero completo y consolidación explícita. Objetos privados, alcance cruzado y revocación tienen cobertura anterior. | QA + Contabilidad. Con datos sintéticos poblados, reconciliar pantallas y exportaciones con el mismo filtro. Probar operator, finance parcial y una identidad con full explícito. |
+| Día uno | Reportes por empresa | Las cuatro secciones y las siete claves de Tanda 1 tienen contrato probado. La validación remota previa usó respuesta vacía. Falta ejecutar el escenario poblado en el preview. | QA + Contabilidad. Verificar cifras sintéticas por empresa y periodo. Comparar CSV con pantalla y comprobar permisos revocados. |
+| Día uno | Denegaciones legacy y controles de lectura | La prueba RBAC.3B original pasó con 45 migraciones y falló con 60 y 61 al buscar el guard en el wrapper de `rpc_list_deals`. La prueba revisada pasó 186 casos de lectura/denegación, además de las lecturas Finance aprobadas y las ACL de las 12 funciones. | Ingeniería. Conservar la prueba efectiva en el candidato. Repetir el gate sobre la restauración real si el catálogo difiere de la variante local. |
+| Día uno | Catálogo, Edge y recuperación de staging | Bloqueado por acceso administrativo. El replay de los 61 blobs demuestra la variante local. Faltan respaldo vigente, restauración de bytes de Storage y verificación de la variante alojada. | Titular de Supabase. Restablecer una conexión autorizada al proyecto exacto. Ingeniería ejecuta el plan de recuperación antes de aplicar. |
+| Aprobación WLS | Cierre normal y trazabilidad | El cierre sin `operation_billing.status=issued` se deniega correctamente. El alta legacy del documento sigue cerrada y aún falta un recorrido scoped de emisión válido para esta operación. | Contabilidad. Confirmar el productor autorizado y una operación apta. QA toma entrega/POD como hito independiente y después verifica cierre y trazabilidad cuando exista el requisito legítimo. |
+| Aprobación WLS | Accesos definitivos y activación de empresas | Sin asignaciones reales. Lectura financiera completa, exportación y consolidación son concesiones separadas, además del acceso a empresa. | Titular de accesos + Contabilidad. Verificar titularidad de Luis Roberto Santamaria, Jhoselin Santamaria y Karina Pineda. Confirmar labor y alcance de cada operador antes de aprobar grants por UUID. |
+| Aprobación WLS | Conciliación de históricos, UAT y decisión de salida | El concentrado conserva 2379 filas candidatas en HOLD. La salida técnica sigue pendiente de QA autenticada y del criterio contable de cierre. | WLS. Aprobar procedencia, agrupación y contrapartes por fila, criterios contables, roles y alcance de primer día. Aceptar el SHA y deploy exactos después del UAT. |
+| Fuera del corte | Claims, Inventarios, Aduanas, Comercial, importación y plantillas compartidas | Sus flujos no adoptados permanecen cerrados y el frontend lo indica. El catálogo de reportes y búsquedas ya adoptados conserva su contrato. | Producto. Priorizar los módulos que WLS considere indispensables en un bloque aparte. Si alguno es requisito de salida, abrirlo como bloqueo funcional explícito. |
+| Fuera del corte | Jobs programados de empresa, Excel en destino y fiscal real | Se mantienen seis reglas operativas manuales acotadas. Excel sigue en HOLD. Facturama conserva sandbox y Softmanagement permanece inactivo. | Producto + Contabilidad. Autorizar programación, lote contabilizado o alta fiscal en fases propias. |
 
-## Diagnóstico de links y versiones
+## Acceso administrativo y plan de recuperación
 
-El link público usa referencia opaca y estados/hitos fijos. El conductor recibe
-una operación, sin montos, ubicaciones privadas, documentos ni datos de otros
-clientes. Sus acciones están limitadas por el estado de la operación. Una
-reasignación invalida su link anterior. La revocación de la concesión impide
-administrar. Los enlaces ya compartidos se retiran explícitamente; su operación
-y empresa deben seguir vigentes. El navegador usa `no-store` y la Edge aplica
-la misma política al contrato empresarial. Los enlaces legacy de los tenants
-fuera de corte conservan comportamiento previo.
+1. El titular abre
+   [el proyecto de staging](https://supabase.com/dashboard/project/mxpmgihuheagrcowwbia)
+   en un perfil nuevo. Confirma que la cuenta elegida tiene acceso al proyecto y
+   vuelve a autorizar el conector con la organización correcta. Si la cuenta
+   carece de acceso, el titular administra su rol desde el equipo de Supabase
+   con alcance al proyecto cuando el plan lo permita. La sesión anterior
+   pendiente de revocación se gestiona por separado.
+2. Ingeniería verifica identidad del proyecto, historial exacto de las 60
+   versiones previas, dueños y ACL, fingerprints, storage y cron. Registra
+   versiones, hashes y configuración de `track-public`, `driver-view` y
+   `track-driver`. Si la versión 61 ya aparece, compara hash y catálogo antes
+   de decidir. Una divergencia material detiene la aplicación.
+3. Generar un respaldo vigente cifrado en custodia de Windows. Capturar schema,
+   datos, roles e historial con el inventario de Auth que admita recuperación
+   aislada. Exportar por separado los bytes de Storage y su metadata bajo
+   custodia restringida. Guardar conteos, hashes y un marcador de coherencia
+   previo a la escritura. Un backup de DB sólo recupera metadata de Storage.
+4. Restaurar en una pila desechable con publicación loopback y cron detenido.
+   Comprobar roles, relaciones y contratos, y verificar descargas restauradas
+   por la API local con SHA-256. Ensayar la 61 exacta y comparar los conjuntos
+   de objetos, ACL, filas y jobs con el delta esperado. Registrar exclusiones
+   de recuperación, como secretos de plataforma y restauración operativa de
+   CSD. Si el ensayo o sus evidencias fallan, mantener el estado de staging.
+5. Con todas las condiciones comprobadas, desplegar primero la versión
+   compatible de `track-public`, conservar `verify_jwt` y origen aprobados, y
+   verificar la respuesta antes del cambio de DB. Aplicar sólo
+   `20261123160000_cierre04_company_tracking.sql` y comparar catálogo POST con
+   el ensayo. Verificar los tres endpoints con claves de scope correcto,
+   ausente, revocado o ajeno. Confirmar caché y aislamiento de la proyección.
+6. Ante una anomalía, detener la emisión de enlaces y suspender QA. Inventariar
+   y revocar por ID sólo recursos sintéticos creados en el intento. Conservar
+   el corte empresarial, evidencia, versiones de POD y el historial. Corregir
+   con un delta aditivo y una versión compatible. Una recuperación en destino
+   requiere un ensayo verificable y decisión explícita, coordinando DB, bytes y
+   versión de frontend. La primera restauración siempre es aislada.
 
-El control de despacho se basa en enlaces empresariales vigentes. Los links
-históricos de un tenant en corte requieren reemisión por un administrador u
-operador autorizado. Los hechos históricos permanecen conservados. Esta tarea
-no agrega una administración pública de concesiones.
+Referencias de configuración bajo custodia. Netlify staging debe apuntar al
+proyecto exacto con `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` pública y
+`VITE_PUBLIC_APP_URL`; mocks deshabilitados. Confirmar bucket privado y
+`trackingedge` sólo en servidor. Facturama usa perfil por empresa y referencias
+`FACTURAMA_SANDBOX_USER`, `FACTURAMA_SANDBOX_PASSWORD`,
+`FACTURAMA_ENVIRONMENT` y `FACTURAMA_SANDBOX_ENABLED`. Contratación, credenciales
+productivas, CSD y emisores requieren aceptación separada.
 
-## Preflight para el siguiente despliegue revisable
+[Autorización Supabase](https://supabase.com/docs/guides/ai-tools/mcp) ·
+[Acceso al proyecto](https://supabase.com/docs/guides/platform/access-control) ·
+[Respaldos y alcance de Storage](https://supabase.com/docs/guides/platform/backups)
 
-| Mecanismo | Referencias requeridas, sin valores |
-| --- | --- |
-| Netlify | IDs del sitio autorizado y contexto/versiones base; `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` pública, `VITE_PUBLIC_APP_URL` y mocks deshabilitados. |
-| Supabase | Project ref exacto, catálogo, historial, roles/policies, funciones y cron actuales; cuenta para inspección, aplicación/restauración y seguridad de Auth. |
-| Tracking | Versiones de `track-public`, `driver-view`, `track-driver`; origen permitido; referencia de clave server-only `trackingedge` y TTL de links. |
-| Documentos | Bucket privado, reglas de acceso, límites por tipo/tamaño, recuperación de bytes y metadata; clave de servicio exclusivamente al proceso autorizado. |
-| Fiscal sandbox | Perfil por empresa y emisor autorizado de pruebas; `FACTURAMA_SANDBOX_USER`, `FACTURAMA_SANDBOX_PASSWORD`, `FACTURAMA_ENVIRONMENT`, `FACTURAMA_SANDBOX_ENABLED` en custodia de servidor. |
-| Fiscal productivo futuro | Contrato y aprobación contable, API/productos contratados, credenciales separadas, CSD y contraseña bajo custodia, RFC/domicilio/régimen por emisor, series, impuestos y evidencia de aceptación independiente. Softmanagement permanece inactivo. |
+## Guion UAT y operación breve
 
-1. Validar HEAD, PR draft y preview de staging. Obtener acceso de administración
-   de sólo lectura al proyecto exacto. Comparar catálogo e historial con CIERRE-03,
-   probar los hashes A/B admitidos y verificar el delta 61.
-2. Crear respaldo vigente cifrado de schema/roles/datos/Auth y Storage, con
-   manifiesto y hash de bytes. Restaurarlo en pila desechable aislada. Comprobar
-   datos, permisos, Storage, restauración y migración 61 antes de tocar staging.
-3. Desplegar primero `track-public` compatible con ambos contratos y verificar
-   caché/orígenes. Aplicar una vez la migración 61 con el SHA revisado. Comparar
-   catálogo/roles/datos con el ensayo y verificar Edge endpoints. Sin activar
-   empresas reales.
-4. Comprobar identidades QA, habilitación sintética y expiración. Recuperar la
-   custodia previa si sigue disponible y verificarla antes de iniciar sesión.
-   Hace falta un operador real sintético. Conceder lo mínimo a identidades
-   verificadas sólo dentro del tenant QA exclusivo. Registrar IDs inicialmente
-   y al cierre. Cerrar contextos y revocar sesiones de QA propias.
-5. Ante anomalía, detener emisión nueva y retirar por ID los grants/enlaces QA
-   recién emitidos. Mantener el corte empresarial. Corregir hacia adelante con
-   un delta aditivo y un frontend compatible, o ensayar recuperación aislada
-   desde el respaldo para decidir una retirada coordinada. No reparar el
-   historial ni reabrir permisos legacy. Merge y despliegue final sólo tras UAT
-   aprobada y confirmación explícita del entorno, SHA, plan y responsables.
-
-## Decisiones y datos que debe aportar WLS
-
-- Titularidad de UUID de Luis Roberto Santamaria, Jhoselin Santamaria y Karina
-  Pineda. Aprobación explícita de grants full/export/consolidación por empresa
-  y asignaciones laborales mínimas de los demás operadores.
-- Evidencia por registro histórico de empresa y contrapartes. Aprobación de
-  agrupación, continuaciones, folios e importes por moneda. Cada pago necesita
-  importe, fecha, cuenta y aplicación respaldados por evidencia.
-- Un recorrido válido con Billing emitido para cerrar UAT y aceptación contable
-  de AR/AP, documentos, REP y conciliación. Aprobación aparte para timbrado real.
-- Prioridad comercial de Claims, plantillas y demás módulos pendientes. Dejar
-  visibles como pendientes hasta que sus contratos de empresa sean adoptados.
-- Recuperar los accesos administrativos de staging por un canal soportado.
-  Cerrar por separado la sesión administrativa de CIERRE-02 mediante revocación
-  selectiva y confirmar custodia QA. Ningún secreto entra en Git ni en evidencias.
-
-## Lote del concentrado y retirada
-
-El previsualizador preserva archivo/hoja/fila/celda, huella, fórmulas y cache,
-empresa propuesta por hoja y candidatos de continuación. El manifiesto local
-queda fuera de Git. Para aprobar, conciliar clientes y proveedores contra IDs
-verificados, documentos por emisor/referencia/moneda, impuestos/retenciones y
-todas las aplicaciones. La clave de huella evita duplicar la instantánea. Una
-versión distinta exige revisión contra claves de negocio, no una nueva alta
-por defecto. El ensayo previo debe distinguir filas netas de controles
-derivados. Se retira el lote por IDs y dependencias, conservando auditoría,
-recibos y versiones. No existe un lote contabilizado.
-
-Las identidades de CIERRE-03 se conservan hasta la entrega humana. Antes de
-retirar, inventariar y revocar por UUID accesos, capacidades, consolidación,
-vinculaciones y scopes dedicados. Cerrar sólo sus sesiones, retirar fixtures
-eliminables por IDs y conservar auditoría, versiones y dependencias FK. El
-tenant ROTERO QA compartido permanece excluido de estas pruebas.
+1. **Preparar QA.** Verificar exclusividad, identidad, permisos vigentes y
+   custodia antes de navegar. Comprobar los UUID y usuarios existentes, pues
+   la vigencia y disponibilidad remota de las cuentas CIERRE-03 siguen sin
+   verificar. Usar sólo el tenant sintético exclusivo y un operator real,
+   con acceso y capacidades mínimos. Usar A y B del mismo tenant, y registrar
+   el tenant X únicamente para pruebas cruzadas. Registrar IDs y estado PRE.
+2. **Operador.** Iniciar sesión con rol operator, seleccionar A, crear y
+   planear la operación, asignar proveedor y confirmar la salida. Abrir 360
+   y generar los dos enlaces. Tratar las direcciones como secretos y
+   mantenerlas sólo en el contexto de prueba. Comprobar que B y X no aparecen
+   al intentar consultar su operación ni al exportar CSV de A.
+3. **Cliente y chofer.** Abrir cada enlace en un contexto separado. Comprobar
+   que el público sólo muestra hitos autorizados. Iniciar y registrar eventos
+   con el enlace de chofer. Rotar o revocar y comprobar denegación. Reasignar
+   a un segundo proveedor de prueba y comprobar que el enlace anterior no
+   permite registrar eventos. Reemitir el enlace para la nueva asignación.
+4. **Entrega y POD.** Operador avanza a tránsito con requisitos válidos.
+   Chofer registra salida, llegada y entrega. Ante pérdida de respuesta,
+   mantener la pestaña abierta y reintentar desde la cola en memoria. Operador
+   registra la transición a entrega y sube un POD sintético privado. Verificar
+   ruta, propiedad, contenido, descarga legítima y denegación contra B/X.
+   Probar cierre sin Billing. Registrar la denegación esperada, y ejecutar el
+   cierre positivo sólo con un requisito emitido mediante el flujo aprobado.
+5. **Reportes y exportaciones.** Con datos sintéticos conocidos, comprobar
+   periodo, volumen y agrupaciones. Validar las cuatro secciones y que Tanda 1
+   conserva las siete claves. Comparar CSV de cada rol contra el mismo alcance
+   visible y comprobar la retirada de acceso. El perfil parcial no recibe
+   costos, ganancias, pérdidas ni márgenes.
+6. **Evidencia y salida.** Probar a 1280×720, 390×844 y 360×800. Observar foco
+   real y registrar ruta sin parámetros, método, código HTTP, resultado y
+   persistencia. Quitar tokens, cuerpos Auth y datos de negocio de la evidencia.
+   Verificar logout por clic y que Reportes vuelve a exigir login. Diferenciar
+   limpieza de UI, finalización de la petición y revocación comprobada. No
+   registrar como aprobada la revocación inmediata de todos los access tokens.
+7. **Retirada.** Inventariar POST y revocar enlaces de esta sesión por ID.
+   Cerrar sólo las sesiones QA iniciadas para UAT. Retirar scopes, grants
+   temporales y fixtures eliminables según dependencias. Conservar auditoría,
+   versiones y UUID ya registrados. Mantener intacto el ROTERO QA compartido.
+   La custodia y la retirada final de las identidades dedicadas corresponden
+   al responsable de entrega.
