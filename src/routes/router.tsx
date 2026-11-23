@@ -7,14 +7,9 @@ import { ROTERO_ENABLED_ROLES } from '@/constants/roles';
 
 const DashboardPage = lazy(() => import('@/pages/CompanyDashboardPage'));
 const OperationsPage = lazy(() => import('@/pages/CompanyOperationsPage'));
-const InventoryPage = lazy(() => import('@/pages/InventoryPage'));
-const CustomsPage = lazy(() => import('@/pages/CustomsPage'));
 const BillingPage = lazy(() => import('@/pages/CompanyBillingPage'));
 const FinancePage = lazy(() => import('@/pages/CompanyFinancePage'));
-const CommercialPage = lazy(() => import('@/pages/CommercialPage'));
 const DocumentsPage = lazy(() => import('@/pages/CompanyDocumentsPage'));
-const DataOperationsPage = lazy(() => import('@/pages/DataOperationsPage'));
-const TrackingPage = lazy(() => import('@/pages/TrackingPage'));
 const TrackingPublicPage = lazy(() => import('@/pages/TrackingPublicPage'));
 const DriverTrackingPage = lazy(() => import('@/pages/DriverTrackingPage'));
 const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
@@ -23,7 +18,6 @@ const SecurityUsersPage = lazy(() => import('@/pages/SecurityUsersPage'));
 const SecurityAuditPage = lazy(() => import('@/pages/SecurityAuditPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const AutomationsPage = lazy(() => import('@/pages/AutomationsPage'));
-const ClaimsPage = lazy(() => import('@/pages/ClaimsPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 
 const page = (element: ReactNode) => (
@@ -55,21 +49,26 @@ export const router = createBrowserRouter([
                                 children: [
                                     { path: 'dashboard', element: page(<DashboardPage />) },
                                     { path: 'operations', element: page(<OperationsPage />) },
+                                    { path: 'documents', element: page(<DocumentsPage />) },
+                                ],
+                            },
+                            {
+                                element: <RoleGuard allowedRoles={['admin', 'finance']} />,
+                                children: [
                                     { path: 'billing', element: page(<BillingPage />) },
                                     { path: 'finance', element: page(<FinancePage />) },
                                     { path: 'reports', element: page(<ReportsPage />) },
-                                    { path: 'documents', element: page(<DocumentsPage />) },
                                 ],
                             },
                             {
                                 element: <RoleGuard allowedRoles={['admin']} />,
                                 children: [
-                                    { path: 'inventory', element: page(<InventoryPage />) },
-                                    { path: 'customs', element: page(<CustomsPage />) },
-                                    { path: 'commercial', element: page(<CommercialPage />) },
-                                    { path: 'claims', element: page(<ClaimsPage />) },
-                                    { path: 'data', element: page(<DataOperationsPage />) },
-                                    { path: 'tracking', element: page(<TrackingPage />) },
+                                    { path: 'inventory', element: <p role="status">Inventarios está pendiente de autorización por empresa.</p> },
+                                    { path: 'customs', element: <p role="status">Aduanas está pendiente de autorización por empresa.</p> },
+                                    { path: 'commercial', element: <p role="status">Comercial está pendiente de autorización por empresa.</p> },
+                                    { path: 'claims', element: <p role="status">Reclamaciones está pendiente de autorización por empresa.</p> },
+                                    { path: 'data', element: <p role="status">La importación de datos está pendiente de conciliación y aprobación.</p> },
+                                    { path: 'tracking', element: <Navigate to='/operations' replace /> },
                                     {
                                         path: 'security',
                                         element: page(<SecurityPage />),

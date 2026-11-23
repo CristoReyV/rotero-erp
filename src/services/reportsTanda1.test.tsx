@@ -417,12 +417,9 @@ test('page integration has no notification writes or unexpected RPCs or real net
     page.close();
 });
 
-test('roles remain admin/finance; no viewer enablement or guard modification', () => {
-    const roles = readFileSync(new URL('../constants/roles.ts', import.meta.url), 'utf8');
+test('the Reports route remains within the admin/finance guard', () => {
     const router = readFileSync(new URL('../routes/router.tsx', import.meta.url), 'utf8');
-    assert.ok(roles.includes("ROTERO_ENABLED_ROLES = ['admin', 'finance'] as const"));
-    assert.ok(router.includes('allowedRoles={ROTERO_ENABLED_ROLES}'));
-    assert.ok(router.includes("{ path: 'reports', element: page(<ReportsPage />) }"));
+    assert.match(router, /allowedRoles=\{\['admin', 'finance'\]\}[\s\S]*?path: 'reports'/);
 });
 
 test('the production service source remains byte-equivalent to the base after line endings', () => {

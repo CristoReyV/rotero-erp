@@ -1,17 +1,11 @@
 import {
     LayoutDashboard,
     Truck,
-    Package,
-    Gavel,
     FileText,
     Wallet,
-    Users,
     BarChart3,
     Settings,
-    MapPin,
     Files,
-    Database,
-    MessageSquareWarning,
 } from 'lucide-react';
 import type { Module } from '@/types/modules';
 
@@ -25,15 +19,9 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
     { path: '/operations', icon: Truck, label: 'Operaciones', module: 'operations' },
-    { path: '/inventory', icon: Package, label: 'Inventarios', module: 'inventory' },
-    { path: '/customs', icon: Gavel, label: 'Aduanas', module: 'customs' },
     { path: '/billing', icon: FileText, label: 'Facturación', module: 'billing' },
     { path: '/finance', icon: Wallet, label: 'Finanzas', module: 'finance' },
-    { path: '/commercial', icon: Users, label: 'Comercial', module: 'commercial' },
-    { path: '/claims', icon: MessageSquareWarning, label: 'Reclamaciones', module: 'claims' },
     { path: '/documents', icon: Files, label: 'Documentos', module: 'documents' },
-    { path: '/data', icon: Database, label: 'Datos / Importación', module: 'data' },
-    { path: '/tracking', icon: MapPin, label: 'Tracking & GPS', module: 'tracking' },
     { path: '/reports', icon: BarChart3, label: 'Reportes / BI', module: 'reports' },
     { path: '/security', icon: Settings, label: 'Seguridad', module: 'security' },
 ];

@@ -16,6 +16,7 @@ import { hasCompanyCapability } from '@/store/companyStore';
 import { CompanyOperationalDocuments } from '@/components/company/CompanyOperationalDocuments';
 import { CompanyEvidence } from '@/components/company/CompanyEvidence';
 import { CompanyOperationEditor } from '@/components/company/CompanyOperationEditor';
+import { CompanyTrackingLinks } from '@/components/company/CompanyTrackingLinks';
 import { companyWorkflowActive } from '@/services/companyWorkflow.service';
 
 type Tab =
@@ -84,9 +85,9 @@ export function Operation360Panel(
     useEffect(() => {
         if (initialTab && tabs.some((item) => item.value === initialTab)) setTab(initialTab as Tab);
     }, [initialTab, tabs]);
-    const load = useCallback(async () => {
+    const load = useCallback(async (showSpinner = true) => {
         if (!operation.db_id) return;
-        setLoading(true);
+        if (showSpinner) setLoading(true);
         setError(null);
         try {
             setData(await getOperation360Data(operation.db_id));
@@ -229,6 +230,12 @@ export function Operation360Panel(
                                                     canManageTracking={canManageTracking}
                                                     onGenerateTokens={() => void generate()}
                                                 />
+                                                {companyWorkflowActive() && data.operation.db_id && (
+                                                    <CompanyTrackingLinks
+                                                        operationId={data.operation.db_id}
+                                                        onChange={() => load(false)}
+                                                    />
+                                                )}
                                             </section>
                                             {canManage && (!companyWorkflowActive() || hasCompanyCapability('operations.transition')) && (
                                                 <div className='flex flex-wrap gap-2 border-t border-slate-100 pt-5'>

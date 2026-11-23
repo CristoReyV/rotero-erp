@@ -49,7 +49,7 @@ async function fetchWithTimeout(
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        return await fetch(url, { ...options, signal: controller.signal });
+        return await fetch(url, { ...options, signal: controller.signal, cache: 'no-store', referrerPolicy: 'no-referrer' });
     } finally {
         clearTimeout(id);
     }

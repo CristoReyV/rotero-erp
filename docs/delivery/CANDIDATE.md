@@ -1,5 +1,9 @@
 # Candidato integrado de cierre
 
+El bloque posterior de Tracking, el guion UAT y la matriz vigente están en
+[WLS_HANDOVER.md](WLS_HANDOVER.md). El estado de staging descrito abajo es la
+última reconciliación confirmada, no una nueva aplicación de la migración 61.
+
 Estado: **LISTO CON BLOQUEOS para revisión; NO LISTO para merge ni habilitación de WLS**. CIERRE-03 dejó staging en 60 migraciones verificadas y completó QA sintética de los workflows adoptados. El PR permanece draft. Evidencia actual: [WORKFLOWS_VALIDATION.json](WORKFLOWS_VALIDATION.json). La reconciliación anterior se conserva en [reconciliation/REMOTE_VALIDATION.json](reconciliation/REMOTE_VALIDATION.json).
 
 CIERRE-03 adopta comandos operativos, documentos privados y versiones, dashboard,

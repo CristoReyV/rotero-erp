@@ -113,7 +113,7 @@ Deno.serve(async (req: Request) => {
     };
 
     const code = httpCode[status] || 404;
-    const cache = cacheControl[status] || CACHE.NO_STORE;
+    const cache = data?.managedCompanyLink === true ? CACHE.NO_STORE : cacheControl[status] || CACHE.NO_STORE;
 
     // ── Log access ──
     // Must await because Supabase JS client is lazy (no-op without await).

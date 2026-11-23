@@ -1,0 +1,6 @@
+/t/*
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex, nofollow
+/driver/*
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex, nofollow

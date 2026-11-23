@@ -102,6 +102,10 @@ function NetworkErrorState({ onRetry }: { onRetry: () => void }) {
 
 export default function TrackingPublicPage() {
     const { token } = useParams<{ token: string }>();
+    return <div key={token}><PublicTrackingSession token={token} /></div>;
+}
+
+function PublicTrackingSession({ token }: { token: string | undefined }) {
 
     const [uiState, setUiState] = useState<
         'loading' | 'success' | 'soft_expired' | 'not_found' | 'revoked' | 'hard_expired' | 'network_error'
