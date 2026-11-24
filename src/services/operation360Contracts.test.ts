@@ -38,7 +38,10 @@ assert.equal(validateOperationalChronology('2026-08-21T10:00:00Z', '2026-08-21T1
 const data = {
     operation: converted,
     assignmentHistory: [{ id: 'a1', change_type: 'initial_assignment', new_provider_name_snapshot: 'Transportes Norte', changed_by: 'u1', changed_at: '2026-08-21T11:00:00Z' }],
-    trackingEvents: [{ id: 't1', event_type: 'departure', server_timestamp: '2026-08-21T12:00:00Z' }],
+    trackingEvents: [
+        { id: 't1', event_type: 'departure', server_timestamp: '2026-08-21T12:00:00Z' },
+        { id: 't2', event_type: 'arrival', server_timestamp: '2026-08-21T12:30:00Z' },
+    ],
     incidents: [{ id: 'i1', operation_id: converted.db_id!, category: 'delay', title: 'Demora', status: 'open', is_blocking: true, reported_by: 'u1', reported_at: '2026-08-21T13:00:00Z', created_at: '2026-08-21T13:00:00Z', updated_at: '2026-08-21T13:00:00Z' }],
     evidence: [], documents: [], crossings: [],
     incidentSummary: { open_incident_count: 1, blocking_incident_count: 1, has_open_incidents: true, has_blocking_incidents: true, can_close_operation: false, evidence_count: 0 },
@@ -48,6 +51,14 @@ const data = {
 } as Operation360Data;
 const timeline = buildOperationTimeline(data);
 assert.equal(timeline[0].type, 'incident');
+assert.equal(timeline.find((item) => item.status === 'arrival')?.label, 'Llegada a destino');
+assert.equal(timeline.find((item) => item.status === 'arrival')?.type, 'tracking');
+assert.ok(!timeline.some((item) => item.status === 'delivered'));
+const reported = buildOperationTimeline({
+    ...data,
+    trackingEvents: [...data.trackingEvents, { id: 't3', event_type: 'delivered', server_timestamp: '2026-08-21T12:45:00Z' }],
+});
+assert.equal(reported.find((item) => item.status === 'delivered')?.label, 'Entrega reportada');
 assert.deepEqual(new Set(timeline.map((item) => item.id)).size, timeline.length);
 
 const serviceSource = readFileSync('src/services/operations.service.ts', 'utf8');

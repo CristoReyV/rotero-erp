@@ -1,5 +1,10 @@
 import type { Operation360Data, OperationTimelineItem } from '@/types/operations';
 
+const TRACKING_LABELS: Record<string, string> = {
+    arrival: 'Llegada a destino',
+    delivered: 'Entrega reportada',
+};
+
 const LABELS: Record<string, string> = {
     initial_assignment: 'Asignación contratada',
     reassignment: 'Cambio de asignación',
@@ -55,7 +60,7 @@ export function buildOperationTimeline(data: Operation360Data): OperationTimelin
     if (operation.cancelled_at) items.push({ id: `operation-cancelled-${operation.db_id}`, timestamp: operation.cancelled_at, type: 'operation', label: 'Operación cancelada', source: 'Operations', status: 'cancelled', severity: 'danger' });
 
     data.assignmentHistory.forEach((item) => items.push({ id: `assignment-${item.id}`, timestamp: item.changed_at, type: 'assignment', label: LABELS[item.change_type] ?? 'Asignación actualizada', source: 'Asignación', detail: item.new_provider_name_snapshot || getSnapshotValue(item.new_external_driver_snapshot, ['name', 'display_name']) || item.new_driver_name_snapshot || item.reason || undefined, severity: item.change_type === 'reassignment' ? 'warning' : 'info' }));
-    data.trackingEvents.forEach((item) => items.push({ id: `tracking-${item.id}`, timestamp: item.server_timestamp, type: 'tracking', label: item.event_type.replaceAll('_', ' '), source: 'Tracking', detail: [item.municipality, item.state_name].filter(Boolean).join(', ') || item.incident_note || undefined, status: item.event_type, severity: item.event_type === 'incident' ? 'danger' : item.event_type === 'delivered' ? 'success' : 'info' }));
+    data.trackingEvents.forEach((item) => items.push({ id: `tracking-${item.id}`, timestamp: item.server_timestamp, type: 'tracking', label: TRACKING_LABELS[item.event_type] ?? item.event_type.replaceAll('_', ' '), source: 'Tracking', detail: [item.municipality, item.state_name].filter(Boolean).join(', ') || item.incident_note || undefined, status: item.event_type, severity: item.event_type === 'incident' ? 'danger' : item.event_type === 'delivered' ? 'success' : 'info' }));
     data.incidents.forEach((item) => items.push({ id: `incident-${item.id}`, timestamp: item.reported_at || item.created_at, type: 'incident', label: item.title, source: 'Incidencias', detail: item.description || LABELS[item.status], status: item.status, severity: item.status === 'open' && item.is_blocking ? 'danger' : item.status === 'open' ? 'warning' : 'success' }));
     data.crossings.forEach((item) => items.push({ id: `crossing-${item.id}`, timestamp: item.crossed_at, type: 'crossing', label: `Cruce ${item.crossing_type}`, source: 'Cruces', detail: item.crossing_point, severity: 'info' }));
     data.evidence.forEach((item) => items.push({ id: `evidence-${item.id}`, timestamp: item.created_at, type: 'evidence', label: LABELS[item.kind] ?? 'Evidencia', source: 'Evidencias', detail: item.note || item.file_ref || item.external_url || undefined, severity: 'info' }));

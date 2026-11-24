@@ -232,10 +232,13 @@ BEGIN
          AND l.assignment_id=private.c04_current_assignment(e.tenant_id,e.operation_id)');
 END $$;
 
--- Reuse the installed legacy bodies outside cutover. Compare both known
--- source variants before capturing them, and remove all API execute grants.
+-- Keep the two reviewed writer variants and their event validation. Only the
+-- legacy route can ask the writer to update the operational state.
 DO $$
-DECLARE r record; f record; definition text;
+DECLARE r record; f record; definition text; source_hash text;
+        writer text; writer_args text;
+        writer_tail constant text:='p_offline_queued boolean DEFAULT false)';
+        status_guard constant text:='IF v_new_status IS NOT NULL THEN';
 BEGIN
     FOR r IN SELECT * FROM (VALUES
         ('rpc_get_public_tracking','text','87fb3ca90047236d3445faa46da10d6e','02f079e276b1c44e3d3f7e0756dd2d23'),
@@ -245,14 +248,31 @@ BEGIN
     ) v(name,args,a_hash,b_hash) LOOP
         SELECT * INTO STRICT f FROM pg_proc
           WHERE oid=to_regprocedure(format('public.%I(%s)',r.name,r.args));
-        IF md5(replace(f.prosrc,E'\r\n',E'\n')) NOT IN (r.a_hash,r.b_hash)
+        source_hash:=md5(replace(f.prosrc,E'\r\n',E'\n'));
+        IF source_hash NOT IN (r.a_hash,r.b_hash)
            OR f.proowner<>'postgres'::regrole OR NOT f.prosecdef
         THEN RAISE EXCEPTION 'tracking_service_source_drift: %',r.name; END IF;
-        definition:=replace(pg_get_functiondef(f.oid),'FUNCTION public.'||r.name||'(',
-            'FUNCTION private.c04_legacy_'||r.name||'(');
-        EXECUTE definition;
+
+        writer:='c04_legacy_'||r.name;
+        writer_args:=r.args;
+        definition:=pg_get_functiondef(f.oid);
+        IF r.name='rpc_post_driver_event' THEN
+            writer:='c04_write_driver_event';
+            writer_args:=r.args||', boolean';
+            IF length(definition)-length(replace(definition,writer_tail,''))<>length(writer_tail)
+            THEN RAISE EXCEPTION 'tracking_writer_signature_drift'; END IF;
+            definition:=replace(definition,writer_tail,
+                'p_offline_queued boolean DEFAULT false, p_tracking_only boolean DEFAULT true)');
+            IF source_hash=r.b_hash THEN
+                IF length(definition)-length(replace(definition,status_guard,''))<>length(status_guard)
+                THEN RAISE EXCEPTION 'tracking_writer_status_guard_drift'; END IF;
+                definition:=replace(definition,status_guard,
+                    'IF NOT p_tracking_only AND v_new_status IS NOT NULL THEN');
+            END IF;
+        END IF;
+        EXECUTE replace(definition,'FUNCTION public.'||r.name||'(','FUNCTION private.'||writer||'(');
         EXECUTE format('REVOKE ALL ON FUNCTION private.%I(%s) FROM PUBLIC,anon,authenticated,service_role',
-            'c04_legacy_'||r.name,r.args);
+            writer,writer_args);
     END LOOP;
 END $$;
 
@@ -261,7 +281,7 @@ END $$;
 -- raw snapshots, driver notes, financial fields or files are projected.
 CREATE OR REPLACE FUNCTION public.rpc_get_public_tracking(p_token text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE link public.tracking_tokens%ROWTYPE; op_status text; milestones jsonb;
+DECLARE link public.tracking_tokens%ROWTYPE; op_status text; milestones jsonb; has_arrived boolean;
 BEGIN
     SELECT * INTO link FROM public.tracking_tokens
       WHERE token_hash=public.tracking_hash_token(p_token) AND scope='public:read';
@@ -271,6 +291,11 @@ BEGIN
     IF link.expires_at<=statement_timestamp() THEN RETURN jsonb_build_object('status','hard_expired'); END IF;
     IF NOT private.c04_tracking_live(link) THEN RETURN jsonb_build_object('status','not_found'); END IF;
     SELECT status INTO op_status FROM public.operations WHERE id=link.operation_id AND tenant_id=link.tenant_id;
+    SELECT EXISTS (
+        SELECT FROM public.tracking_events
+        WHERE tenant_id=link.tenant_id AND operation_id=link.operation_id
+          AND event_type='arrival' AND NOT is_suspicious
+    ) INTO has_arrived;
     SELECT COALESCE(jsonb_agg(jsonb_build_object('id','evt-'||n,'title',
         CASE event_type WHEN 'departure' THEN 'Salida' WHEN 'arrival' THEN 'En destino'
              WHEN 'delivered' THEN 'Entregado' ELSE 'En tránsito' END,
@@ -280,14 +305,18 @@ BEGIN
         SELECT event_type,server_timestamp,row_number() OVER (ORDER BY server_timestamp,id) n
         FROM public.tracking_events
         WHERE tenant_id=link.tenant_id AND operation_id=link.operation_id
-          AND event_type IN ('departure','in_transit','arrival','delivered') AND NOT is_suspicious
+          AND (event_type IN ('departure','in_transit','arrival')
+               OR (event_type='delivered' AND op_status IN ('delivered','closed')))
+          AND NOT is_suspicious
         ORDER BY server_timestamp,id LIMIT 20
     ) events;
     RETURN jsonb_build_object('status','success','managedCompanyLink',true,'data',
         jsonb_build_object('orderRef',upper(left(link.operation_id::text,8)),
         'route','Seguimiento de entrega','currentStatus',
-        CASE op_status WHEN 'in_transit' THEN 'En Tránsito' WHEN 'delivered' THEN 'Entregado'
-            WHEN 'closed' THEN 'Entregado' ELSE 'En Espera' END,'events',milestones));
+        CASE WHEN op_status IN ('delivered','closed') THEN 'Entregado'
+            WHEN op_status='in_transit' AND has_arrived THEN 'En destino'
+            WHEN op_status='in_transit' THEN 'En Tránsito'
+            ELSE 'En Espera' END,'events',milestones));
 END $$;
 
 CREATE OR REPLACE FUNCTION public.rpc_get_driver_view(p_token text) RETURNS jsonb
@@ -328,8 +357,8 @@ BEGIN
     IF NOT FOUND THEN RETURN jsonb_build_object('http',404,'accepted',false,'reason','not_found'); END IF;
     SELECT * INTO STRICT link FROM public.tracking_tokens WHERE id=link.id;
     IF NOT private.c04_tracking_is_enterprise(link) THEN
-        RETURN private.c04_legacy_rpc_post_driver_event(p_token,p_action,p_source,p_lat,p_lng,p_accuracy,
-            p_municipality,p_state_name,p_country_code,p_incident_type,p_incident_note,p_client_timestamp,p_offline_queued);
+        RETURN private.c04_write_driver_event(p_token,p_action,p_source,p_lat,p_lng,p_accuracy,
+            p_municipality,p_state_name,p_country_code,p_incident_type,p_incident_note,p_client_timestamp,p_offline_queued,false);
     END IF;
     IF NOT private.c04_tracking_live(link) OR link.expires_at<=clock_timestamp()
     THEN RETURN jsonb_build_object('http',403,'accepted',false,'reason','expired'); END IF;
@@ -352,8 +381,8 @@ BEGIN
         WHEN 'delivered' THEN op_status='in_transit' AND prior='arrival'
         WHEN 'incident' THEN op_status IN ('assigned','in_transit') AND prior IS DISTINCT FROM 'delivered' END,false)
     THEN RETURN jsonb_build_object('http',409,'accepted',false,'reason','invalid_transition'); END IF;
-    result:=private.c04_legacy_rpc_post_driver_event(p_token,p_action,p_source,p_lat,p_lng,p_accuracy,
-        p_municipality,p_state_name,p_country_code,p_incident_type,p_incident_note,p_client_timestamp,p_offline_queued);
+    result:=private.c04_write_driver_event(p_token,p_action,p_source,p_lat,p_lng,p_accuracy,
+        p_municipality,p_state_name,p_country_code,p_incident_type,p_incident_note,p_client_timestamp,p_offline_queued,true);
     RETURN jsonb_strip_nulls(jsonb_build_object('http',result->'http','accepted',result->'accepted',
         'eventId',result->'eventId','reason',CASE
             WHEN result->>'reason' ~ '^[a-z_]{1,40}$' THEN result->>'reason' END));

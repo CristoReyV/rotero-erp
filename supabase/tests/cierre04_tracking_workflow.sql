@@ -94,6 +94,9 @@ SELECT current_setting('d.t')::uuid,current_setting('d.u')::uuid,current_setting
 FROM unnest(ARRAY['operations.capture','operations.edit','operations.plan','operations.assign','operations.transition','tracking.manage'])c;
 INSERT INTO public.logistics_providers(tenant_id,display_name) VALUES(current_setting('d.t')::uuid,'Synthetic workflow carrier');
 SELECT set_config('d.provider',(SELECT id::text FROM public.logistics_providers WHERE tenant_id=current_setting('d.t')::uuid LIMIT 1),true);
+INSERT INTO public.logistics_providers(tenant_id,display_name) VALUES(current_setting('d.t')::uuid,'Synthetic replacement carrier');
+SELECT set_config('d.replacement_provider',(SELECT id::text FROM public.logistics_providers
+ WHERE tenant_id=current_setting('d.t')::uuid AND display_name='Synthetic replacement carrier'),true);
 SELECT pg_temp.actor(current_setting('d.u')::uuid,current_setting('d.a')::uuid);
 CREATE FUNCTION pg_temp.act(op uuid,action text,payload jsonb) RETURNS jsonb LANGUAGE sql AS $$
 SELECT public.rpc_delivery_operation_action(current_setting('d.t')::uuid,op,action,payload,gen_random_uuid(),
@@ -113,6 +116,12 @@ SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'plan',jsonb_build
 SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'assign',jsonb_build_object('execution_type','third_party','provider_id',current_setting('d.provider'),
  'planned_departure',now()+interval '1 hour','reason','Local synthetic provider assignment'))->>'success'='true','assign existing provider without mandatory external driver or unit');
 SELECT pg_temp.ok(jsonb_array_length(public.rpc_delivery_operation_history(current_setting('d.t')::uuid,current_setting('d.flow')::uuid))=1,'assignment history available in scoped 360');
+-- Both assignment RPCs run inside one rollback-only transaction. Backdate the
+-- first synthetic fact to represent two separately committed operator actions.
+RESET ROLE;
+UPDATE public.operation_assignment_history SET changed_at=now()-interval '1 second'
+WHERE operation_id=current_setting('d.flow')::uuid;
+SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'transition','{"to_status":"in_transit"}')->>'error'='tracking_not_ready','tracking readiness not bypassed');
 
 -- All bearer literals stay in the transaction and are never printed by the harness.
@@ -140,6 +149,9 @@ SELECT pg_temp.ok(public.rpc_delivery_tracking_links(current_setting('d.t')::uui
 SELECT pg_temp.ok(public.rpc_delivery_tracking_links(current_setting('d.x')::uuid,current_setting('d.ox')::uuid)->>'error'='unauthorized','other tenant denied');
 SELECT pg_temp.ok(public.rpc_delivery_tracking_links(current_setting('d.t')::uuid,current_setting('d.pending')::uuid)->>'error'='unauthorized','unclassified denied');
 SELECT pg_temp.ok(NOT has_function_privilege('authenticated','public.rpc_post_driver_event(text,text,text,numeric,numeric,numeric,text,text,character,text,text,timestamptz,boolean)','EXECUTE'),'no authenticated direct driver endpoint');
+SELECT pg_temp.ok(NOT has_function_privilege('service_role',
+ 'private.c04_write_driver_event(text,text,text,numeric,numeric,numeric,text,text,character,text,text,timestamptz,boolean,boolean)','EXECUTE'),
+ 'backend cannot select legacy operational writes through the private writer');
 SELECT pg_temp.ok(NOT has_function_privilege('anon','public.rpc_delivery_tracking_action(uuid,uuid,text,integer,text,uuid)','EXECUTE'),'no anon issue');
 SELECT pg_temp.ok(public.rpc_create_tracking_token(current_setting('d.t')::uuid,current_setting('d.flow')::uuid,'driver:write',1,false)->>'error'='company_adoption_pending','legacy issue remains closed');
 
@@ -148,8 +160,17 @@ SELECT set_config('d.old_public_id',current_setting('d.public_link')::jsonb->>'t
 SELECT set_config('d.public_link',pg_temp.link_action('public:read','rotate',current_setting('d.old_public_id')::uuid)::text,true) AS local_capture \gset
 SELECT set_config('d.public_secret',current_setting('d.public_link')::jsonb->>'token',true) AS local_capture \gset
 SELECT pg_temp.ok(pg_temp.link_action('public:read','rotate',current_setting('d.old_public_id')::uuid)->>'error'='conflict','stale rotation cannot replace the new token');
-SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'transition','{"to_status":"in_transit"}')->>'success'='true','backend transit admits valid company links');
-SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'transition','{"to_status":"delivered"}')->>'error'='missing_delivered_event','event required for delivery');
+SELECT set_config('d.replaced_driver_secret',current_setting('d.driver_secret'),true) AS local_capture \gset
+SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'assign',jsonb_build_object('execution_type','third_party',
+ 'provider_id',current_setting('d.replacement_provider'),'planned_departure',now()+interval '2 hours',
+ 'reason','Local synthetic reassignment'))->>'success'='true','operator reassigns the contracted provider');
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT pg_temp.ok(public.rpc_get_driver_view(current_setting('d.replaced_driver_secret'))->>'status'='expired','replaced assignment invalidates the driver link before rotation');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('d.driver_link',pg_temp.link_action('driver:write','issue')::text,true) AS local_capture \gset
+SELECT set_config('d.driver_secret',current_setting('d.driver_link')::jsonb->>'token',true) AS local_capture \gset
 RESET ROLE;
 SET LOCAL ROLE service_role;
 SELECT pg_temp.ok(public.rpc_get_public_tracking(current_setting('d.public_secret'))->>'status'='success','public bearer loads');
@@ -161,12 +182,53 @@ SELECT pg_temp.ok(pg_temp.driver_event('delivered',now())->>'reason'='invalid_tr
 SELECT pg_temp.ok(pg_temp.driver_event('departure',now())->>'accepted'='true','departure via driver contract');
 SELECT pg_temp.ok(pg_temp.driver_event('departure',now())->>'reason'='already_recorded','lost departure response acknowledged by retry');
 SELECT pg_temp.ok(pg_temp.driver_event('departure',now()+interval '1 second')->>'reason'='invalid_transition','second distinct departure denied');
-SELECT pg_temp.ok(pg_temp.driver_event('arrival',now()+interval '2 seconds')->>'accepted'='true','arrival via driver contract');
-SELECT pg_temp.ok(pg_temp.driver_event('delivered',now()+interval '3 seconds')->>'accepted'='true','delivery via driver contract');
 RESET ROLE;
+SELECT pg_temp.ok((SELECT status FROM public.operations WHERE id=current_setting('d.flow')::uuid)='assigned',
+ 'driver departure leaves the operation assigned until the operator records transit');
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'transition','{"to_status":"in_transit"}')->>'success'='true','operator starts transit with valid company links');
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT pg_temp.ok(pg_temp.driver_event('in_transit',now()+interval '1 second')->>'accepted'='true','driver transit milestone');
+SELECT pg_temp.ok(public.rpc_post_driver_event(current_setting('d.replaced_driver_secret'),'arrival','none',
+ p_client_timestamp=>now()+interval '2 seconds')->>'http'='403','revoked assignment cannot record arrival');
+SELECT pg_temp.ok(pg_temp.driver_event('arrival',now()+interval '2 seconds')->>'accepted'='true','arrival via driver contract');
+SELECT pg_temp.ok(pg_temp.driver_event('arrival',now()+interval '2 seconds')->>'reason'='already_recorded','arrival retry is acknowledged');
+SELECT pg_temp.ok(pg_temp.driver_event('arrival',now()+interval '3 seconds')->>'reason'='invalid_transition','a distinct second arrival is denied');
+SELECT pg_temp.ok(public.rpc_get_driver_view(current_setting('d.driver_secret'))#>>'{data,currentStatus}'='at_destination',
+ 'driver view projects destination arrival');
+SELECT pg_temp.ok(public.rpc_get_public_tracking(current_setting('d.public_secret'))#>>'{data,currentStatus}'='En destino',
+ 'public view projects destination arrival');
+SELECT pg_temp.ok(jsonb_path_exists(public.rpc_get_public_tracking(current_setting('d.public_secret'))#>'{data,events}',
+ '$[*] ? (@.title == "En destino")'),'public timeline contains the arrival');
+RESET ROLE;
+SELECT pg_temp.ok((SELECT status FROM public.operations WHERE id=current_setting('d.flow')::uuid)='in_transit',
+ 'arrival leaves the operational state in transit');
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.ok((SELECT count(*) FROM jsonb_array_elements(public.rpc_list_operation_tracking_events(current_setting('d.flow')::uuid)) event
+ WHERE event->>'event_type'='arrival')=1,'scoped 360 reads exactly one arrival');
+SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'transition','{"to_status":"delivered"}')->>'error'='missing_delivered_event','arrival alone cannot confirm delivery');
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT pg_temp.ok(pg_temp.driver_event('delivered',now()+interval '3 seconds')->>'accepted'='true','delivery via driver contract');
+SELECT pg_temp.ok(public.rpc_get_public_tracking(current_setting('d.public_secret'))#>>'{data,currentStatus}'='En destino',
+ 'a delivery report alone does not publish delivered status');
+SELECT pg_temp.ok(NOT jsonb_path_exists(public.rpc_get_public_tracking(current_setting('d.public_secret'))#>'{data,events}',
+ '$[*] ? (@.title == "Entregado")'),'public timeline waits for operational delivery');
+RESET ROLE;
+SELECT pg_temp.ok((SELECT status FROM public.operations WHERE id=current_setting('d.flow')::uuid)='in_transit',
+ 'driver delivery report leaves the operational state in transit');
 
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'transition','{"to_status":"delivered"}')->>'success'='true','persist delivery from managed event');
+RESET ROLE;
+SELECT pg_temp.ok((SELECT status FROM public.operations WHERE id=current_setting('d.flow')::uuid)='delivered',
+ 'operator confirms operational delivery');
+SET LOCAL ROLE service_role;
+SELECT pg_temp.ok(public.rpc_get_public_tracking(current_setting('d.public_secret'))#>>'{data,currentStatus}'='Entregado',
+ 'public view reflects the confirmed delivery');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok(pg_temp.act(current_setting('d.flow')::uuid,'transition','{"to_status":"closed"}')->>'error'='billing_not_issued','Billing prerequisite remains enforced');
 SELECT pg_temp.ok(pg_temp.link_action('driver:write','revoke',(current_setting('d.driver_link')::jsonb->>'token_id')::uuid)->>'status'='revoked','revoke operator link');
 SELECT pg_temp.ok(pg_temp.link_action('driver:write','revoke',(current_setting('d.driver_link')::jsonb->>'token_id')::uuid)->>'status'='already_revoked','retry is idempotent');
