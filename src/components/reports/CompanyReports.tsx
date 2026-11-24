@@ -9,7 +9,7 @@ import { createReportsTanda1Service } from '@/services/reportsTanda1.service';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { hasCompanyCapability } from '@/store/companyStore';
-import { OperationalReportsSection, type OperationalReportsState } from './OperationalReportsSection';
+import { OperationalReportsSection, type OperationalReportPeriod, type OperationalReportsState } from './OperationalReportsSection';
 import type {
     ReportsFinancialSummary,
     ReportsInventorySummary,
@@ -25,7 +25,14 @@ export function CompanyReports() {
     const [pipeline, setPipeline] = useState<ReportsPipelineSummary | null>(null);
     const [inventory, setInventory] = useState<ReportsInventorySummary | null>(null);
     const [finances, setFinances] = useState<ReportsFinancialSummary | null>(null);
-    const [operational, setOperational] = useState<OperationalReportsState>({ status: 'loading' });
+    const [period, setPeriod] = useState<OperationalReportPeriod | null>(null);
+    const [operational, setOperational] = useState<{
+        period: OperationalReportPeriod | null;
+        state: OperationalReportsState;
+    }>({ period: null, state: { status: 'loading' } });
+    const selectPeriod = (next: OperationalReportPeriod) => {
+        setPeriod((current) => current?.from === next.from && current.to === next.to ? current : next);
+    };
     const [failed, setFailed] = useState<string[]>([]);
     const [revision, setRevision] = useState(0);
     const opAllowed = hasCompanyCapability('operations.read');
@@ -40,7 +47,7 @@ export function CompanyReports() {
         setPipeline(null);
         setInventory(null);
         setFinances(null);
-        setOperational({ status: 'loading' });
+        setOperational({ period, state: { status: 'loading' } });
         const failure = (section: string) => {
             if (active) setFailed((previous) => [...previous, section]);
         };
@@ -48,10 +55,10 @@ export function CompanyReports() {
             void getOperationsSummary(tenant).then((data) => {
                 if (active) setOps(data);
             }, () => failure('Operaciones'));
-            void tanda1(tenant).then((data) => {
-                if (active) setOperational({ status: 'ready', data });
+            void tanda1(tenant, period ?? undefined).then((data) => {
+                if (active) setOperational({ period, state: { status: 'ready', data } });
             }, () => {
-                if (active) setOperational({ status: 'error' });
+                if (active) setOperational({ period, state: { status: 'error' } });
             });
         }
         if (pipelineAllowed) {
@@ -72,7 +79,7 @@ export function CompanyReports() {
         return () => {
             active = false;
         };
-    }, [tenant, opAllowed, pipelineAllowed, inventoryAllowed, financialAllowed, revision]);
+    }, [tenant, opAllowed, pipelineAllowed, inventoryAllowed, financialAllowed, revision, period]);
     const waiting = (name: string, allowed: boolean, loaded: boolean) =>
         !allowed
             ? 'Sin capacidad para este alcance.'
@@ -133,7 +140,11 @@ export function CompanyReports() {
                 </section>
             </div>
             {opAllowed
-                ? <OperationalReportsSection state={operational} />
+                ? <OperationalReportsSection
+                    state={operational.period === period ? operational.state : { status: 'loading' }}
+                    period={period}
+                    onPeriodChange={selectPeriod}
+                />
                 : <p>Resumen operativo sin autorización para este alcance.</p>}
         </div>
     );

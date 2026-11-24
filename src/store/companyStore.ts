@@ -86,7 +86,7 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     },
     select: (companyId) => {
         if (!get().companies.some((company) => company.id === companyId)) return;
-        if (get().selectedIds[0] === companyId) return;
+        if (get().mode === 'company' && get().selectedIds[0] === companyId) return;
         set((state) => ({ selectedIds: [companyId], mode: 'company', epoch: state.epoch + 1 }));
     },
     selectConsolidation: (ids) => {

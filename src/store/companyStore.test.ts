@@ -63,6 +63,20 @@ test('consolidation is an explicit authorized set; removing a member clears the 
     assert.equal(hasCompanyCapability('financial.full.read'), false);
 });
 
+test('selecting the first consolidated company exits consolidation and invalidates pending data', async () => {
+    const state = useCompanyStore.getState();
+    state.accept('tenant', [company(a), company(b)], [[a, b]]);
+    state.selectConsolidation([a, b]);
+    const epoch = useCompanyStore.getState().epoch;
+    let resolve!: (value: string) => void;
+    const pending = scopedResponse(() => new Promise<string>((done) => { resolve = done; }));
+
+    state.select(a);
+    assert.deepEqual(companyHeaders(), { 'x-rotero-scope': 'company', 'x-rotero-company-id': a });
+    assert.ok(useCompanyStore.getState().epoch > epoch);
+    resolve('previous consolidation');
+    await assert.rejects(pending, /company_context_changed/);
+});
 test('late network and file promises cannot survive company changes or logout reset', async () => {
     useCompanyStore.getState().accept('tenant', [company(a), company(b)]);
     useCompanyStore.getState().select(a);

@@ -25,10 +25,11 @@ import {
 } from '@/services/finance.service';
 import { listOperations } from '@/services/operations.service';
 import { useAuthStore } from '@/store/authStore';
-import { hasCompanyCapability, useCompanyStore } from '@/store/companyStore';
+import { hasCompanyCapability, scopedResponse, useCompanyStore } from '@/store/companyStore';
 import type {
     FinanceCurrency,
     FinanceDueAlert,
+    FinanceInvoiceFilters,
     FinanceInvoice,
     FinanceOverview as Overview,
     FinancePayment,
@@ -55,6 +56,7 @@ export default function FinancePage() {
     const tenantId = useAuthStore((state) => state.activeTenant);
     const role = useAuthStore((state) => state.getRole());
     const canView = canAccessRoteroModule(role, 'finance');
+    const canExport = hasCompanyCapability('export.financial');
     const canWrite = hasCompanyCapability('finance.write') && useCompanyStore.getState().mode === 'company';
     const [params, setParams] = useSearchParams();
     const requested = params.get('view');
@@ -81,6 +83,17 @@ export default function FinancePage() {
     const [creating, setCreating] = useState<InvoiceDirection | null>(null);
     const [bulkIds, setBulkIds] = useState<Set<string>>(new Set());
 
+    const invoiceFilters = useMemo<FinanceInvoiceFilters>(() => ({
+        direction: tab === 'ar' || tab === 'ap' ? tab : undefined,
+        search: search || undefined,
+        status: status || undefined,
+        currency: currency || undefined,
+        customer_id: tab === 'ar' ? customerId || undefined : undefined,
+        provider_id: tab === 'ap' ? providerId || undefined : undefined,
+        limit: 200,
+    }), [tab, search, status, currency, customerId, providerId]);
+    const invoiceView = tab === 'ar' || tab === 'ap';
+
     const load = useCallback(async () => {
         if (!tenantId || !canView) return;
         setLoading(true);
@@ -94,23 +107,10 @@ export default function FinancePage() {
         setSelected(null);
         setPaying(null);
         try {
-            const direction: InvoiceDirection | undefined = tab === 'ar'
-                ? 'ar'
-                : tab === 'ap'
-                ? 'ap'
-                : undefined;
             const [nextOverview, nextInvoices, nextPayments, nextAlerts, nextProfitability, nextOperations] =
                 await Promise.all([
                     getFinanceOverview(tenantId),
-                    listFinanceInvoices(tenantId, {
-                        direction,
-                        search: search || undefined,
-                        status: status || undefined,
-                        currency: currency || undefined,
-                        customer_id: tab === 'ar' ? customerId || undefined : undefined,
-                        provider_id: tab === 'ap' ? providerId || undefined : undefined,
-                        limit: 200,
-                    }),
+                    listFinanceInvoices(tenantId, invoiceFilters),
                     listFinancePayments(tenantId, { limit: 200 }),
                     listFinanceDueAlerts(tenantId, { days_ahead: daysAhead }),
                     getFinanceProfitability(tenantId),
@@ -127,7 +127,7 @@ export default function FinancePage() {
         } finally {
             setLoading(false);
         }
-    }, [tenantId, canView, tab, search, status, currency, daysAhead, customerId, providerId]);
+    }, [tenantId, canView, invoiceFilters, daysAhead]);
     useEffect(() => {
         void load();
     }, [load]);
@@ -172,14 +172,27 @@ export default function FinancePage() {
         [invoices, tab],
     );
     const exportCsv = async () => {
-        if (!tenantId) return;
+        if (!tenantId || !canExport) return;
         try {
-            downloadFinanceCsv(
-                await exportFinanceLedger(tenantId, {
-                    direction: tab === 'ar' ? 'ar' : tab === 'ap' ? 'ap' : undefined,
-                    currency: currency || undefined,
-                }),
-            );
+            const rows = await scopedResponse(async () => {
+                if (!invoiceView) return exportFinanceLedger(tenantId, { currency: currency || undefined });
+                const items = await listFinanceInvoices(tenantId, invoiceFilters);
+                return items.map((item) => ({
+                    reference: item.reference ?? '',
+                    direction: item.direction,
+                    counterparty: item.counterparty_name,
+                    operation_reference: item.operation_reference ?? '',
+                    currency: item.currency,
+                    amount: item.amount,
+                    paid_amount: item.paid_amount ?? 0,
+                    credit_amount: item.credit_amount ?? 0,
+                    balance: item.balance_amount ?? item.amount,
+                    status: item.effective_status ?? item.status,
+                    due_date: item.due_date ?? '',
+                    created_at: item.created_at,
+                }));
+            });
+            if (hasCompanyCapability('export.financial')) downloadFinanceCsv(rows);
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'No fue posible exportar.');
         }
@@ -199,7 +212,7 @@ export default function FinancePage() {
         );
     const selectedInvoices = filtered.filter((item) => bulkIds.has(item.id));
     const exportSelected = async () => {
-        if (!tenantId || !selectedInvoices.length) return;
+        if (!tenantId || !canExport || !selectedInvoices.length) return;
         const rows = selectedInvoices.map((item) => ({
             direction: item.direction,
             counterparty: item.counterparty_name,
@@ -287,12 +300,14 @@ export default function FinancePage() {
                     ))}
                 </nav>
                 <div className='flex gap-2'>
-                    <button
-                        onClick={() => void exportCsv()}
-                        className='inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold text-slate-600'
-                    >
-                        <Download size={14} />CSV
-                    </button>
+                    {canExport && (
+                        <button
+                            onClick={() => void exportCsv()}
+                            className='inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold text-slate-600'
+                        >
+                            <Download size={14} />{invoiceView ? 'CSV de la vista' : 'CSV del libro'}
+                        </button>
+                    )}
                     <button
                         onClick={() => void load()}
                         className='inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold text-slate-600'
@@ -320,7 +335,7 @@ export default function FinancePage() {
                     {error}
                 </div>
             )}
-            {(tab === 'ar' || tab === 'ap') && (
+            {invoiceView && canExport && (
                 <BulkActionBar
                     count={bulkIds.size}
                     onClear={() => setBulkIds(new Set())}

@@ -1,4 +1,48 @@
+import type { FormEvent } from 'react';
 import type { ReportsTanda1, ReportsTanda1Volume } from '@/types/reports';
+
+export interface OperationalReportPeriod {
+    from: string;
+    to: string;
+}
+
+function PeriodForm({ period, onChange }: {
+    period: OperationalReportPeriod | null;
+    onChange: (period: OperationalReportPeriod) => void;
+}) {
+    const submit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        const from = String(form.get('dateFrom') ?? '');
+        const to = String(form.get('dateTo') ?? '');
+        if (!from || !to) return;
+        if (from > to) {
+            const end = event.currentTarget.elements.namedItem('dateTo') as HTMLInputElement;
+            end.setCustomValidity('La fecha final debe ser igual o posterior a la inicial.');
+            end.reportValidity();
+            return;
+        }
+        onChange({ from, to });
+    };
+    return (
+        <form aria-label="Periodo del resumen operativo" onSubmit={submit}
+            onChange={(event) => {
+                const end = event.currentTarget.elements.namedItem('dateTo') as HTMLInputElement;
+                end.setCustomValidity('');
+            }}
+            className="flex flex-wrap items-end gap-3">
+            <label className="grid gap-1 text-sm">Desde
+                <input name="dateFrom" type="date" required defaultValue={period?.from}
+                    className="rounded border px-2 py-1" />
+            </label>
+            <label className="grid gap-1 text-sm">Hasta
+                <input name="dateTo" type="date" required defaultValue={period?.to}
+                    className="rounded border px-2 py-1" />
+            </label>
+            <button type="submit" className="rounded bg-primary px-3 py-1.5 text-sm text-white">Aplicar periodo</button>
+        </form>
+    );
+}
 
 export type OperationalReportsState =
     | { status: 'loading'; }
@@ -48,7 +92,11 @@ function GroupingTable({ title, columns, rows }: {
     </div>;
 }
 
-export function OperationalReportsSection({ state }: { state: OperationalReportsState; }) {
+export function OperationalReportsSection({ state, period, onPeriodChange }: {
+    state: OperationalReportsState;
+    period?: OperationalReportPeriod | null;
+    onPeriodChange?: (period: OperationalReportPeriod) => void;
+}) {
     const data = state.status === 'ready' ? state.data : null;
     return <section aria-labelledby="operational-report-title" aria-busy={state.status === 'loading'}
         className="space-y-5 bg-surface-card rounded-2xl border border-tech-border/60 p-5 sm:p-6">
@@ -60,6 +108,8 @@ export function OperationalReportsSection({ state }: { state: OperationalReports
                 {' · Límites incluidos'}
             </p>}
         </header>
+        {onPeriodChange && <PeriodForm period={period ?? (data ? { from: data.date_from, to: data.date_to } : null)}
+            onChange={onPeriodChange} />}
         {state.status === 'loading' && <p role="status" className="text-sm text-slate-400">Cargando resumen operativo…</p>}
         {state.status === 'error' && <p role="alert" className="text-sm text-slate-500">No fue posible cargar el resumen operativo.</p>}
         {data && <>
