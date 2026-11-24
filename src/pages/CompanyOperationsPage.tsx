@@ -1,9 +1,11 @@
 import { useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { OperationsTable } from '@/components/operations/OperationsTable';
 import { Operation360Panel } from '@/components/operations/Operation360Panel';
-import { deliveryCsv, type DeliveryPage, deliveryPage } from '@/services/companyDelivery.service';
+import {
+    deliveryCsv, deliveryPage, type DeliveryPage, type OperationCreationPeriod,
+} from '@/services/companyDelivery.service';
 import { type DbOperation, mapDbOperationToUI } from '@/services/operationsContracts';
 import { useAuthStore } from '@/store/authStore';
 import { hasCompanyCapability } from '@/store/companyStore';
@@ -18,6 +20,12 @@ export default function CompanyOperationsPage() {
     const tenant = useAuthStore((state) => state.activeTenant);
     const role = useAuthStore((state) => state.getRole());
     const [search, setSearch] = useState('');
+    const [creationPeriod, setCreationPeriod] = useState<OperationCreationPeriod>();
+    const [creationFrom, setCreationFrom] = useState('');
+    const [creationTo, setCreationTo] = useState('');
+    const [creationTimezone, setCreationTimezone] = useState<string>();
+    const [creationError, setCreationError] = useState('');
+    const filterVersion = useRef(0);
     const [cursor, setCursor] = useState<string | null>(null);
     const [page, setPage] = useState<DeliveryPage | null>(null);
     const [selected, setSelected] = useState<Operation | null>(null);
@@ -39,8 +47,11 @@ export default function CompanyOperationsPage() {
         setLoading(true);
         setPage(null);
         setError('');
-        void deliveryPage(tenant, 'operations', search, cursor).then((result) => {
-            if (active) setPage(result);
+        void deliveryPage(tenant, 'operations', search, cursor, false, creationPeriod).then((result) => {
+            if (active) {
+                setPage(result);
+                setCreationTimezone(result.creation_date_timezone);
+            }
         }, () => {
             if (active) setError('No fue posible cargar las operaciones autorizadas.');
         })
@@ -50,7 +61,7 @@ export default function CompanyOperationsPage() {
         return () => {
             active = false;
         };
-    }, [tenant, allowed, search, cursor, revision]);
+    }, [tenant, allowed, search, cursor, revision, creationPeriod]);
     useEffect(() => {
         if (!tenant || !allowed || !deepLink) return;
         let active = true;
@@ -64,12 +75,36 @@ export default function CompanyOperationsPage() {
         if (operation?.db_id) next.set('operation_id', operation.db_id); else { next.delete('operation_id'); next.delete('tab'); }
         setParams(next, { replace: true });
     };
+    const restartFromFirstPage = () => {
+        filterVersion.current++;
+        setCursor(null);
+        setPage(null);
+        setSelected(null);
+    };
+    const changeCreationPeriod = (from: string, to: string) => {
+        if (from && to && from > to) {
+            setCreationError('La fecha final debe ser igual o posterior a la inicial.');
+            return;
+        }
+        setCreationError('');
+        if (from === (creationPeriod?.from ?? '') && to === (creationPeriod?.to ?? '')) return;
+        setCreationPeriod(from || to ? { from: from || null, to: to || null } : undefined);
+        restartFromFirstPage();
+    };
+    const applyCreationPeriod = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        changeCreationPeriod(creationFrom, creationTo);
+    };
     const exportCsv = async () => {
-        if (!tenant) return;
+        if (!tenant || !page) return;
+        const version = filterVersion.current;
         try {
-            downloadCsvContent(await deliveryCsv(tenant, 'operations', search), 'operaciones-empresa.csv');
+            const csv = await deliveryCsv(tenant, 'operations', search, creationPeriod);
+            if (version === filterVersion.current) downloadCsvContent(csv, 'operaciones-empresa.csv');
         } catch (cause) {
-            setError(cause instanceof Error ? cause.message : 'No fue posible exportar.');
+            if (version === filterVersion.current) {
+                setError(cause instanceof Error ? cause.message : 'No fue posible exportar.');
+            }
         }
     };
     const create = async (form: HTMLFormElement) => {
@@ -108,6 +143,7 @@ export default function CompanyOperationsPage() {
                         <button
                             className='rounded-xl bg-primary px-4 py-2 text-white'
                             onClick={() => void exportCsv()}
+                            disabled={!page || loading}
                         >
                             Exportar CSV
                         </button>
@@ -126,12 +162,37 @@ export default function CompanyOperationsPage() {
                 placeholder='Referencia, ruta, cliente o proveedor'
                 value={search}
                 onChange={(event) => {
+                    if (event.target.value === search) return;
                     setSearch(event.target.value);
-                    setCursor(null);
-                    setSelected(null);
+                    restartFromFirstPage();
                 }}
                 className='w-full rounded-xl border p-3'
             />
+            {creationTimezone && (
+                <form onSubmit={applyCreationPeriod} aria-label='Fecha de creación' className='space-y-2'>
+                    <div className='flex flex-wrap items-end gap-3'>
+                        <label className='grid gap-1 text-sm'>Creada desde
+                            <input className='rounded border px-2 py-1' type='date' value={creationFrom}
+                                onChange={(event) => setCreationFrom(event.target.value)} />
+                        </label>
+                        <label className='grid gap-1 text-sm'>Creada hasta
+                            <input className='rounded border px-2 py-1' type='date' value={creationTo}
+                                onChange={(event) => setCreationTo(event.target.value)} />
+                        </label>
+                        <button type='submit' className='rounded border px-3 py-1'>Aplicar fechas</button>
+                        <button type='button' className='rounded border px-3 py-1' onClick={() => {
+                            setCreationFrom('');
+                            setCreationTo('');
+                            changeCreationPeriod('', '');
+                        }}>Limpiar fechas</button>
+                    </div>
+                    <p className='text-sm text-slate-500'>Límites incluidos en {creationTimezone}.</p>
+                    {creationPeriod && <p className='text-sm'>
+                        Creación filtrada del {creationPeriod.from ?? 'inicio'} al {creationPeriod.to ?? 'presente'}.
+                    </p>}
+                    {creationError && <p role='alert'>{creationError}</p>}
+                </form>
+            )}
             {loading && <p role='status'>Cargando…</p>}
             {error && <p role='alert'>{error}</p>}
             {creating && (
