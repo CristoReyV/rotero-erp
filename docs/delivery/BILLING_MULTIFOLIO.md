@@ -34,4 +34,18 @@ Se usó Chromium con ventana, la aplicación compilada, Auth local y una base ai
 
 La consulta directa en la base local confirmó un CFDI y una cuenta por cobrar antes y después, con el mismo saldo sintético de 116.00 MXN. Quedaron un vínculo para `A1` y un evento de auditoría. Las capturas corresponden al panel de vínculo y contienen sólo datos sintéticos.
 
-Antes de liberar este cambio para WLS, Contabilidad debe confirmar dónde registra el productor autorizado los folios en el XML. El contrato probado localmente usa coincidencias exactas en `NoIdentificacion`. Si WLS confirma otro campo, su lectura requiere una prueba con el mismo formato y casos que descarten coincidencias parciales. Para la aceptación operativa sigue vigente el preview del PR #47.
+### Cierre de punta a punta con dos folios · 25 de noviembre de 2026
+
+La aplicación compilada de `b6ac04de6bcb142da97706d4f52992e8b763d586` se probó en Chromium con ventana, con Auth y PostgreSQL desechables. Se reprodujo el historial de 61 migraciones y se aplicó únicamente el SQL de Multifolio en esa base. Se usaron dos identidades sintéticas de la misma empresa.
+
+| Paso | Resultado |
+| --- | --- |
+| Operaciones antes del vínculo | El rol `operator` intentó cerrar `A1` y `A2` desde sus fichas 360. Ambas devolvieron `billing_not_issued` y conservaron el estado entregado. |
+| Facturación y recarga | El perfil `finance` autorizado confirmó «Vincular 2 folios» con el XML original sintético. Tras recargar, el detalle mostró los dos folios vinculados. |
+| Cierre normal | El operador cerró las dos operaciones desde 360. La base confirmó ambos estados `closed`, con cero facturas de proveedor y cero cierres administrativos. |
+| Reintento y saldo | En pantalla ambos folios figuraron como ya vinculados. Al invocar de nuevo el vínculo bajo el rol autorizado, devolvió cero altas. La base conservó dos vínculos, dos eventos de auditoría, un CFDI, una cuenta por cobrar y el saldo sintético original de 116.00 MXN. |
+| Retirada | Se cerraron las dos sesiones de QA y se comprobó que quedaron cero sesiones de esas cuentas. Se retiró la pila desechable con sus concesiones. |
+
+La selección mixta, la separación por empresa, la factura cancelada y el XML alterado conservan su evidencia previa. La prueba de cierre no requirió cambios de producto en la rama.
+
+Karina confirmó que una factura de ingreso puede amparar varios folios y que se emite aunque esté pendiente la factura de proveedor. En las fuentes consultadas no se encontró una muestra del XML de WLS autorizada para revisión. Se conserva la coincidencia exacta de `NoIdentificacion` y queda pendiente comprobar ese campo con un ejemplo autorizado de WLS. El candidato operativo de 61 migraciones sigue separado de este cambio.
