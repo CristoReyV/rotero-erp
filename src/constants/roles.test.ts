@@ -31,7 +31,7 @@ const ALL_MODULES: Module[] = [
 ];
 
 assert.deepEqual(PRODUCT_ROLES, ['admin', 'operator', 'finance', 'viewer']);
-assert.deepEqual(ROTERO_ENABLED_ROLES, ['admin', 'finance']);
+assert.deepEqual(ROTERO_ENABLED_ROLES, ['admin', 'finance', 'operator']);
 assert.deepEqual(ROTERO_PROVISIONABLE_ROLES, ['admin', 'finance']);
 
 for (const role of PRODUCT_ROLES) assert.equal(isProductRole(role), true);
@@ -66,13 +66,15 @@ assert.equal(canProductRoleManageDocumentContext('finance', 'commercial'), false
 assert.equal(canProductRoleManageDocumentContext('operator', 'commercial'), true);
 assert.equal(canProductRoleManageDocumentContext('viewer', 'operations'), false);
 
-for (const role of ['operator', 'viewer'] as const) {
-    assert.equal(isRoteroEnabledRole(role), false);
-    assert.equal(isRoteroProvisionableRole(role), false);
-    for (const module of ALL_MODULES) {
-        assert.equal(canAccessRoteroModule(role, module), false);
-        assert.equal(canManageRoteroModule(role, module), false);
-    }
+assert.equal(isRoteroEnabledRole('operator'), true);
+assert.equal(isRoteroEnabledRole('viewer'), false);
+assert.equal(isRoteroProvisionableRole('operator'), false);
+assert.equal(isRoteroProvisionableRole('viewer'), false);
+for (const module of ALL_MODULES) {
+    assert.equal(canAccessRoteroModule('operator', module), ['dashboard', 'operations', 'documents'].includes(module));
+    assert.equal(canManageRoteroModule('operator', module), module === 'operations');
+    assert.equal(canAccessRoteroModule('viewer', module), false);
+    assert.equal(canManageRoteroModule('viewer', module), false);
 }
 
 assert.equal(isRoteroProvisionableRole('admin'), true);
@@ -84,6 +86,6 @@ const memberships = [
     { tenant_id: 'tenant-finance', role: 'finance' as const },
     { tenant_id: 'tenant-admin', role: 'admin' as const },
 ];
-assert.equal(findRoteroEnabledTenantId(memberships, 'tenant-operator'), 'tenant-finance');
+assert.equal(findRoteroEnabledTenantId(memberships, 'tenant-operator'), 'tenant-operator');
 assert.equal(findRoteroEnabledTenantId(memberships, 'tenant-admin'), 'tenant-admin');
-assert.equal(findRoteroEnabledTenantId(memberships.slice(0, 1), null), null);
+assert.equal(findRoteroEnabledTenantId(memberships.slice(0, 1), null), 'tenant-operator');

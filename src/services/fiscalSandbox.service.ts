@@ -22,6 +22,13 @@ export interface SandboxFiscalContext {
     remote_cancel_status: 'pending' | 'canceled' | null;
     cancellation_ack_state: 'unavailable' | 'unverified' | 'mismatch' | 'validated';
     busy: boolean;
+    future_provider?: {
+        configured: boolean;
+        enabled: false;
+        code: 'facturama' | 'soft_management' | null;
+        environment: 'sandbox' | 'production' | null;
+        validation: 'sandbox_only' | 'pending_validation' | 'not_configured';
+    };
     actions: Record<'prepare' | 'issue' | 'read' | 'cancel' | 'payment', boolean>;
     draft_summary: {
         receiver_rfc: string;

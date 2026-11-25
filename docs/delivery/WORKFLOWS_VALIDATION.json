@@ -1,0 +1,134 @@
+{
+  "status": "LISTO CON BLOQUEOS; draft; no merge or WLS activation",
+  "scope": "CIERRE-03 company workflows",
+  "base_main": "0e9e2eb4dc4e66698e026507b260e8196a549584",
+  "candidate_before": "28749383b32d78631b74378fe5861523c57cc8fd",
+  "application_QA_commit": "df9402c161b285bee1a56a31871e83e9ed4d6777",
+  "application_src_tree": "ee6e98c5a66d4affbde7be71396498f55062ec37",
+  "application_inputs_unchanged_after_QA": true,
+  "backend_history": 60,
+  "additive_migrations": [
+    {
+      "file": "20261030152140_cierre03_operational_workflows.sql",
+      "sha256_lf": "77f4d826af0d64fca09a21de6515673fbd358d7f2284f7da8036af52a15a201c"
+    },
+    {
+      "file": "20261030161714_cierre03_document_workflows.sql",
+      "sha256_lf": "2b6491fa7b50905b7fcb0692493c9e0b4c73ea04285b9a71b03b089c9320d47d"
+    },
+    {
+      "file": "20261030162330_cierre03_operational_evidence.sql",
+      "sha256_lf": "e79a3870ff26173b8f67f164ac45b1b83a02e7f966932ca7e0c02e7fe21c3171"
+    },
+    {
+      "file": "20261030162933_cierre03_dashboard_search.sql",
+      "sha256_lf": "483c26c9d5238034361a845afedd88562b2c43c8c3a1ef7dcd8a5671683de421"
+    },
+    {
+      "file": "20261030163534_cierre03_bounded_operational_jobs.sql",
+      "sha256_lf": "81140ffe3bfc704c41a363b1441250e3c4481492e69d5c9fa52f8009aad811c3"
+    },
+    {
+      "file": "20261030185342_cierre03_operational_text_projection.sql",
+      "sha256_lf": "22a04151145f8462c26cf65ed2d0231d56911da477767d5b8efa6506e5af76ba"
+    },
+    {
+      "file": "20261030191111_cierre03_incident_text_provenance.sql",
+      "sha256_lf": "85649adf6abecaae8b378afa112e521ef876f94089db46ae8286b17cfed82961"
+    }
+  ],
+  "local": {
+    "clean_replay_migrations": 60,
+    "selected_SQL_suites_58_replay": 19,
+    "affected_and_contract_suites_final60": 7,
+    "new_SQL_assertions": 168,
+    "three_document_parents_tested": [
+      "operation",
+      "finance_invoice",
+      "billing_document draft only"
+    ],
+    "real_independent_session_races": 5,
+    "Node_tests_passed": 96,
+    "typecheck_lint": "passed",
+    "format": "passed; installed TypeScript formatter and diff whitespace check",
+    "build_staging": "passed; application inputs unchanged since",
+    "Deno": "not rerun; Edge sources unchanged; no Deno executable available",
+    "secret_pattern_hits": 0,
+    "historical_migrations_edited": 0
+  },
+  "recovery": {
+    "current_SQL_backup_DPAPI": true,
+    "restored_tables": 152,
+    "Storage_objects": 18,
+    "Storage_bytes": 163422,
+    "Storage_actual_API_SHA256_recovery_passed": true,
+    "latest_Storage_proof_reused_after_exact_current_metadata_match": true,
+    "plaintext_backups_created": false,
+    "platform_secrets_PITR_Vault_root_recovery_not_claimed": true
+  },
+  "staging": {
+    "project_ref": "mxpmgihuheagrcowwbia",
+    "schema_catalog_matches_rehearsal": true,
+    "existing_remote_roles_and_global_scheduler_preserved": true,
+    "tables_identical_across_initial_delta": 111,
+    "tables_identical_across_each_text_projection_delta": 118,
+    "API_cases": {
+      "passed": 18,
+      "failed": 0
+    },
+    "revocation_cases": {
+      "passed": 6,
+      "failed": 0
+    },
+    "bounded_job_cases": {
+      "passed": 9,
+      "failed": 0
+    },
+    "browser_functional_checks": {
+      "passed": 27,
+      "failed": 1
+    },
+    "full_browser_observer_failure": "Only eleven GET navigation requests to the Netlify Drawer child iframe were classified as unexpected. CDP initiator proved /.netlify/scripts/cdp. All functional actions passed; corrected focused observer passed.",
+    "focused_final_provenance_browser": {
+      "passed": 6,
+      "failed": 0
+    },
+    "provenance_UI_harness_correction": "After refresh the incidents component returns to Open. Resolved-filter replay verified creation, resolution, source detail and persistence; no new fixture was needed.",
+    "job_harness_corrections": [
+      "Preserve two preexisting notices from explicit Evaluate clicks; use a separate authorized recipient.",
+      "Use flattened escalation fields from the documented status DTO.",
+      "Temporary company overrides isolate one rule, then are inventoried and retired."
+    ],
+    "unexpected_ERP_mutations_observed": 0,
+    "automatic_notification_refresh_observed": 0,
+    "bounded_job_positive": "one notice; same request replay and next evaluation no duplicate; resolved by next explicit scoped run",
+    "company_overrides_remaining": 0,
+    "enabled_QA_job_scopes_remaining": 0,
+    "new_schedules": 0,
+    "global_jobs_manually_invoked": 0,
+    "fiscal_provider_calls": 0,
+    "dedicated_QA_accounts_retained": 3,
+    "credential_custody": "DPAPI current user; identifiers in private handover manifest",
+    "grant_validity": "seven days; actual timestamps in private final UUID snapshot",
+    "QA_sessions_observed_at_close": 0,
+    "shared_ROTERO_QA_unchanged": true,
+    "Tanda1_and_five_RPC_contracts": "previous real QA reused; Node/SQL regression passed; no redundant five-RPC rerun",
+    "logout": "normal pointer click; UI cleared, login and protected-route denial; HTTP204 observed. Browser completion may abort/timeout. Complete access-token revocation not claimed."
+  },
+  "preservation": {
+    "worktrees_expected": 29,
+    "originals_plus_candidate": "28 originals and current candidate; all must be preserved",
+    "refs_codex_excluded": true,
+    "production_modified": false,
+    "principal_staging_deploy_expected": "6adfc3b54560b29bed273681"
+  },
+  "pending": [
+    "Company-scoped Tracking token management and real prerequisites for new end-to-end transit/delivery/close. Local synthetic prerequisite tests do not certify real tracking/fiscal issuance.",
+    "Real historical classification, identity verification, labor grants and UAT; no real-person assignment performed.",
+    "Unadopted legacy consumers (including Claims/generated/shared documents and other jobs) remain fenced. No integral ERP isolation claim.",
+    "Real focus transition and complete access-token revocation are unproven.",
+    "Owner/support must identify and revoke the specific prior administrative Dashboard session; no global logout/rotation. Netlify skew affinity metadata is separate.",
+    "Excel HOLD; production and real CSD/provider enablement require separate authorization."
+  ],
+  "private_evidence": "<LOCAL_EVIDENCE_DIR>; initial/final snapshots and append-only UUID journal; no credentials or business bodies in this file"
+}

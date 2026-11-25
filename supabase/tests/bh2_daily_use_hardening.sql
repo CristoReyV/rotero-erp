@@ -1,6 +1,22 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
+-- Follow the checked private legacy core behind an additive authorization wrapper.
+-- Preserve all original source assertions and behavior fixtures, including locks.
+CREATE FUNCTION pg_temp.contract_source(p regprocedure) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE d text:=pg_get_functiondef(p); core text; cp regprocedure;
+BEGIN
+ core:=substring(d FROM 'private[.]delivery_core_[a-f0-9]{20}');
+ IF core IS NOT NULL THEN
+  cp:=to_regproc(core);
+  IF cp IS NULL OR NOT EXISTS(SELECT FROM pg_proc WHERE oid=cp AND prosecdef AND proowner='postgres'::regrole)
+   OR has_function_privilege('authenticated',cp,'EXECUTE') OR has_function_privilege('anon',cp,'EXECUTE')
+   OR has_function_privilege('service_role',cp,'EXECUTE') THEN RAISE EXCEPTION 'unsafe or missing wrapped legacy implementation'; END IF;
+  d:=d||E'\n'||pg_get_functiondef(cp);
+ END IF;RETURN d;
+END $$;
+
+
 DO $contract$
 DECLARE signature text; proc_oid oid;
 BEGIN
@@ -17,7 +33,7 @@ BEGIN
   IF to_regprocedure('private.bh2_business_date(uuid,timestamptz)') IS NULL
     OR has_function_privilege('authenticated','private.bh2_business_date(uuid,timestamptz)','EXECUTE') THEN RAISE EXCEPTION 'BH2 private helper ACL failed'; END IF;
   IF NOT EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='business_contacts_customer_primary_uidx' AND indexdef ILIKE '%WHERE%is_primary%is_active%')
-    OR pg_get_functiondef('public.rpc_upsert_business_contact(uuid,uuid,jsonb)'::regprocedure)!~*'FOR UPDATE' THEN RAISE EXCEPTION 'BH2 primary concurrency contract failed'; END IF;
+    OR pg_temp.contract_source('public.rpc_upsert_business_contact(uuid,uuid,jsonb)'::regprocedure)!~*'FOR UPDATE' THEN RAISE EXCEPTION 'BH2 primary concurrency contract failed'; END IF;
 END;$contract$;
 
 DO $fixtures$

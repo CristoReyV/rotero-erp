@@ -1,3 +1,4 @@
+import { companyWorkflowActive } from '@/services/companyWorkflow.service';
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Activity, Bot, CheckCircle2, Clock3, Loader2, Play, Save, ShieldCheck } from 'lucide-react';
@@ -112,9 +113,9 @@ export default function AutomationsPage() {
         </header>
         {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
         <div className="grid gap-4 md:grid-cols-3">
-            <HealthCard icon={ShieldCheck} label="Scheduler" value={health?.scheduler_enabled ? 'Contrato listo' : 'Pendiente de activar en release'} detail={health?.jobs.map(job => job.schedule).join(' · ') || 'Sin jobs activos'} />
+            <HealthCard icon={ShieldCheck} label="Scheduler" value={companyWorkflowActive() ? 'Evaluación manual de empresa' : health?.scheduler_enabled ? 'Contrato listo' : 'Pendiente de activar en release'} detail={health?.jobs.map(job => job.schedule).join(' · ') || 'Sin jobs activos'} />
             <HealthCard icon={Activity} label="Reglas habilitadas" value={String(health?.rules_enabled ?? 0)} detail={health?.last_automation_run ? 'Última evaluación: ' + formatDate(health.last_automation_run.completed_at ?? health.last_automation_run.started_at) : 'Sin ejecuciones registradas'} />
-            <HealthCard icon={Clock3} label="Digest diario" value={health?.last_digest_run?.status === 'completed' ? 'Generado' : 'Pendiente'} detail={health?.last_digest_run ? formatDate(health.last_digest_run.completed_at ?? health.last_digest_run.started_at) : 'Se genera una vez por día local'} />
+            {!companyWorkflowActive() && <HealthCard icon={Clock3} label="Digest diario" value={health?.last_digest_run?.status === 'completed' ? 'Generado' : 'Pendiente'} detail={health?.last_digest_run ? formatDate(health.last_digest_run.completed_at ?? health.last_digest_run.started_at) : 'Se genera una vez por día local'} />}
         </div>
         {evaluation && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="flex items-center gap-2 text-sm font-black text-emerald-800"><CheckCircle2 size={16} /> Evaluación completada</p>
@@ -153,7 +154,7 @@ function RuleCard({ rule, saving, onChange, onSave }: {
             <Field label="Destinatarios"><Select disabled={roleLocked} value={rule.target_role} options={Object.entries(roleLabels).map(([value, label]) => ({ value, label }))} onChange={value => onChange(rule.id, 'target_role', value as AutomationRule['target_role'])} /></Field>
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-600"><input type="checkbox" checked={rule.digest_enabled} onChange={event => onChange(rule.id, 'digest_enabled', event.target.checked)} className="h-4 w-4 accent-primary" /> Incluir en resumen diario</label>
+            {!companyWorkflowActive() && <label className="flex items-center gap-2 text-xs font-bold text-slate-600"><input type="checkbox" checked={rule.digest_enabled} onChange={event => onChange(rule.id, 'digest_enabled', event.target.checked)} className="h-4 w-4 accent-primary" /> Incluir en resumen diario</label>}
             <button onClick={() => void onSave(rule)} disabled={saving} className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-black text-slate-600 hover:border-primary hover:text-primary disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Guardar regla</button>
         </div>
     </section>;

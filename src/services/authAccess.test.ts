@@ -69,7 +69,7 @@ const invalidContexts: Array<[string, unknown]> = [
     ['missing tenant id', { ...contextOf(), memberships: [{ tenant_id: '', tenant_name: 'Test', role: 'admin' }] }],
     ['missing tenant name', { ...contextOf(), memberships: [{ tenant_id: 'tenant-a', tenant_name: '', role: 'admin' }] }],
     ['different user', contextOf('other-user')],
-    ['role not enabled', contextOf('user-a', 'operator')],
+    ['role not enabled', contextOf('user-a', 'viewer')],
     ['duplicate tenant grant', { ...contextOf(), memberships: [...contextOf().memberships, ...contextOf().memberships] }],
 ];
 for (const [name, value] of invalidContexts) test(`${name} fails closed in a recoverable state`, async () => {

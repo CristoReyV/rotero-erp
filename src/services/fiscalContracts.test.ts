@@ -6,13 +6,15 @@ import type { FiscalReadiness } from '../types/billing';
 const readiness = (fiscal_status: FiscalReadiness['fiscal_status'], configured = true): FiscalReadiness => ({
     cfdi_id: '00000000-0000-4000-8000-000000000001', fiscal_status,
     validation: { valid: true, missing_fields: [], cfdi_version: '4.0' },
-    provider: { configured, code: configured ? 'soft_management' : null, environment: 'sandbox' },
+    provider: { configured, code: configured ? 'facturama' : null, environment: 'sandbox', enabled: true, validation: 'sandbox_only', capabilities: { stamp: true, status: true, cancel: true } },
     last_attempt: null,
 });
 
 assert.equal(getFiscalActionAvailability(readiness('draft')).validate, true);
 assert.equal(getFiscalActionAvailability(readiness('ready_for_api')).submit, true);
 assert.equal(getFiscalActionAvailability(readiness('ready_for_api', false)).submit, false);
+assert.equal(getFiscalActionAvailability({ ...readiness('ready_for_api'), provider: { configured: true, code: 'facturama', environment: 'sandbox' } }).submit, false);
+assert.equal(getFiscalActionAvailability({ ...readiness('ready_for_api'), provider: { configured: true, enabled: true, code: 'soft_management', environment: 'sandbox', validation: 'pending_validation', capabilities: { stamp: true } } }).submit, false);
 assert.equal(getFiscalActionAvailability(readiness('ready_for_api', false)).externalDisabledReason, 'Proveedor fiscal no configurado');
 assert.equal(getFiscalActionAvailability({ ...readiness('api_error'), last_attempt: { request_id: 'request', request_type: 'stamp', status: 'technical_error', attempt_count: 1, updated_at: '2026-08-26T00:00:00Z' } }).retry, true);
 assert.equal(getFiscalActionAvailability({ ...readiness('rejected'), last_attempt: { request_id: 'request', request_type: 'stamp', status: 'business_rejected', attempt_count: 1, updated_at: '2026-08-26T00:00:00Z' } }).retry, false);

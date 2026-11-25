@@ -1,34 +1,52 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
+import { hasCompanyCapability } from '@/store/companyStore';
+import { CompanyReports } from '@/components/reports/CompanyReports';
 import {
-    getReportModules, getFinancialSummary, getPipelineSummary,
-    getInventorySummary, getOperationsSummary,
+    getFinancialSummary,
+    getInventorySummary,
+    getOperationsSummary,
+    getPipelineSummary,
+    getReportModules,
 } from '@/services/reports.service';
 import { createReportsLoader, type LegacyReportsData } from '@/services/reportsLoader';
 import { createReportsTanda1Service } from '@/services/reportsTanda1.service';
 import { LegacyReportsSection } from '@/components/reports/LegacyReportsSection';
 import {
-    OperationalReportsSection, type OperationalReportsState,
+    OperationalReportsSection,
+    type OperationalReportsState,
+    type OperationalReportPeriod,
 } from '@/components/reports/OperationalReportsSection';
 
 const getReportsTanda1 = createReportsTanda1Service(supabase);
 
-const ReportsPage = () => {
-    const activeTenant = useAuthStore(state => state.activeTenant);
+const LegacyReportsPage = () => {
+    const activeTenant = useAuthStore((state) => state.activeTenant);
     const loader = useRef<ReturnType<typeof createReportsLoader> | null>(null);
     if (!loader.current) {
         loader.current = createReportsLoader({
-            getReportModules, getFinancialSummary, getPipelineSummary,
-            getInventorySummary, getOperationsSummary, getReportsTanda1,
+            getReportModules,
+            getFinancialSummary,
+            getPipelineSummary,
+            getInventorySummary,
+            getOperationsSummary,
+            getReportsTanda1,
         });
     }
     const [revision, setRevision] = useState(0);
-    const [legacy, setLegacy] = useState<{ tenantId: string; data: LegacyReportsData; } | null>(null);
+    const [period, setPeriod] = useState<OperationalReportPeriod | null>(null);
+    const selectPeriod = (next: OperationalReportPeriod) => {
+        setPeriod((current) => current?.from === next.from && current.to === next.to ? current : next);
+    };
+    const [legacyError, setLegacyError] = useState(false);
+    const [legacy, setLegacy] = useState<{ tenantId: string; data: LegacyReportsData } | null>(null);
     const [legacyLoading, setLegacyLoading] = useState({ tenantId: activeTenant, loading: true });
     const [operational, setOperational] = useState<{
-        tenantId: string | null; state: OperationalReportsState;
-    }>({ tenantId: activeTenant, state: { status: 'loading' } });
+        tenantId: string | null;
+        period: OperationalReportPeriod | null;
+        state: OperationalReportsState;
+    }>({ tenantId: activeTenant, period, state: { status: 'loading' } });
 
     useEffect(() => {
         let active = true;
@@ -36,40 +54,68 @@ const ReportsPage = () => {
             loader.current!.clear();
             setLegacy(null);
             setLegacyLoading({ tenantId: null, loading: false });
-            setOperational({ tenantId: null, state: { status: 'error' } });
+            setOperational({ tenantId: null, period, state: { status: 'error' } });
             return;
         }
-        setLegacy(previous => previous?.tenantId === activeTenant ? previous : null);
+        setLegacy((previous) => previous?.tenantId === activeTenant ? previous : null);
         setLegacyLoading({ tenantId: activeTenant, loading: true });
-        setOperational({ tenantId: activeTenant, state: { status: 'loading' } });
-        const load = loader.current!.load(activeTenant, revision);
-        void load.legacy.then(data => {
+        setLegacyError(false);
+        setOperational({ tenantId: activeTenant, period, state: { status: 'loading' } });
+        const load = loader.current!.load(activeTenant, revision, period ?? undefined);
+        void load.legacy.then((data) => {
             if (active) setLegacy({ tenantId: activeTenant, data });
         }, () => {
-            // Preserve the existing metrics/fallback without logging RPC payloads.
+            if (active) {
+                setLegacy(null);
+                setLegacyError(true);
+            }
         }).finally(() => {
             if (active) setLegacyLoading({ tenantId: activeTenant, loading: false });
         });
-        void load.operational.then(data => {
-            if (active) setOperational({ tenantId: activeTenant, state: { status: 'ready', data } });
+        void load.operational.then((data) => {
+            if (active) setOperational({ tenantId: activeTenant, period, state: { status: 'ready', data } });
         }, () => {
-            if (active) setOperational({ tenantId: activeTenant, state: { status: 'error' } });
+            if (active) setOperational({ tenantId: activeTenant, period, state: { status: 'error' } });
         });
-        return () => { active = false; };
-    }, [activeTenant, revision]);
+        return () => {
+            active = false;
+        };
+    }, [activeTenant, revision, period]);
 
     // Do not display another tenant's data while its replacement load is pending.
     const legacyData = legacy?.tenantId === activeTenant ? legacy.data : null;
     const isLegacyLoading = legacyLoading.tenantId === activeTenant
-        ? legacyLoading.loading : Boolean(activeTenant);
-    const operationalState: OperationalReportsState = operational.tenantId === activeTenant
-        ? operational.state : { status: activeTenant ? 'loading' : 'error' };
+        ? legacyLoading.loading
+        : Boolean(activeTenant);
+    const operationalState: OperationalReportsState = operational.tenantId === activeTenant && operational.period === period
+        ? operational.state
+        : { status: activeTenant ? 'loading' : 'error' };
 
-    return <div className="space-y-6">
-        <LegacyReportsSection data={legacyData} loading={isLegacyLoading}
-            onRefresh={() => setRevision(value => value + 1)} />
-        <OperationalReportsSection state={operationalState} />
-    </div>;
+    return (
+        <div className='space-y-6'>
+            {legacyError
+                ? (
+                    <div role='alert' className='rounded-xl border p-5'>
+                        <p>No fue posible verificar los reportes autorizados para este alcance.</p>
+                        <button onClick={() => setRevision((value) => value + 1)} className='mt-3 underline'>
+                            Reintentar
+                        </button>
+                    </div>
+                )
+                : (
+                    <LegacyReportsSection
+                        data={legacyData}
+                        loading={isLegacyLoading}
+                        onRefresh={() => setRevision((value) => value + 1)}
+                    />
+                )}
+            <OperationalReportsSection state={operationalState} period={period} onPeriodChange={selectPeriod} />
+        </div>
+    );
 };
 
-export default ReportsPage;
+export default function ReportsPage() {
+    return hasCompanyCapability('financial.full.read') && hasCompanyCapability('operations.read')
+        ? <LegacyReportsPage />
+        : <CompanyReports />;
+}

@@ -1,0 +1,3650 @@
+{
+  "status": "staging delta applied and synthetic QA completed; NOT READY for WLS activation or merge",
+  "code_commit": "f06b4347d8f1a758466b99b32ecd80907a145877",
+  "applied_delta": [
+    {
+      "file": "20261026222327_multi08_operations_prerequisite.sql",
+      "sha256_lf": "e256476f2286f0b828741c871df749910d64cae27d58d0a3cc630bbf1fad097a"
+    },
+    {
+      "file": "20261026222328_multi08_finance_fiscal_reconciliation.sql",
+      "sha256_lf": "cbded69856c46b083a1b25eaf1e5d0f6a18ce0a34d1d4988721cf2e7bf0fab6f"
+    },
+    {
+      "file": "20261026222330_multi08_finance_write_boundary.sql",
+      "sha256_lf": "22d93856aaa404ef9885592b6de15dc5ca243a95e2572280b77117d4152b9522"
+    },
+    {
+      "file": "20261026222331_multi08_fiscal_provider_policy.sql",
+      "sha256_lf": "4122a4eedd248ea28abdd7a31b5fefbe34c3ed32a50f4e650f2b47903b174fb1"
+    },
+    {
+      "file": "20261027181705_delivery_company_boundary.sql",
+      "sha256_lf": "fad2bbba7ef0a26fb2de67f560ca77227862b2edf4b7933f81becdf8389f8c47"
+    },
+    {
+      "file": "20261027183712_delivery_scope_adoption.sql",
+      "sha256_lf": "fe5bc7c6d18f5380f2e1a0e0db96da9c4de7657ff0db6cc6d34a6371a0d2f20a"
+    },
+    {
+      "file": "20261027185849_delivery_read_contracts.sql",
+      "sha256_lf": "88ee9e25c191348121d07a7fed7487a479651c15903d9cb82f2969da2f6512d7"
+    },
+    {
+      "file": "20261027191306_delivery_actions_and_jobs.sql",
+      "sha256_lf": "7b3fa70b6f802ad0c3d8855e9c2a53cf1b646602de91cc598c6e2ce5433f19be"
+    }
+  ],
+  "history_before": 45,
+  "history_after": 53,
+  "catalog_matches_restore53": {
+    "functions": {
+      "local": 1026,
+      "remote": 1026,
+      "equal": true
+    },
+    "tables": {
+      "local": 154,
+      "remote": 154,
+      "equal": true
+    },
+    "views": {
+      "local": 43,
+      "remote": 43,
+      "equal": true
+    },
+    "constraints": {
+      "local": 915,
+      "remote": 915,
+      "equal": true
+    },
+    "indexes": {
+      "local": 440,
+      "remote": 440,
+      "equal": true
+    },
+    "triggers": {
+      "local": 111,
+      "remote": 111,
+      "equal": true
+    },
+    "policies": {
+      "local": 293,
+      "remote": 293,
+      "equal": true
+    },
+    "types": {
+      "local": 0,
+      "remote": 0,
+      "equal": true
+    },
+    "schemas": {
+      "local": 2,
+      "remote": 2,
+      "equal": true
+    },
+    "role_memberships": {
+      "local": 19,
+      "remote": 19,
+      "equal": true
+    }
+  },
+  "limited_owners": [
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_c02_gate_owner",
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_company_access_owner",
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_delivery_capture_owner",
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_delivery_scope_owner",
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_finance_read_owner",
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_finance_scope_owner",
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_fiscal_policy_owner",
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "rotero_operations_read_owner",
+      "rolsuper": false
+    }
+  ],
+  "scheduler_unchanged": true,
+  "fiscal_function": {
+    "name": "fiscal-sandbox",
+    "before_version": 5,
+    "after_version": 6,
+    "verify_jwt": false,
+    "verify_jwt_unchanged": true,
+    "other_functions_unchanged": true,
+    "provider_calls": 0
+  },
+  "preview_tested": {
+    "site": "rotero-erp-staging",
+    "context": "deploy-preview",
+    "id": "6ae428f1b846050615de5c20",
+    "commit": "f06b4347d8f1a758466b99b32ecd80907a145877",
+    "url": "https://deploy-preview-47--rotero-erp-staging.netlify.app",
+    "state": "ready"
+  },
+  "QA": {
+    "api": {
+      "passed": 41
+    },
+    "browser": {
+      "passed": 19,
+      "not_proven": 2,
+      "failed": 1
+    },
+    "focused_finance": {
+      "passed": 5
+    },
+    "revocation": {
+      "passed": 7
+    },
+    "fiscal_negative": {
+      "passed": 5
+    },
+    "browser_harness_failure": "Final assertion recorded four read RPCs missing from observer allowlist. Corrected observer only; focalized Finance replay passed. Earlier operation timeout was also caused by the observer blocking reviewed reads. No application change was needed.",
+    "focus": "not proven: headful runtime reported visible/focused for both tabs; no synthetic focus event used",
+    "logout": {
+      "http": 204,
+      "request_event": "net::ERR_ABORTED",
+      "completion_wait": "bounded; observation timeout",
+      "UI_cleared_login_visible_reports_restricted": true,
+      "complete_remote_revocation_not_claimed": true,
+      "final_dedicated_auth_users_and_sessions": 0
+    },
+    "five_report_RPCS_HTTP200": true,
+    "Tanda1_exact_seven_keys_and_types": {
+      "keys": [
+        "volume",
+        "weekly",
+        "by_zone",
+        "date_to",
+        "by_scope",
+        "date_from",
+        "by_service_type"
+      ],
+      "types": {
+        "volume": "object",
+        "weekly": "array",
+        "by_zone": "array",
+        "date_to": "string",
+        "by_scope": "array",
+        "date_from": "string",
+        "by_service_type": "array"
+      },
+      "synthetic_scope": true
+    },
+    "consolidation": "SDK verified exact set and totals; preview selector and five report responses observed. No real-person approval.",
+    "automatic_mutation_requests_in_browser_paths": 0,
+    "intentional_self_assignment_negative": {
+      "requests": 1,
+      "http": 403
+    },
+    "telemetry": "Netlify Drawer iframe /cdp attempted view registration and Bugsnag session tracking; observer blocked these external telemetry POSTs. Neither is an ERP business RPC. Payloads not inspected or retained.",
+    "synthetic_only": true,
+    "existing_shared_QA_untouched": true,
+    "identities_created_then_removed": 3,
+    "new_storage_objects_created_then_removed": 2,
+    "temporary_grants_removed": true,
+    "credential_ciphertexts_retired": true,
+    "retained_relations": [
+      {
+        "relation": "private.delivery_classification_events",
+        "kind": "r",
+        "rows": 2
+      },
+      {
+        "relation": "private.delivery_tenant_cutovers",
+        "kind": "r",
+        "rows": 2
+      },
+      {
+        "relation": "private.finance_invoices_company_evidence",
+        "kind": "r",
+        "rows": 4
+      },
+      {
+        "relation": "private.financial_principal_bindings",
+        "kind": "r",
+        "rows": 1
+      },
+      {
+        "relation": "private.operation_company_classification_events",
+        "kind": "r",
+        "rows": 3
+      },
+      {
+        "relation": "public.companies",
+        "kind": "r",
+        "rows": 3
+      },
+      {
+        "relation": "public.document_files",
+        "kind": "r",
+        "rows": 2
+      },
+      {
+        "relation": "public.finance_invoices",
+        "kind": "r",
+        "rows": 4
+      },
+      {
+        "relation": "public.memberships",
+        "kind": "r",
+        "rows": 1
+      },
+      {
+        "relation": "public.operations",
+        "kind": "r",
+        "rows": 3
+      }
+    ],
+    "retention": "Two synthetic tenants stay cutover-enabled; three companies inactive. Three operation roots, four invoices, two cancelled document metadata rows and nine immutable evidence rows retained. Revoked binding plus its membership retained for FK/audit; no matching Auth identity remains.",
+    "traceability_limitation": "The initial auxiliary inventory was overwritten by final verification. Exact UUIDs of deleted default-generated access/capability/membership rows were not retained. Known root/identity/binding/consolidation IDs and default seed IDs in scoped cleanup SQL remain in private evidence; final absence and tenant exclusivity verified. No guessed IDs or recovery from credentials/log bodies."
+  },
+  "data_preservation": {
+    "tables_compared": 134,
+    "exact_original_column_digest_matches": 132,
+    "missing_original_rows": 0,
+    "concurrent_changes": {
+      "diff": [
+        {
+          "added": 1,
+          "changed_columns": null,
+          "missing": 0,
+          "object": "automation_runs"
+        },
+        {
+          "added": 0,
+          "changed_columns": {
+            "first_seen_at": 3,
+            "last_seen_at": 95
+          },
+          "missing": 0,
+          "object": "internal_notifications"
+        }
+      ],
+      "new_runs": [
+        {
+          "completed_at": "2026-10-30T05:00:02.13756+00:00",
+          "requested_by_null": true,
+          "run_type": "scheduled",
+          "started_at": "2026-10-30T05:00:00.432763+00:00",
+          "status": "completed"
+        }
+      ],
+      "scheduler": [
+        {
+          "end_time": "2026-10-30T02:00:02.039702+00:00",
+          "jobname": "rotero-f7-automation-hourly",
+          "start_time": "2026-10-30T02:00:00.341163+00:00",
+          "status": "succeeded"
+        },
+        {
+          "end_time": "2026-10-30T03:00:01.753994+00:00",
+          "jobname": "rotero-f7-automation-hourly",
+          "start_time": "2026-10-30T03:00:00.220042+00:00",
+          "status": "succeeded"
+        },
+        {
+          "end_time": "2026-10-30T04:00:02.17424+00:00",
+          "jobname": "rotero-f7-automation-hourly",
+          "start_time": "2026-10-30T04:00:00.318945+00:00",
+          "status": "succeeded"
+        },
+        {
+          "end_time": "2026-10-30T05:00:02.26198+00:00",
+          "jobname": "rotero-f7-automation-hourly",
+          "start_time": "2026-10-30T05:00:00.43237+00:00",
+          "status": "succeeded"
+        }
+      ]
+    },
+    "claim": "All prior keys retained. The only compared column changes were notification first_seen_at/last_seen_at plus one scheduled automation run at 05:00 UTC, matching the preserved cron execution. This is not a claim of zero background writes."
+  },
+  "traffic_sanitized": {
+    "api": [
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/operations",
+        "method": "GET",
+        "http": 403,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operation_files",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_global_search",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_invoices",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "full_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/operations",
+        "method": "GET",
+        "http": 403,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operation_files",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_global_search",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_invoices",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "partial_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_self_assignment_negative",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/membership_company_access",
+        "method": "POST",
+        "http": 403,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "setup_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "setup_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "setup_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "setup_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "setup_scope",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      }
+    ],
+    "browser": [
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_consolidation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 6
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 6
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_export_finance_ledger",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_export_finance_ledger",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_overview",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_overview",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_profitability",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_profitability",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_due_alerts",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_invoices",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_invoices",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_payments",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operations",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_saved_views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "full_login",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "full_logout",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_ABORTED",
+        "count": 1
+      },
+      {
+        "action": "full_logout",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "full_navigation",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 12
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 12
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_navigation",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 6
+      },
+      {
+        "action": "full_operations",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_entity_files",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_entity_files",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 14
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 14
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_billing_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_billing_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_dispatch_readiness",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_dispatch_readiness",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_document_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_document_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_incident_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_incident_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_assignment_history",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_assignment_history",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_documents",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_documents",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_evidence",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_evidence",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_incidents",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_incidents",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_tracking_events",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_tracking_events",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/storage/v1/object/tenant-documents/<QA_ID>/operations/c02-operational.txt",
+        "method": "GET",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/storage/v1/object/tenant-documents/<QA_ID>/operations/c02-operational.txt",
+        "method": "GET",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_operations",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 6
+      },
+      {
+        "action": "full_reload",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 6
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 6
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reload",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "full_reports",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 6
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 6
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_inventory_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_pipeline_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_reports",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "partial_finance",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_receivables_page",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_finance",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "partial_login",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_dashboard_overview",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_login",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "partial_logout",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "partial_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_ABORTED",
+        "count": 1
+      },
+      {
+        "action": "partial_logout",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "partial_navigation",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 8
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 8
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_navigation",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_navigation",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 6
+      },
+      {
+        "action": "partial_operations",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_entity_files",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_entity_files",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 8
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 8
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_billing_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_billing_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_dispatch_readiness",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_dispatch_readiness",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_document_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_document_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_incident_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_operation_incident_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_assignment_history",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_assignment_history",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_documents",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_documents",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_evidence",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_evidence",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_incidents",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_incidents",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_tracking_events",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operation_tracking_events",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/storage/v1/object/tenant-documents/<QA_ID>/operations/c02-operational.txt",
+        "method": "GET",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/storage/v1/object/tenant-documents/<QA_ID>/operations/c02-operational.txt",
+        "method": "GET",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_operations",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 6
+      },
+      {
+        "action": "partial_reload",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reload",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "partial_reports",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 4
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_operations_summary",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_tanda1",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "partial_reports",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      }
+    ],
+    "focused_finance": [
+      {
+        "action": "full_finance",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 7
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 7
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_export_finance_ledger",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_export_finance_ledger",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_overview",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_overview",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_profitability",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_finance_profitability",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_due_alerts",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_due_alerts",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_invoices",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_invoices",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_payments",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_finance_payments",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operations",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_operations",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_saved_views",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_list_saved_views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_finance",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "full_login",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_notifications",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 3
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_get_my_context",
+        "method": "POST",
+        "http": null,
+        "event": "requestfinished",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "full_login",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      },
+      {
+        "action": "full_logout",
+        "host": "app.netlify.com",
+        "path": "/access-control/bb-api/api/v1/cdp/deploys/6ae428f1b846050615de5c20/views",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 2
+      },
+      {
+        "action": "full_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_ABORTED",
+        "count": 1
+      },
+      {
+        "action": "full_logout",
+        "host": "sessions.bugsnag.com",
+        "path": "/",
+        "method": "POST",
+        "http": null,
+        "event": "requestfailed",
+        "error": "net::ERR_FAILED",
+        "count": 3
+      }
+    ],
+    "revocation": [
+      {
+        "action": "binding_revoked",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "binding_revoked",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "company_access_revoked",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_file_download",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "company_access_revoked",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_delivery_operations_page",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "export_revoked",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_export_finance_ledger",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "export_revoked",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_cleanup_logout",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "full_login",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "inactive_company",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_export_finance_ledger",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "inactive_company",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/rest/v1/rpc/rpc_reports_financial_summary",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      }
+    ],
+    "fiscal_negative": [
+      {
+        "action": "",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/logout",
+        "method": "POST",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/auth/v1/token",
+        "method": "POST",
+        "http": 200,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/functions/v1/fiscal-sandbox",
+        "method": "OPTIONS",
+        "http": 204,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/functions/v1/fiscal-sandbox",
+        "method": "OPTIONS",
+        "http": 403,
+        "event": "response",
+        "error": null,
+        "count": 2
+      },
+      {
+        "action": "",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/functions/v1/fiscal-sandbox",
+        "method": "POST",
+        "http": 401,
+        "event": "response",
+        "error": null,
+        "count": 1
+      },
+      {
+        "action": "",
+        "host": "mxpmgihuheagrcowwbia.supabase.co",
+        "path": "/functions/v1/fiscal-sandbox",
+        "method": "POST",
+        "http": 403,
+        "event": "response",
+        "error": null,
+        "count": 1
+      }
+    ]
+  },
+  "pending": [
+    "Complete operational planning/assignment/state workflows, document administration, executive dashboard and jobs adoption before WLS cutover.",
+    "Classify real history and approve labor capabilities; verify actual financial identities, then UAT. Excel remains HOLD.",
+    "Real browser focus transition and complete logout request completion remain unproven.",
+    "Production authorization and rehearsal separate; Softmanagement inactive and no new provider calls."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "acl": null,
+  "config": null,
+  "definer": false,
+  "definition": "CREATE OR REPLACE FUNCTION storage.enforce_versioning_status_transition()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n    IF NEW.versioning_status = OLD.versioning_status THEN\n        RETURN NEW;\n    END IF;\n\n    IF NEW.versioning_status = 'DISABLED' OR\n       (OLD.versioning_status = 'DISABLED' AND NEW.versioning_status = 'SUSPENDED') THEN\n        RAISE EXCEPTION 'Cannot transition bucket versioning status from % to %',\n            OLD.versioning_status, NEW.versioning_status;\n    END IF;\n\n    RETURN NEW;\nEND;\n$function$\n",
+  "owner": "supabase_storage_admin",
+  "versioning_columns": [
+    {
+      "name": "versioning_status",
+      "not_null": true,
+      "type": "text"
+    }
+  ],
+  "source_md5_lf": "4cc0836bc06678a1abf7c410df0872ff",
+  "snapshot_metadata_md5": "d86b1b5b73d52d77e1a864276d6e033a",
+  "decision": "Preserve the observed Storage bucket-version transition trigger. Invoker, no SQL/table access or external calls; does not classify business data. Exact function body, owner, ACL, return type and configuration are fenced when the trigger exists.",
+  "provenance": "Observed remote metadata under supabase_storage_admin; actor and deployment origin not demonstrated by available audit access."
+}

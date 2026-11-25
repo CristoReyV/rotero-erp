@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { mapDbOperationToUI, type DbOperation } from '@/services/operationsContracts';
 import type { Place } from '@/types/tracking';
+import { companyOperation, companyOperationChildren, operationChildCommand, companyPlanningPayload, companyWorkflowActive, operationCommand } from './companyWorkflow.service';
 import type {
     CrossingType,
     DocumentRequirementLevel,
@@ -67,7 +68,7 @@ function getRpcErrorMessage(code: string): string {
 }
 
 function assertRpcResult<T>(data: T | { error?: string } | null, error: { message?: string } | null): T {
-    if (error) { const code=Object.keys(OPERATION_ERROR_MESSAGES).find(key=>error.message?.includes(key)); throw new Error(code?getRpcErrorMessage(code):error.message || 'Error de comunicación con Operations.'); }
+    if (error) { const code = Object.keys(OPERATION_ERROR_MESSAGES).find(key => error.message?.includes(key)); throw new Error(code ? getRpcErrorMessage(code) : error.message || 'Error de comunicación con Operations.'); }
     if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
         throw new Error(getRpcErrorMessage(data.error));
     }
@@ -88,6 +89,7 @@ export async function getOperation(operationId: string): Promise<Operation | nul
         const { getMockOperations } = await import('@/mocks/operations.mock');
         return (await getMockOperations()).find((item) => item.db_id === operationId || item.id === operationId) ?? null;
     }
+    if (companyWorkflowActive()) return mapDbOperationToUI(await companyOperation(operationId) as DbOperation);
     const { data, error } = await supabase.rpc('rpc_get_operation', { p_operation_id: operationId });
     if (!error && data?.error === 'not_found') return null;
     return mapDbOperationToUI(assertRpcResult<DbOperation>(data, error));
@@ -110,8 +112,9 @@ export async function createOperation(tenantId: string, payload: OperationInsert
     return assertRpcResult<{ id: string }>(data, error);
 }
 
-export async function completeOperationPlanning(operationId: string, payload: OperationPlanningPayload): Promise<void> {
+export async function completeOperationPlanning(operationId: string, payload: OperationPlanningPayload, expectedRevision?: number): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationCommand(operationId, 'plan', companyPlanningPayload(payload), expectedRevision);
     const { data, error } = await supabase.rpc('rpc_complete_operation_planning_v2', {
         p_operation_id: operationId,
         p_service_type: payload.service_type,
@@ -139,8 +142,9 @@ export async function completeOperationPlanning(operationId: string, payload: Op
     assertRpcResult(data, error);
 }
 
-export async function assignOperation(tenantId: string, operationId: string, payload: OperationAssignPayload): Promise<void> {
+export async function assignOperation(tenantId: string, operationId: string, payload: OperationAssignPayload, expectedRevision?: number): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationCommand(operationId, 'assign', { ...payload }, expectedRevision);
     const { data, error } = await supabase.rpc('rpc_assign_operation_v3', {
         p_tenant_id: tenantId,
         p_operation_id: operationId,
@@ -191,36 +195,40 @@ export async function getOperation360Data(operationId: string): Promise<Operatio
         };
     }
     const args = { p_operation_id: operationId };
+    const children = companyWorkflowActive() ? await companyOperationChildren(operationId) : null;
     const [assignmentHistory, incidents, incidentSummary, evidence, documents, documentSummary, crossings, trackingEvents, readiness, billing] = await Promise.all([
-        readRpc<OperationAssignmentHistoryItem[]>('rpc_list_operation_assignment_history', args),
-        readRpc<OperationIncident[]>('rpc_list_operation_incidents', args),
+        companyWorkflowActive() ? readRpc<OperationAssignmentHistoryItem[]>('rpc_delivery_operation_history', { p_tenant_id: operation.tenant_id, p_operation_id: operationId }) : readRpc<OperationAssignmentHistoryItem[]>('rpc_list_operation_assignment_history', args),
+        children ? Promise.resolve(children.incidents) : readRpc<OperationIncident[]>('rpc_list_operation_incidents', args),
         readRpc<IncidentSummary>('rpc_get_operation_incident_summary', args),
-        readRpc<OperationEvidenceItem[]>('rpc_list_operation_evidence', { ...args, p_incident_id: null }),
-        readRpc<OperationDocument[]>('rpc_list_operation_documents', args),
+        children ? Promise.resolve(children.evidence) : readRpc<OperationEvidenceItem[]>('rpc_list_operation_evidence', { ...args, p_incident_id: null }),
+        children ? Promise.resolve(children.documents) : readRpc<OperationDocument[]>('rpc_list_operation_documents', args),
         readRpc<OperationDocumentSummary>('rpc_get_operation_document_summary', args),
-        operation.operation_scope === 'international' ? readRpc<OperationCrossing[]>('rpc_list_operation_crossings', args) : Promise.resolve([]),
+        children ? Promise.resolve(children.crossings) : operation.operation_scope === 'international' ? readRpc<OperationCrossing[]>('rpc_list_operation_crossings', args) : Promise.resolve([]),
         readRpc<OperationTrackingEvent[]>('rpc_list_operation_tracking_events', args),
         readRpc<OperationReadiness>('rpc_get_operation_dispatch_readiness', args),
-        readRpc<OperationBillingSummary>('rpc_get_operation_billing_summary', args),
+        companyWorkflowActive() ? readRpc<OperationBillingSummary>('rpc_delivery_operational_billing', { p_tenant_id: operation.tenant_id, p_operation_id: operationId }) : readRpc<OperationBillingSummary>('rpc_get_operation_billing_summary', args),
     ]);
     return { operation, assignmentHistory, incidents, incidentSummary, evidence, documents, documentSummary, crossings, trackingEvents, readiness, billing };
 }
 
-export async function createOperationIncident(operationId: string, payload: { category: IncidentCategory; title: string; description?: string; is_blocking: boolean }): Promise<void> {
+export async function createOperationIncident(operationId: string, payload: { category: IncidentCategory; title: string; description?: string; is_blocking: boolean }, revision?: number): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationChildCommand(operationId, 'incident.create', payload, revision);
     await readRpc('rpc_create_operation_incident', {
         p_operation_id: operationId, p_category: payload.category, p_title: payload.title,
         p_description: payload.description, p_is_blocking: payload.is_blocking, p_tracking_event_id: null,
     });
 }
 
-export async function resolveOperationIncident(incidentId: string, note: string): Promise<void> {
+export async function resolveOperationIncident(incidentId: string, note: string, operationId?: string, revision?: number): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationChildCommand(operationId, 'incident.resolve', { id: incidentId, note }, revision);
     await readRpc('rpc_resolve_operation_incident', { p_incident_id: incidentId, p_resolution_note: note });
 }
 
-export async function dismissOperationIncident(incidentId: string, note: string): Promise<void> {
+export async function dismissOperationIncident(incidentId: string, note: string, operationId?: string, revision?: number): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationChildCommand(operationId, 'incident.dismiss', { id: incidentId, note }, revision);
     await readRpc('rpc_dismiss_operation_incident', { p_incident_id: incidentId, p_dismiss_note: note });
 }
 
@@ -252,16 +260,19 @@ export async function upsertOperationDocument(operationId: string, payload: {
 
 export async function upsertOperationCrossing(operationId: string, payload: { id?: string; crossed_at: string; crossing_point: string; crossing_type: CrossingType; note?: string }): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationChildCommand(operationId, 'crossing.save', payload);
     await readRpc('rpc_upsert_operation_crossing', { p_operation_id: operationId, p_payload: payload });
 }
 
-export async function deleteOperationCrossing(crossingId: string): Promise<void> {
+export async function deleteOperationCrossing(crossingId: string, operationId?: string, revision?: number): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationChildCommand(operationId, 'crossing.delete', { id: crossingId }, revision);
     await readRpc('rpc_delete_operation_crossing', { p_crossing_id: crossingId });
 }
 
-export async function transitionOperationStatus(operationId: string, toStatus: string): Promise<void> {
+export async function transitionOperationStatus(operationId: string, toStatus: string, expectedRevision?: number): Promise<void> {
     if (USE_MOCKS) return;
+    if (companyWorkflowActive()) return operationCommand(operationId, 'transition', { to_status: toStatus }, expectedRevision);
     await readRpc('rpc_transition_operation_status', { p_operation_id: operationId, p_to_status: toStatus });
 }
 

@@ -1,6 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { FacturamaSandbox } from '../_shared/facturama.ts';
-import { createFiscalHandler, isFiscalSandboxRuntime, STAGING_SUPABASE_URL } from './handler.ts';
+import {
+    createFiscalHandler,
+    fiscalCompanyHeaders,
+    isFiscalSandboxRuntime,
+    STAGING_SUPABASE_URL,
+} from './handler.ts';
 const staging = STAGING_SUPABASE_URL;
 // Immutable deployment boundary. The test harness injects local clients into
 // handler.ts; deployment never accepts a caller-provided URL or environment.
@@ -18,7 +23,12 @@ Deno.serve(async (req: Request) => {
         });
     }
     const opts = { auth: { persistSession: false, autoRefreshToken: false } };
-    const admin = createClient(staging, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, opts);
+    // Each request owns its clients; selectors never mutate a shared service client.
+    const scope = fiscalCompanyHeaders(req.headers);
+    const admin = createClient(staging, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+        ...opts,
+        global: { headers: scope },
+    });
     const adapter = new FacturamaSandbox({
         username: Deno.env.get('FACTURAMA_SANDBOX_USER') ?? '',
         password: Deno.env.get('FACTURAMA_SANDBOX_PASSWORD') ?? '',
@@ -30,7 +40,7 @@ Deno.serve(async (req: Request) => {
         userClient: (authorization) =>
             createClient(staging, Deno.env.get('SUPABASE_ANON_KEY')!, {
                 ...opts,
-                global: { headers: { Authorization: authorization } },
+                global: { headers: { ...scope, Authorization: authorization } },
             }),
     })(req);
 });

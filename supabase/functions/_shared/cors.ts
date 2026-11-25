@@ -7,6 +7,9 @@
  * which causes the browser to block the response natively.
  */
 
+const STAGING_PROJECT_URL = "https://mxpmgihuheagrcowwbia.supabase.co";
+const STAGING_PR_47_ORIGIN = "https://deploy-preview-47--rotero-erp-staging.netlify.app";
+
 const ALLOWED_ORIGINS: readonly string[] = [
     // Production
     "https://erp.rotero.mx",
@@ -34,7 +37,9 @@ export function getCorsHeaders(req: Request): Record<string, string> {
         "Vary": "Origin",
     };
 
-    if (ALLOWED_ORIGINS.includes(origin)) {
+    const isStagingPreview = origin === STAGING_PR_47_ORIGIN
+        && Deno.env.get("SUPABASE_URL") === STAGING_PROJECT_URL;
+    if (ALLOWED_ORIGINS.includes(origin) || isStagingPreview) {
         headers["Access-Control-Allow-Origin"] = origin;
     }
 

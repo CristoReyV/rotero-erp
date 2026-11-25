@@ -181,6 +181,16 @@ SELECT 'PASS remote confirmation, strict XML pending, explicit recovery without 
 -- branch is absent in the standalone M04/05+fiscal deployment, not a fake grant.
 SELECT to_regclass('private.finance_invoices_company_evidence') IS NOT NULL AS has_multi07 \gset
 \if :has_multi07
+-- Delivery requires explicit company evidence on both sides of the new CFDI FK.
+-- Keep the original mismatch/exclusion assertions; do not infer laboratory origin.
+SELECT to_regclass('private.delivery_classification_events') IS NOT NULL AS has_delivery \gset
+\if :has_delivery
+INSERT INTO private.delivery_classification_events(id,tenant_id,entity_table,entity_id,company_id,evidence_reference,recorded_by)
+VALUES('61000000-0000-4000-8000-000000000993','61000000-0000-4000-8000-000000000101','billing_cfdis',
+ '61000000-0000-4000-8000-000000000401','61000000-0000-4000-8000-000000000201','synthetic explicit CFDI evidence','61000000-0000-4000-8000-000000000302');
+UPDATE public.billing_cfdis SET company_id='61000000-0000-4000-8000-000000000201',company_classification_status='resolved',
+ company_classification_event_id='61000000-0000-4000-8000-000000000993' WHERE id='61000000-0000-4000-8000-000000000401';
+\endif
 SET LOCAL ROLE rotero_finance_scope_owner;
 INSERT INTO private.finance_invoices_company_evidence(id,tenant_id,entity_id,company_id,decision,evidence_kind,evidence_reference,recorded_by) VALUES
  ('61000000-0000-4000-8000-000000000991','61000000-0000-4000-8000-000000000101','61000000-0000-4000-8000-000000000501','61000000-0000-4000-8000-000000000201','resolved','verified_source_record','FACTURAMA02 synthetic A','61000000-0000-4000-8000-000000000302'),

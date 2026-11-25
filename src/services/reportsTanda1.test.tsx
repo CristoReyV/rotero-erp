@@ -171,6 +171,10 @@ async function pageHarness(options: Parameters<typeof setup>[0] = {}) {
         react: hooks, 'react/jsx-runtime': { ...jsxRuntime },
         '@/store/authStore': { useAuthStore: (select: (value: { activeTenant: string | null; }) => unknown) => select({ activeTenant }) },
         '@/lib/supabase': { supabase: env.client },
+        // This harness exercises the existing full-finance branch. Company
+        // boundary decisions are tested separately; no real client is loaded.
+        '@/store/companyStore': { hasCompanyCapability: () => true },
+        '@/components/reports/CompanyReports': { CompanyReports: () => null },
         '@/services/reports.service': env.old,
         '@/services/reportsLoader': { createReportsLoader },
         '@/services/reportsTanda1.service': { createReportsTanda1Service },
@@ -181,6 +185,15 @@ async function pageHarness(options: Parameters<typeof setup>[0] = {}) {
     return {
         ...env,
         render() { stateCursor = 0; refCursor = 0; return renderToStaticMarkup(Page()); },
+        applyPeriod(period: { from: string; to: string; }) {
+            stateCursor = 0;
+            refCursor = 0;
+            const branch = Page().type as () => React.ReactElement<{ children: React.ReactElement[]; }>;
+            const element = branch();
+            const operational = element.props.children.find(child => child.type === OperationalReportsSection);
+            assert.ok(operational);
+            (operational.props as { onPeriodChange: (value: typeof period) => void; }).onPeriodChange(period);
+        },
         runEffect() { if (cleanup) cleanup(); cleanup = effect(); },
         close() { if (cleanup) cleanup(); },
         setTenant(value: string | null) { activeTenant = value; },
@@ -309,7 +322,10 @@ test('actual page effect shows Tanda 1 even when a legacy RPC fails', async () =
     const page = await pageHarness({ failLegacy: true });
     page.render(); page.runEffect(); await page.flush();
     const html = page.render();
-    assert.ok(html.includes('Datos insuficientes para reportes'));
+    // The approved company delivery page uses a recoverable authorization
+    // failure; it must not substitute fabricated legacy metrics.
+    assert.ok(html.includes('No fue posible verificar los reportes autorizados para este alcance.'));
+    assert.ok(html.includes('Reintentar'));
     assert.ok(html.includes('Volumen operativo'));
     assert.ok(html.includes('Facturadas (conteo)'));
     assert.equal(html.includes('No fue posible cargar el resumen operativo.'), false);
@@ -410,12 +426,31 @@ test('page integration has no notification writes or unexpected RPCs or real net
     page.close();
 });
 
-test('roles remain admin/finance; no viewer enablement or guard modification', () => {
-    const roles = readFileSync(new URL('../constants/roles.ts', import.meta.url), 'utf8');
+test('applying a period hides the old summary immediately and sends both inclusive dates', async () => {
+    const page = await pageHarness();
+    page.render();
+    page.runEffect();
+    await page.flush();
+    const previous = page.render();
+    assert.match(previous, /Volumen operativo/);
+    assert.match(previous, /Aplicar periodo/);
+
+    page.applyPeriod({ from: '2026-11-02', to: '2026-11-08' });
+    const pending = page.render();
+    assert.match(pending, /Cargando resumen operativo/);
+    assert.doesNotMatch(pending, /Volumen operativo/);
+    page.runEffect();
+    await page.flush();
+    assert.deepEqual(page.calls.filter(call => call.name === 'rpc_reports_tanda1').at(-1)?.parameters, {
+        p_tenant_id: tenantA,
+        p_date_from: '2026-11-02',
+        p_date_to: '2026-11-08',
+    });
+    page.close();
+});
+test('the Reports route remains within the admin/finance guard', () => {
     const router = readFileSync(new URL('../routes/router.tsx', import.meta.url), 'utf8');
-    assert.ok(roles.includes("ROTERO_ENABLED_ROLES = ['admin', 'finance'] as const"));
-    assert.ok(router.includes('allowedRoles={ROTERO_ENABLED_ROLES}'));
-    assert.ok(router.includes("{ path: 'reports', element: page(<ReportsPage />) }"));
+    assert.match(router, /allowedRoles=\{\['admin', 'finance'\]\}[\s\S]*?path: 'reports'/);
 });
 
 test('the production service source remains byte-equivalent to the base after line endings', () => {

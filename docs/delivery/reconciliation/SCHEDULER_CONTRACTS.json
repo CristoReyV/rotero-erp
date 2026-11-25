@@ -1,0 +1,22 @@
+[
+  {
+    "name": "rotero-f7-automation-hourly",
+    "schedule": "0 * * * *",
+    "active": true,
+    "command_sha256": "a3d8c1ee0946834051df46fc6a819c1d3340c2dcc3290202ac244af55e2c8277",
+    "referenced_functions": [
+      "private.run_f7_automations"
+    ],
+    "external_text": false
+  },
+  {
+    "name": "rotero-f7-daily-digest",
+    "schedule": "15 12 * * *",
+    "active": true,
+    "command_sha256": "9b4fe9bc365dd3fb9dc21521cd91bb016aa2091c3429fd1398c7c679059a4ace",
+    "referenced_functions": [
+      "private.run_f7_daily_digest"
+    ],
+    "external_text": false
+  }
+]

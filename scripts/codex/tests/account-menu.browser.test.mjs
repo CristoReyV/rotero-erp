@@ -1,7 +1,7 @@
 // Run with node --test; PLAYWRIGHT_MODULE_PATH may point to an existing runtime.
 // No installation, real credentials, environment files or external network needed.
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -29,6 +29,9 @@ window.__accountMenuTest = { signOutCalls: 0, controlEvents: [], exports: 0 };
 const volume = { operations: 0, pieces: 0, weight_kg: 0 };
 const responses = {
     rpc_get_my_context: context,
+    rpc_delivery_context: { companies: [{ id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',display_name:'Local A',
+        legal_name:'Synthetic only',rfc:'AAA010101AA1',capabilities:['operations.read','financial.full.read'] }],consolidations:[],cutover_required:true },
+    rpc_delivery_notifications: { items: [], unread_count: 0, next_cursor: null },
     rpc_list_internal_notifications_page: { items: [], unread_count: 0, next_cursor: null },
     rpc_reports_financial_summary: { revenue_by_month: [], ar_open_by_month: [],
         ap_open_by_month: [], cashflow_by_month: [], total_revenue_ytd: 0,
@@ -82,35 +85,50 @@ createRoot(document.getElementById('root')).render(
 );
 `;
 
-test('account menu receives pointer and keyboard above Reports', { timeout: 120_000 }, async t => {
+test('account menu receives pointer and keyboard above Reports', { timeout: 120_000 }, async (t) => {
     const temporary = await mkdtemp(path.join(tmpdir(), 'rotero-account-menu-'));
     const server = await createServer({
-        root, configFile: false, envDir: temporary, cacheDir: path.join(temporary, 'vite-cache'),
+        root,
+        configFile: false,
+        envDir: temporary,
+        cacheDir: path.join(temporary, 'vite-cache'),
         logLevel: 'error',
         define: { 'import.meta.env.VITE_USE_MOCKS': 'false' },
         resolve: { alias: { '@': path.join(root, 'src') } },
-        plugins: [{
-            name: 'local-account-menu-test', enforce: 'pre',
-            resolveId(id) {
-                if (id === 'virtual:account-menu-entry.tsx') return entryId;
-                const source = id.replaceAll('\\', '/');
-                if (/\/src\/lib\/supabase(?:\.ts)?$/.test(source)) return backendId;
+        plugins: [
+            {
+                name: 'local-account-menu-test',
+                enforce: 'pre',
+                resolveId(id) {
+                    if (id === 'virtual:account-menu-entry.tsx') return entryId;
+                    const source = id.replaceAll('\\', '/');
+                    if (/\/src\/lib\/supabase(?:\.ts)?$/.test(source)) return backendId;
+                },
+                async load(id) {
+                    if (id === entryId) {
+                        return transformWithEsbuild(entry, 'account-menu-entry.tsx', {
+                            loader: 'tsx',
+                            jsx: 'automatic',
+                        });
+                    }
+                    if (id === backendId) return backend;
+                },
+                configureServer(vite) {
+                    vite.middlewares.use(async (request, response, next) => {
+                        if (!['/reports', '/login'].includes(request.url)) return next();
+                        const html = await vite.transformIndexHtml(
+                            request.url,
+                            '<!doctype html><html><body><div id="root"></div>' +
+                                '<script type="module">import "virtual:account-menu-entry.tsx";</script></body></html>',
+                        );
+                        response.setHeader('Content-Type', 'text/html');
+                        response.end(html);
+                    });
+                },
             },
-            async load(id) {
-                if (id === entryId) return transformWithEsbuild(entry, 'account-menu-entry.tsx', { loader: 'tsx', jsx: 'automatic' });
-                if (id === backendId) return backend;
-            },
-            configureServer(vite) {
-                vite.middlewares.use(async (request, response, next) => {
-                    if (!['/reports', '/login'].includes(request.url)) return next();
-                    const html = await vite.transformIndexHtml(request.url,
-                        '<!doctype html><html><body><div id="root"></div>' +
-                        '<script type="module">import "virtual:account-menu-entry.tsx";</script></body></html>');
-                    response.setHeader('Content-Type', 'text/html');
-                    response.end(html);
-                });
-            },
-        }, react(), tailwindcss()],
+            react(),
+            tailwindcss(),
+        ],
         server: { host: '127.0.0.1', port: 0, hmr: false },
     });
     let browser;
@@ -121,77 +139,127 @@ test('account menu receives pointer and keyboard above Reports', { timeout: 120_
         for (const width of [1280, 1024]) {
             for (const activation of ['pointer', 'Enter']) {
                 await t.test(width + 'px / ' + activation, async () => {
-                    const context = await browser.newContext({ viewport: { width, height: width === 1280 ? 720 : 768 } });
+                    const context = await browser.newContext({
+                        viewport: { width, height: width === 1280 ? 720 : 768 },
+                    });
                     const external = [];
                     const errors = [];
                     try {
-                        await context.route('**/*', route => {
+                        await context.route('**/*', (route) => {
                             if (new URL(route.request().url()).origin === origin) return route.continue();
                             external.push(new URL(route.request().url()).host);
                             return route.abort();
                         });
                         const page = await context.newPage();
-                        page.on('pageerror', error => errors.push(error.message));
+                        page.on('pageerror', (error) => errors.push(error.message));
                         await page.goto(origin + '/reports');
                         try {
-                            await page.getByRole('heading', { name: 'Reportes & BI', exact: true }).waitFor({ timeout: 10_000 });
+                            await page.getByRole('heading', { name: 'Reportes & BI', exact: true }).waitFor({
+                                timeout: 10_000,
+                            });
                         } catch (error) {
                             t.diagnostic(JSON.stringify({ errors, external }));
                             throw error;
                         }
                         await page.getByRole('heading', { name: 'Volumen operativo', exact: true }).waitFor();
                         await page.waitForFunction(() =>
-                            getComputedStyle(document.querySelector('main > .h-full')).transform === 'none');
+                            getComputedStyle(document.querySelector('main > .h-full')).transform === 'none'
+                        );
 
-                        const exportButton = page.getByRole('button', { name: 'Exportar Suite', exact: true });
-                        await exportButton.evaluate(button => button.addEventListener('click', () => {
-                            window.__accountMenuTest.exports++;
-                        }));
+                        const exportButton = page.getByRole('button', {
+                            name: 'Exportar Suite',
+                            exact: true,
+                        });
+                        await exportButton.evaluate((button) =>
+                            button.addEventListener('click', () => {
+                                window.__accountMenuTest.exports++;
+                            })
+                        );
                         await exportButton.click();
                         assert.equal(await page.evaluate(() => window.__accountMenuTest.exports), 1);
                         // Exercise a neighbouring menu without using its mutation controls.
-                        const notifications = page.getByRole('button', { name: 'Abrir notificaciones', exact: true });
+                        const notifications = page.getByRole('button', {
+                            name: 'Abrir notificaciones',
+                            exact: true,
+                        });
                         await notifications.click();
                         await page.getByText('Sin notificaciones relevantes.', { exact: true }).waitFor();
                         await notifications.click();
 
-                        await page.locator('header').getByRole('button').filter({ hasText: 'finance' }).click();
+                        await page.locator('header').getByRole('button').filter({ hasText: 'finance' })
+                            .click();
                         const logout = page.getByRole('button', { name: 'Cerrar sesión', exact: true });
                         assert.equal(await logout.isVisible(), true);
                         assert.equal(await logout.isEnabled(), true);
                         assert.equal(await exportButton.isVisible(), true, 'Export stays rendered');
-                        const geometry = await logout.evaluate(button => {
+                        const geometry = await logout.evaluate((button) => {
                             const rect = button.getBoundingClientRect();
-                            const points = [0.1, 0.5, 0.9].flatMap(x => [0.2, 0.5, 0.8].map(y =>
-                                button.contains(document.elementFromPoint(rect.x + rect.width * x, rect.y + rect.height * y))));
-                            return { receivesPointer: points.every(Boolean),
+                            const points = [0.1, 0.5, 0.9].flatMap((x) =>
+                                [0.2, 0.5, 0.8].map((y) =>
+                                    button.contains(
+                                        document.elementFromPoint(
+                                            rect.x + rect.width * x,
+                                            rect.y + rect.height * y,
+                                        ),
+                                    )
+                                )
+                            );
+                            return {
+                                receivesPointer: points.every(Boolean),
                                 withinViewport: rect.x >= 0 && rect.y >= 0 &&
-                                    rect.right <= innerWidth && rect.bottom <= innerHeight };
+                                    rect.right <= innerWidth && rect.bottom <= innerHeight,
+                            };
                         });
                         assert.equal(geometry.withinViewport, true, 'Menu stays inside viewport');
-                        assert.equal(geometry.receivesPointer, true, 'Menu is not covered or clipped by Reports/overflow');
-                        await logout.evaluate(button => button.addEventListener('click', event => {
-                            window.__accountMenuTest.controlEvents.push({ trusted: event.isTrusted, detail: event.detail });
-                        }, { once: true }));
+                        assert.equal(
+                            geometry.receivesPointer,
+                            true,
+                            'Menu is not covered or clipped by Reports/overflow',
+                        );
+                        await logout.evaluate((button) =>
+                            button.addEventListener('click', (event) => {
+                                window.__accountMenuTest.controlEvents.push({
+                                    trusted: event.isTrusted,
+                                    detail: event.detail,
+                                });
+                            }, { once: true })
+                        );
                         if (process.env.BROWSER_TEST_ARTIFACT_DIR) {
                             await mkdir(process.env.BROWSER_TEST_ARTIFACT_DIR, { recursive: true });
-                            await page.screenshot({ path: path.join(process.env.BROWSER_TEST_ARTIFACT_DIR,
-                                'menu-' + width + '-' + activation + '.png') });
+                            await page.screenshot({
+                                path: path.join(
+                                    process.env.BROWSER_TEST_ARTIFACT_DIR,
+                                    'menu-' + width + '-' + activation + '.png',
+                                ),
+                            });
                         }
                         if (activation === 'pointer') await logout.click({ timeout: 5_000 });
-                        else { await logout.focus(); await logout.press('Enter'); }
+                        else {
+                            await logout.focus();
+                            await logout.press('Enter');
+                        }
                         await page.waitForURL(origin + '/login');
                         await page.getByRole('button', { name: 'Ingresar', exact: true }).waitFor();
                         const result = await page.evaluate(() => window.__accountMenuTest);
-                        assert.equal(result.signOutCalls, 1, 'Real Auth coordinator called the local SDK double once');
+                        assert.equal(
+                            result.signOutCalls,
+                            1,
+                            'Real Auth coordinator called the local SDK double once',
+                        );
                         assert.equal(result.controlEvents.length, 1);
                         assert.equal(result.controlEvents[0].trusted, true);
                         assert.equal(result.controlEvents[0].detail, activation === 'pointer' ? 1 : 0);
-                        assert.equal(await page.getByRole('heading', { name: 'Resumen operativo', exact: true }).isVisible(), false);
+                        assert.equal(
+                            await page.getByRole('heading', { name: 'Resumen operativo', exact: true })
+                                .isVisible(),
+                            false,
+                        );
                         assert.equal(await page.getByText('Local QA', { exact: true }).isVisible(), false);
                         assert.deepEqual(external, [], 'Local test must not contact external services');
                         assert.deepEqual(errors, []);
-                    } finally { await context.close(); }
+                    } finally {
+                        await context.close();
+                    }
                 });
             }
         }

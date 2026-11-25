@@ -1,48 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Truck, MapPin, CheckCircle, AlertTriangle, Shield, Clock, AlertCircle, RefreshCw, X, Search, WifiOff, UploadCloud } from 'lucide-react';
 import { fetchDriverView, postDriverEvent } from '@/services/trackingEdge.service';
 import type { DriverView, DriverEventPayload, GeoPoint } from '@/types/tracking';
-import { DRIVER_ANTI_NOISE, DRIVER_ORDER_STATES, INCIDENT_TYPES } from '@/types/tracking';
-
-// --- Offline Queue Helpers ---
-const getQueueKey = (token: string) => `rotero_driver_queue_${token}`;
+import { DRIVER_ANTI_NOISE, INCIDENT_TYPES } from '@/types/tracking';
 
 interface QueuedEvent {
-    id: string;
     payload: DriverEventPayload;
-    queuedAt: string;
-    retries: number;
 }
-
-const getOfflineQueue = (token: string): QueuedEvent[] => {
-    try {
-        const q = localStorage.getItem(getQueueKey(token));
-        return q ? JSON.parse(q) : [];
-    } catch {
-        return [];
-    }
-};
-
-const saveOfflineQueue = (token: string, queue: QueuedEvent[]) => {
-    localStorage.setItem(getQueueKey(token), JSON.stringify(queue));
-};
-
-const enqueueEvent = (token: string, payload: DriverEventPayload) => {
-    let queue = getOfflineQueue(token);
-    if (queue.length >= DRIVER_ANTI_NOISE.offlineQueueMax) {
-        alert("Demasiados pendientes. Espera a tener señal.");
-        return false;
-    }
-    queue.push({
-        id: 'offline-' + Date.now(),
-        payload,
-        queuedAt: new Date().toISOString(),
-        retries: 0
-    });
-    saveOfflineQueue(token, queue);
-    return true;
-};
 
 // --- Modals ---
 
@@ -180,6 +145,10 @@ const IncidentModal = ({ onClose, onConfirm }: { onClose: () => void, onConfirm:
 
 export default function DriverTrackingPage() {
     const { token } = useParams<{ token: string }>();
+    return <div key={token}><DriverTrackingSession token={token} /></div>;
+}
+
+function DriverTrackingSession({ token }: { token: string | undefined }) {
     const [status, setStatus] = useState<'loading' | 'success' | 'expired' | 'revoked' | 'not_found'>('loading');
     const [data, setData] = useState<DriverView | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -190,56 +159,52 @@ export default function DriverTrackingPage() {
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [queueSize, setQueueSize] = useState(0);
     const [showSuccessToast, setShowSuccessToast] = useState(false);
+    // Bearer links and unconfirmed events stay in this page's memory.
+    const queue = useRef<QueuedEvent[]>([]);
+    const posting = useRef(false);
+    const hadView = useRef(false);
 
     const loadData = useCallback(async () => {
-        if (!navigator.onLine && !data) {
+        if (!navigator.onLine && !hadView.current) {
             setStatus('not_found'); // offline with no cached data
             return;
         }
         const result = await fetchDriverView(token || '');
         if (!result.ok) {
             // network / timeout error: keep last loaded data if we have it
-            if (!data) setStatus('not_found');
+            if (!hadView.current) setStatus('not_found');
             return;
         }
         const response = result.data;
         setStatus(response.status);
-        if (response.data) setData(response.data);
-        setQueueSize(getOfflineQueue(token || '').length);
-    }, [token, data]);
+        hadView.current = Boolean(response.data);
+        setData(response.data ?? null);
+        if (response.status !== 'success') {
+            queue.current = [];
+            setQueueSize(0);
+        }
+    }, [token]);
 
     const syncQueue = useCallback(async () => {
-        if (!navigator.onLine || !token) return;
-        let queue = getOfflineQueue(token);
-        if (queue.length === 0) return;
-
-        const remaining: typeof queue = [];
-
-        for (const qe of queue) {
-            const result = await postDriverEvent(qe.payload);
-            if (!result.ok) {
-                // network error — keep in queue
-                qe.retries += 1;
-                if (qe.retries < DRIVER_ANTI_NOISE.offlineMaxRetries) {
-                    remaining.push(qe);
-                }
-            } else {
-                const { data } = result;
-                if (data.http === 403) {
-                    // token revoked/expired — clear entire queue, no more retries
-                    saveOfflineQueue(token, []);
-                    setQueueSize(0);
+        if (!navigator.onLine || !token || !queue.current.length || posting.current) return;
+        posting.current = true;
+        try {
+            while (queue.current.length) {
+                const result = await postDriverEvent(queue.current[0].payload);
+                if (!result.ok || result.data.http === 429) return;
+                if (result.data.http === 403 || result.data.http === 404) {
+                    queue.current = [];
+                    setData(null);
                     setStatus('revoked');
                     return;
                 }
-                // accepted (200/201) or rejected by business rule (422): drop from queue
+                queue.current.shift();
+                if (!result.data.accepted) alert('El servidor rechazó un evento pendiente. Revisa el estado de la operación.');
             }
-        }
-
-        saveOfflineQueue(token, remaining);
-        setQueueSize(remaining.length);
-        if (remaining.length === 0) {
-            loadData(); // refresh fully when sync finishes
+            await loadData();
+        } finally {
+            posting.current = false;
+            setQueueSize(queue.current.length);
         }
     }, [token, loadData]);
 
@@ -258,7 +223,11 @@ export default function DriverTrackingPage() {
     }, [loadData, syncQueue]);
 
     const submitEvent = async (payloadDetails: Partial<DriverEventPayload>) => {
-        if (!token) return;
+        if (!token || posting.current) return;
+        if (queue.current.length >= DRIVER_ANTI_NOISE.offlineQueueMax) {
+            alert('Hay demasiados eventos pendientes. Envíalos antes de registrar otro.');
+            return;
+        }
         const payload: DriverEventPayload = {
             ...payloadDetails,
             driverToken: token,
@@ -270,35 +239,28 @@ export default function DriverTrackingPage() {
         setSelectedAction(null);
         setActionLoading(payload.action);
 
-        if (!navigator.onLine) {
-            enqueueEvent(token, payload);
-            setQueueSize(getOfflineQueue(token).length);
-
-            // Optimistic Update
-            if (data && payload.action !== 'incident') {
-                const nextStatus = payload.action === 'departure' ? 'in_transit' : payload.action === 'arrival' ? 'at_destination' : payload.action === 'delivered' ? 'delivered' : data.currentStatus;
-                setData({ ...data, currentStatus: nextStatus as any });
-            }
+        if (!navigator.onLine || queue.current.length) {
+            queue.current.push({ payload: { ...payload, offlineQueued: true } });
+            setQueueSize(queue.current.length);
             setActionLoading(null);
-            setShowSuccessToast(true);
-            setTimeout(() => setShowSuccessToast(false), 2500);
             return;
         }
 
+        posting.current = true;
         try {
             const result = await postDriverEvent(payload);
-            if (!result.ok) {
-                // network / timeout — event already queued offline would have been handled above
-                // For online failures, optionally enqueue or alert
-                alert('Error de conexión al enviar el evento. Intenta de nuevo.');
-                setActionLoading(null);
+            if (!result.ok || result.data.http === 429) {
+                queue.current.push({ payload });
+                setQueueSize(queue.current.length);
+                alert('El evento está pendiente de confirmar. Mantén esta pestaña abierta para reintentarlo.');
                 return;
             }
             const res = result.data;
-            if (res.http === 403) {
+            if (res.http === 403 || res.http === 404) {
                 // token was revoked/expired while driver was active
-                saveOfflineQueue(token, []);
+                queue.current = [];
                 setQueueSize(0);
+                setData(null);
                 setStatus('revoked');
                 setActionLoading(null);
                 return;
@@ -310,9 +272,12 @@ export default function DriverTrackingPage() {
                     }`);
             }
             await loadData();
-            setShowSuccessToast(true);
-            setTimeout(() => setShowSuccessToast(false), 2500);
+            if (res.accepted) {
+                setShowSuccessToast(true);
+                setTimeout(() => setShowSuccessToast(false), 2500);
+            }
         } finally {
+            posting.current = false;
             setActionLoading(null);
         }
     };
@@ -379,12 +344,13 @@ export default function DriverTrackingPage() {
             {/* Offline Banner */}
             {isOffline && (
                 <div className="bg-amber-100 px-4 py-2 flex items-center justify-center gap-2 text-amber-800 text-xs font-bold border-b border-amber-200">
-                    <WifiOff size={14} /> Sin conexión. Los cambios se guardarán.
+                    <WifiOff size={14} /> Sin conexión. Mantén esta pestaña abierta para enviar los cambios.
                 </div>
             )}
             {!isOffline && queueSize > 0 && (
                 <div className="bg-blue-100 px-4 py-2 flex items-center justify-center gap-2 text-blue-800 text-xs font-bold border-b border-blue-200">
-                    <UploadCloud size={14} className="animate-pulse" /> Sincronizando {queueSize} pendientes...
+                    <UploadCloud size={14} /> {queueSize} pendiente(s).
+                    <button type="button" onClick={() => void syncQueue()} className="underline">Reintentar envío</button>
                 </div>
             )}
 

@@ -5,11 +5,12 @@ export const PRODUCT_ROLES = ['admin', 'operator', 'finance', 'viewer'] as const
 export type ProductRole = (typeof PRODUCT_ROLES)[number];
 
 /** Roles enabled for authenticated ERP access in the current ROTERO deployment. */
-export const ROTERO_ENABLED_ROLES = ['admin', 'finance'] as const;
+export const ROTERO_ENABLED_ROLES = ['admin', 'finance', 'operator'] as const;
 export type RoteroEnabledRole = (typeof ROTERO_ENABLED_ROLES)[number];
 
 /** Beta provisioning is manual and limited to the active deployment roles. */
-export const ROTERO_PROVISIONABLE_ROLES = ROTERO_ENABLED_ROLES;
+export const ROTERO_PROVISIONABLE_ROLES = ['admin', 'finance'] as const;
+const OPERATOR_COMPANY_MODULES: readonly Module[] = ['dashboard', 'operations', 'documents'];
 
 export const PRODUCT_ROLE_LABELS: Record<ProductRole, string> = {
     admin: 'Administrador',
@@ -57,8 +58,8 @@ export function isRoteroEnabledRole(role: unknown): role is RoteroEnabledRole {
     return typeof role === 'string' && ROTERO_ENABLED_ROLES.some((candidate) => candidate === role);
 }
 
-export function isRoteroProvisionableRole(role: unknown): role is RoteroEnabledRole {
-    return isRoteroEnabledRole(role);
+export function isRoteroProvisionableRole(role: unknown): role is (typeof ROTERO_PROVISIONABLE_ROLES)[number] {
+    return ROTERO_PROVISIONABLE_ROLES.some((candidate) => candidate === role);
 }
 
 export function canProductRoleAccessModule(role: ProductRole | null, module: Module): boolean {
@@ -77,11 +78,12 @@ export function canProductRoleManageDocumentContext(role: ProductRole | null, so
 }
 
 export function canAccessRoteroModule(role: ProductRole | null, module: Module): boolean {
+    if (role === 'operator') return OPERATOR_COMPANY_MODULES.includes(module);
     return isRoteroEnabledRole(role) && canProductRoleAccessModule(role, module);
 }
 
 export function canManageRoteroModule(role: ProductRole | null, module: Module): boolean {
-    return isRoteroEnabledRole(role) && canProductRoleManageModule(role, module);
+    return canAccessRoteroModule(role, module) && canProductRoleManageModule(role, module);
 }
 
 export function findRoteroEnabledTenantId(
