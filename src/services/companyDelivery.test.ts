@@ -8,73 +8,66 @@ import type { deliveryCsv, deliveryPage } from './companyDelivery.service';
 
 const source = readFileSync(new URL('./companyDelivery.service.ts', import.meta.url), 'utf8');
 
-async function setup() {
-    const calls: { name: string; payload: Record<string, unknown> }[] = [];
+test('staging 61 lists, searches and exports operations using the existing RPC', async () => {
+    const calls: Record<string, unknown>[] = [];
+    const operations = Array.from({ length: 51 }, (_, index) => {
+        const id = 'A-' + String(index + 1).padStart(2, '0');
+        return { id, company_id: 'company-a', reference_code: id, customer_price_amount: 900 };
+    });
     const supabase = {
         async rpc(name: string, payload: Record<string, unknown>) {
-            calls.push({ name, payload });
-            const later = payload.p_after_id !== null;
-            const id = later ? 'second-row' : 'first-row';
+            assert.equal(name, 'rpc_delivery_operations_page');
+            calls.push(payload);
+            const results = operations.filter((operation) => operation.reference_code.includes(String(payload.p_search)));
+            const page = results.filter((operation) => (
+                payload.p_after_id == null || operation.id > String(payload.p_after_id)
+            )).slice(0, Number(payload.p_limit));
+            const cursor = page.at(-1)?.id;
             return {
                 data: {
-                    items: [{ id, reference_code: id }],
-                    total: 2,
-                    next_cursor: later ? null : 'first-row',
-                    creation_date_timezone: 'America/Mexico_City',
+                    items: page,
+                    total: results.length,
+                    next_cursor: cursor && results.some((operation) => operation.id > cursor) ? cursor : null,
                 },
                 error: null,
             };
         },
     };
-    const modules: Record<string, Record<string, unknown>> = {
+    const imports: Record<string, Record<string, unknown>> = {
         '@/lib/supabase': { supabase },
         '@/store/companyStore': { scopedResponse: (request: () => Promise<unknown>) => request() },
         '@/utils/csv': { serializeCsv },
     };
-    const code = ts.transpileModule(source, {
+    const service = new SourceTextModule(ts.transpileModule(source, {
         compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
-    }).outputText;
-    const module = new SourceTextModule(code);
-    await module.link((name) => {
-        const values = modules[name];
+    }).outputText);
+    await service.link((name) => {
+        const values = imports[name];
         assert.ok(values);
-        const keys = Object.keys(values);
-        return new SyntheticModule(keys, function () {
-            for (const key of keys) this.setExport(key, values[key]);
+        return new SyntheticModule(Object.keys(values), function () {
+            for (const [key, value] of Object.entries(values)) this.setExport(key, value);
         });
     });
-    await module.evaluate();
-    const api = module.namespace as { deliveryPage: typeof deliveryPage; deliveryCsv: typeof deliveryCsv };
-    return { ...api, calls };
-}
+    await service.evaluate();
+    const api = service.namespace as { deliveryCsv: typeof deliveryCsv; deliveryPage: typeof deliveryPage };
 
-test('list and every CSV page send the same creation bounds and search', async () => {
-    const env = await setup();
-    const period = { from: '2026-11-02', to: '2026-11-08' };
-    await env.deliveryPage('tenant', 'operations', 'Cargas', null, false, period);
-    const csv = parseCsv(await env.deliveryCsv('tenant', 'operations', 'Cargas', period));
-    assert.deepEqual(csv.rows.map(row => row[0]), ['first-row', 'second-row']);
-    assert.ok(env.calls.every(({ name }) => name === 'rpc_delivery_operations_page_by_creation'));
-    assert.deepEqual(env.calls.map(({ payload }) => payload), [false, true, true].map((p_export, i) => ({
-        p_tenant_id: 'tenant',
-        p_search: 'Cargas',
-        p_after_id: i === 2 ? 'first-row' : null,
-        p_limit: 50,
-        p_export,
-        p_created_from: period.from,
-        p_created_to: period.to,
-    })));
-});
+    const first = await api.deliveryPage('tenant', 'operations', 'A-');
+    assert.equal(first.total, 51);
+    assert.equal(first.items.length, 50);
+    assert.equal(first.next_cursor, 'A-50');
+    const second = await api.deliveryPage('tenant', 'operations', 'A-', first.next_cursor);
+    assert.deepEqual(second.items.map(({ id }) => id), ['A-51']);
+    assert.deepEqual((await api.deliveryPage('tenant', 'operations', 'A-51')).items.map(({ id }) => id), ['A-51']);
+    assert.equal((await api.deliveryPage('tenant', 'operations', 'B-')).total, 0);
 
-test('a single bound stays null on the other end; clearing restores the existing RPC', async () => {
-    const env = await setup();
-    await env.deliveryPage('tenant', 'operations', '', null, false, { from: null, to: '2026-11-08' });
-    assert.equal(env.calls[0].payload.p_created_from, null);
-    assert.equal(env.calls[0].payload.p_created_to, '2026-11-08');
-    await env.deliveryPage('tenant', 'operations', '', null, false, { from: null, to: null });
-    assert.equal(env.calls[1].name, 'rpc_delivery_operations_page');
-    assert.ok(!('p_created_to' in env.calls[1].payload));
-    await env.deliveryPage('tenant', 'receivables', '', null, true, { from: '2026-11-02', to: null });
-    assert.equal(env.calls[2].name, 'rpc_delivery_receivables_page');
-    assert.ok(!('p_created_from' in env.calls[2].payload));
+    const csv = parseCsv(await api.deliveryCsv('tenant', 'operations', 'A-'));
+    const idColumn = csv.headers.indexOf('id');
+    assert.ok(idColumn >= 0);
+    assert.deepEqual(csv.rows.map((row) => row[idColumn]), [...first.items, ...second.items].map(({ id }) => id));
+    assert.ok(!csv.headers.includes('customer_price_amount'));
+
+    assert.deepEqual(calls, [
+        ['A-', null, false], ['A-', 'A-50', false], ['A-51', null, false],
+        ['B-', null, false], ['A-', null, true], ['A-', 'A-50', true],
+    ].map(([p_search, p_after_id, p_export]) => ({ p_tenant_id: 'tenant', p_search, p_after_id, p_limit: 50, p_export })));
 });

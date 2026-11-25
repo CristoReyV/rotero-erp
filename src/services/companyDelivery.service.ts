@@ -9,14 +9,7 @@ export interface DeliveryPage {
     next_cursor: string | null;
     company_ids: string[];
     classification_notice: string;
-    creation_date_timezone?: string;
 }
-
-export interface OperationCreationPeriod {
-    from: string | null;
-    to: string | null;
-}
-
 export const OPERATION_EXPORT_COLUMNS = [
     'id',
     'company_id',
@@ -56,23 +49,18 @@ export async function deliveryPage(
     search = '',
     cursor: string | null = null,
     exporting = false,
-    period?: OperationCreationPeriod,
 ): Promise<DeliveryPage> {
-    const filterByCreation = kind === 'operations' && (period?.from || period?.to);
-    const name = filterByCreation ? 'rpc_delivery_operations_page_by_creation' : `rpc_delivery_${kind}_page`;
-    const { data, error } = await supabase.rpc(name, {
+    const { data, error } = await supabase.rpc(`rpc_delivery_${kind}_page`, {
         p_tenant_id: tenantId,
         p_search: search,
         p_after_id: cursor,
         p_limit: 50,
         p_export: exporting,
-        ...(filterByCreation && { p_created_from: period?.from ?? null, p_created_to: period?.to ?? null }),
     });
     if (error || data?.error) throw new Error('No fue posible consultar este alcance empresarial.');
     if (
         !Array.isArray(data?.items) || !Number.isSafeInteger(data?.total) || data.total < 0 ||
-        !(data.next_cursor === null || typeof data.next_cursor === 'string') ||
-        (data.creation_date_timezone !== undefined && typeof data.creation_date_timezone !== 'string')
+        !(data.next_cursor === null || typeof data.next_cursor === 'string')
     ) throw new Error('Contrato empresarial inválido.');
     return data;
 }
@@ -81,7 +69,6 @@ export async function deliveryCsv(
     tenantId: string,
     kind: 'operations' | 'receivables',
     search: string,
-    period?: OperationCreationPeriod,
 ): Promise<string> {
     return scopedResponse(async () => {
         const rows: DeliveryRow[] = [];
@@ -89,7 +76,7 @@ export async function deliveryCsv(
         let cursor: string | null = null;
         let total: number | null = null;
         do {
-            const page = await deliveryPage(tenantId, kind, search, cursor, true, period);
+            const page = await deliveryPage(tenantId, kind, search, cursor, true);
             if (total !== null && total !== page.total) {
                 throw new Error('El listado cambió; vuelve a exportar.');
             }
