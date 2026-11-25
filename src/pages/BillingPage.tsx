@@ -10,6 +10,8 @@ import {
 import { createDocumentSignedUrl, listDocumentFiles } from '@/services/documents.service';
 import { getFiscalActionAvailability } from '@/services/fiscalContracts';
 import { FiscalSandboxPanel } from '@/components/billing/FiscalSandboxPanel';
+import { IssuedIncomeLinks } from '@/components/billing/IssuedIncomeLinks';
+import { useCompanyStore } from '@/store/companyStore';
 import { useAuthStore } from '@/store/authStore';
 import { canAccessRoteroModule } from '@/constants/roles';
 import type { CFDIFilters, CFDIListRow, CFDIStatus, CFDIWithDetail, FiscalReadiness } from '@/types/billing';
@@ -77,6 +79,13 @@ const BillingPage = () => {
     const activeTenant = useAuthStore((state) => state.activeTenant);
     const role = useAuthStore((state) => state.getRole());
     const canViewBilling = canAccessRoteroModule(role, 'billing');
+    const incomeLinkCompany = useCompanyStore((state) => {
+        if (state.phase !== 'ready' || state.mode !== 'company' || state.tenantId !== activeTenant ||
+            state.selectedIds.length !== 1 || (role !== 'admin' && role !== 'finance')) return null;
+        const company = state.companies.find(({ id }) => id === state.selectedIds[0]);
+        return company?.capabilities.includes('financial.full.read') && company.capabilities.includes('finance.write')
+            ? company.id : null;
+    });
 
     const requestedView = searchParams.get('view');
     const activeView: BillingView = isBillingView(requestedView) ? requestedView : 'all';
@@ -434,6 +443,12 @@ const BillingPage = () => {
                                             </div>
                                         ))}
                                     </dl>
+
+                                    {activeTenant && incomeLinkCompany && fiscalReadiness?.fiscal_status === 'stamped' && (
+                                        <div key={`${activeTenant}:${incomeLinkCompany}:${selectedCfdiId}`}>
+                                            <IssuedIncomeLinks tenantId={activeTenant} cfdiId={selectedCfdiId} />
+                                        </div>
+                                    )}
 
                                     {sandboxCfdiId !== selectedCfdiId && fiscalReadiness && fiscalActions && (
                                         <section className="space-y-3 rounded-xl border border-slate-200 p-4">
