@@ -1,5 +1,7 @@
 # Aceptación de ROTERO ERP para WLS
 
+Estado del corte vigente: [PR 47 compatible con staging 61](WLS_PR47_STAGING61.md).
+
 **Decisión actual: no habilitar WLS.** El PR #47 permanece en draft. La
 aplicación revisada parte de `08c4fbd37da6377505eda7194edc19aae0981e8f`.
 Este seguimiento cambia la prueba SQL y este documento. El SHA y Deploy

@@ -1,0 +1,35 @@
+# PR 47 · Candidato de entrega con 61 migraciones
+
+El corte mantiene el filtro de **búsqueda** y el CSV de Operaciones sobre `rpc_delivery_operations_page`. Se pospone el rango por fecha de creación del Concentrado. El trabajo recuperable completo, incluida la migración y sus pruebas, está en el commit `b99f637289a8837d4b746e44f56c8669fde9f074`. Para retomarlo en otra fase, revisar ese diff en una rama propia contra el catálogo y el candidato vigentes. El histórico de Excel sigue en HOLD.
+
+## Base y evidencia disponible
+
+- Supabase staging `mxpmgihuheagrcowwbia`, con 61 versiones registradas y última `20261123160000`. La consulta de catálogo confirmó la ausencia de la RPC de fechas. La rama de entrega vuelve a contener 61 migraciones.
+- El cambio de aplicación `be88ccfbcf44630a56e9735c5ee897fe1555ea9b` toca exclusivamente el listado de Operaciones y su servicio compartido para retirar los argumentos de fecha. Las lecturas restantes de ese servicio conservan la implementación anterior al filtro. No se repiten recorridos de Finanzas, Consolidado, Tracking ni POD porque su código, sus pruebas y sus contratos de backend coinciden con el candidato aprobado previo al filtro.
+- Prueba focalizada `node --experimental-vm-modules --import tsx --test src/services/companyDelivery.test.ts`. Ejecuta el servicio real con un doble de la RPC disponible en 61. Aserta listado, búsqueda por referencia, resultado vacío, paginación de 50 + 1, igualdad del CSV y ausencia de campos económicos. Las seis solicitudes conservan el contrato de cinco argumentos. La prueba del servicio, el typecheck y el build local de staging pasaron.
+- Respaldo de recuperación `cierre04r-20261125T151141Z-32e6b34a`, custodiado con DPAPI en Windows. Restauración aislada aprobada para 61 migraciones, 10 usuarios Auth, 29 operaciones y 19 archivos, 163 461 bytes comprobados por SHA-256. La contraseña de PostgreSQL no forma parte del paquete. Esta fase usa la copia de seguridad como evidencia y no requiere otra conexión directa para el filtro.
+- El SHA final, el identificador exacto del Deploy Preview y los resultados de navegador se mantienen en el PR #47. Las comprobaciones de servicio local y las de navegador se registran por separado.
+
+## Billing por folio interno
+
+**Hallazgo.** La estructura admite una referencia compartida porque `operation_billing` tiene una fila por `operation_id` y `linked_cfdi_id` carece de unicidad. Eso no constituye un flujo autorizado de varias operaciones. En el catálogo de 61 y en el código no se encontró una acción de empresa que vincule la misma factura de ingreso emitida a dos folios internos. Los modelos raíz `billing_cfdis`, `billing_documents` y `finance_invoices` tienen cada uno un solo `operation_id` escalar.
+
+1. **Factura de ingreso y cuenta por cobrar.** Billing muestra documentos fiscales y la ruta de creación tradicional recibe un solo `operation_id`. `rpc_create_cfdi` y el alta legacy de la cuenta por cobrar tienen la frontera de adopción empresarial. La ruta fiscal de sandbox está separada del flujo operativo. El enlace fiscal de sandbox entre un CFDI y su cuenta por cobrar tampoco asocia una lista de operaciones.
+2. **Facturación operativa.** `rpc_delivery_operational_billing` consulta el resumen de la operación con acceso empresarial. Las acciones legacy `rpc_create_operation_billing` y `rpc_mark_operation_billing_issued` devuelven `company_adoption_pending` bajo el corte. El catálogo no expone un escritor empresarial que produzca la asociación compartida. El cierre administrativo excepcional conserva su tratamiento propio.
+3. **Cierre normal.** La ficha 360 llama `rpc_delivery_operation_action` para la transición, con revisión y permisos de empresa. El contrato exige estado `delivered`, ausencia de incidentes bloqueantes y Billing emitido para esa operación. Sin ello devuelve `billing_not_issued`. La regla de facturas de proveedor sigue pendiente de Karina.
+
+**Cambio mínimo para revisión.** Mantener un solo CFDI de ingreso y una sola cuenta por cobrar. Reutilizar `operation_billing.linked_cfdi_id` para la relación por operación y añadir una sola acción empresarial autorizada que vincule el CFDI existente a los folios aprobados. Verificar tenant, empresa, receptor y moneda, evidencia de emisión aceptada, idempotencia, auditoría y tratamiento de cancelación. La acción sólo debe registrar los vínculos y el estado operativo válido. Los importes de cobranza, los pagos y los agregados deben seguir contando por cuenta por cobrar, una vez. Un reparto de ingresos por folio requiere regla de Karina antes de exponer importes por operación.
+
+**Caso aislado preparado como especificación.** Usar dos folios sintéticos entregados de la misma empresa y un CFDI de ingreso con una sola cuenta por cobrar por un importe sintético acordado. Antes del vínculo, comprobar `billing_not_issued`. Tras ejecutar el productor que apruebe Contabilidad, comprobar dos vínculos auditados, una sola factura, un solo saldo, reintento sin duplicados y denegación con folio de otra empresa. Después verificar ambos cierres normales. El caso positivo actual queda pendiente de un productor autorizado y de la regla de Karina. La especificación no usa estados fiscales simulados, emisión real ni un override de cierre.
+
+## Guion WLS para el jueves 26 de noviembre
+
+| Recorrido | Resultado de aceptación | Responsable |
+| --- | --- | --- |
+| Preparar operador QA existente | Usar su credencial DPAPI desde el mismo usuario de Windows, bajo la custodia RoteroQA. Confirmar tenant sintético exclusivo y empresa A. La membresía operator existe y al comprobar staging no había acceso empresarial ni capacidades vigentes. Renovar sólo con autorización, incluir `operations.read` y `export.operational` con vencimiento explícito, y registrar IDs para su retirada. | Titular de accesos + QA |
+| Operaciones en el Deploy Preview exacto del PR | Abrir Operaciones como operador de A. Se esperan tres referencias sintéticas clasificadas. Buscar `C04R-QA-OP-D4272CDA` y comprobar una fila. Buscar un folio inexistente para ver cero y limpiar la búsqueda para volver a tres. | QA |
+| CSV con la misma búsqueda | Con permiso, exportar la vista de una fila. Comparar el folio y la empresa, comprobar ausencia de otras empresas y datos económicos. Conservar como evidencia sólo conteos, cabeceras y folios sintéticos. Con sesión cerrada y permisos retirados, registrar el resultado. | QA |
+| Tracking, POD y Finanzas | Conservar las evidencias de los SHA anteriores mientras los recorridos y entradas permanezcan iguales. El caso positivo de cierre se abre únicamente al comunicarse una regla y un caso válido de Contabilidad. | QA + Karina |
+| Pendientes de salida | El rango por fecha y el Excel histórico quedan fuera del corte. WLS decide aceptación sobre el SHA y preview exactos y confirma el caso contable. | WLS + Contabilidad |
+
+El PR permanece en draft. Los permisos de QA, las credenciales cifradas y los respaldos mantienen su custodia. Esta evidencia no requiere archivos de trabajo temporales de Windows para ser consultada.
