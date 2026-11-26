@@ -380,7 +380,7 @@ test('tenant change starts a fresh load and never displays previous tenant data'
     page.close();
 });
 
-test('legacy success, loading, refresh, fallback and empty SKU markup match the approved base', async () => {
+test('legacy report states retain approved markup apart from the inactive header controls', async () => {
     let cursor = 0;
     let values: unknown[] = [];
     const baseline = await evaluatedSource(basePageSource, {
@@ -413,7 +413,9 @@ test('legacy success, loading, refresh, fallback and empty SKU markup match the 
         const previous = renderToStaticMarkup(<Base />);
         const current = renderToStaticMarkup(<LegacyReportsSection data={entry.data}
             loading={entry.loading} onRefresh={() => { }} />);
-        assert.equal(current, previous, 'Legacy markup, periods, formats and states are preserved');
+        const headerControls = /<div class="flex items-center gap-2"><button[^>]*>(?:(?!<\/button>)[\s\S])*?This Month[\s\S]*?Exportar Suite<\/button><\/div>/;
+        assert.equal(current, previous.replace(headerControls, ''), 'Only the inactive header controls are removed');
+        assert.doesNotMatch(current, /This Month|Exportar Suite/);
     }
 });
 

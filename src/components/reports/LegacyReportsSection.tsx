@@ -1,5 +1,5 @@
 import { formatAverageHours } from '@/utils/numberFormat';
-import { BarChart3, Download, PieChart, TrendingUp, Calendar, ChevronDown, Package, Code, FileText } from 'lucide-react';
+import { BarChart3, PieChart, TrendingUp, Package, Code, FileText } from 'lucide-react';
 import type { LegacyReportsData } from '@/services/reportsLoader';
 
 const iconMap = {
@@ -71,14 +71,6 @@ export function LegacyReportsSection({ data, loading, onRefresh }: {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Reportes & BI</h1>
                     <p className="text-sm text-slate-400 mt-0.5">Centro de inteligencia de negocio y reporteo</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button className="flex items-center gap-2 px-3.5 py-2 bg-surface border border-tech-border/60 rounded-xl text-xs font-semibold text-slate-500 hover:text-primary hover:border-primary/30 transition-all">
-                        <Calendar size={14} /> This Month <ChevronDown size={14} />
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 gradient-primary text-white rounded-xl text-xs font-semibold shadow-md shadow-primary/15 hover:shadow-lg hover:shadow-primary/25 transition-all">
-                        <Download size={14} /> Exportar Suite
-                    </button>
                 </div>
             </div>
 
