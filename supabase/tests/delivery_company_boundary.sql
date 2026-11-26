@@ -72,6 +72,14 @@ BEGIN
  INSERT INTO public.operations(tenant_id,reference_code) VALUES(t,'B') RETURNING id INTO op;PERFORM pg_temp.resolve('operations',op,b);PERFORM set_config('d.ob',op::text,true);
  INSERT INTO public.operations(tenant_id,reference_code) VALUES(x,'X') RETURNING id INTO op;PERFORM pg_temp.resolve('operations',op,xc);PERFORM set_config('d.ox',op::text,true);
  INSERT INTO public.operations(tenant_id,reference_code) VALUES(t,'UNCLASSIFIED') RETURNING id INTO op;PERFORM set_config('d.pending',op::text,true);
+ -- Synthetic operational flags only. No CFDI or finance entry is created.
+ INSERT INTO public.operation_billing(tenant_id,operation_id,status)
+ VALUES(t,current_setting('d.op')::uuid,'issued'),
+       (t,current_setting('d.ob')::uuid,'issued'),
+       (t,current_setting('d.pending')::uuid,'issued'),
+       (x,current_setting('d.ox')::uuid,'issued');
+ INSERT INTO public.operation_billing(tenant_id,operation_id,status)
+ SELECT t,id,'voided' FROM public.operations WHERE tenant_id=t AND reference_code='A-2';
  INSERT INTO public.finance_invoices(tenant_id,direction,counterparty_name,reference,amount,currency,status,operation_id)
  VALUES(t,'ar','Synthetic customer','AR-A',1000,'MXN','open',current_setting('d.op')::uuid) RETURNING id INTO inv;
  PERFORM pg_temp.resolve('finance_invoices',inv,a);PERFORM set_config('d.invoice',inv::text,true);
@@ -109,6 +117,9 @@ DO $$ DECLARE r jsonb;op uuid:=current_setting('d.op')::uuid;t uuid:=current_set
  PERFORM pg_temp.ok(public.rpc_get_operation(current_setting('d.pending')::uuid)->>'error'='unauthorized','unclassified denied');
  r:=public.rpc_reports_tanda1(t,NULL,NULL);PERFORM pg_temp.ok((SELECT array_agg(key ORDER BY key) FROM jsonb_object_keys(r)key)=ARRAY['by_scope','by_service_type','by_zone','date_from','date_to','volume','weekly'],'Tanda1 seven keys unchanged');
  PERFORM pg_temp.ok((r->'volume'->>'operations')::int=3,'Tanda1 scoped volume');
+ PERFORM pg_temp.ok(
+  (SELECT sum((w->>'billed')::int) FROM jsonb_array_elements(r->'weekly') AS w)=1,
+  'Tanda1 counts the issued flag and excludes voided, unclassified, other-company and other-tenant flags');
  r:=public.rpc_reports_operations_summary(t);PERFORM pg_temp.ok((r->>'avg_delivery_time')::numeric=71.4 AND r ? 'active_routes_count','71.4-hour metric retained after classification');
  PERFORM pg_temp.ok(public.rpc_reports_financial_summary(t,'monthly')->>'error'='unauthorized','finance role not full read');
  r:=public.rpc_delivery_receivables_page(t);PERFORM pg_temp.ok((r->>'total')::int=1 AND r->'items'->0->>'amount'='1000.00','AR legitimate monetary projection');
@@ -181,6 +192,9 @@ DO $$ DECLARE r jsonb;t uuid:=current_setting('d.t')::uuid;BEGIN
  PERFORM pg_temp.ok((r->>'total_revenue_ytd')::numeric=1000 AND (r->>'total_expenses_ytd')::numeric=88888,'financial formulas scoped to A without unrelated B');
  PERFORM pg_temp.ok(public.rpc_get_operation(current_setting('d.op')::uuid)->>'provider_cost_amount'='12345.00','full authorized operation economics');
  r:=public.rpc_list_finance_invoices(t,'{}'::jsonb);PERFORM pg_temp.ok(jsonb_array_length(r->'items')=2 AND r::text NOT LIKE '%77777%','legacy Finance listing scoped before joins');
+ r:=public.rpc_list_finance_invoices(t,'{"direction":"ar","search":"A-1","limit":200}'::jsonb);
+ PERFORM pg_temp.ok(jsonb_array_length(r->'items')=1 AND r->'items'->0->>'operation_reference'='A-1',
+  'Finance list and view CSV can search the authorized operation reference');
  r:=public.rpc_create_finance_invoice(t,jsonb_build_object('direction','ar','counterparty_name','Synthetic new','reference','AR-created','amount',10,'currency','MXN'));
  PERFORM pg_temp.ok(r->>'id' IS NOT NULL AND r->>'error' IS NULL,'full write explicit action');
  PERFORM set_config('d.created_invoice',r->>'id',true);
@@ -200,6 +214,14 @@ DO $$ DECLARE g uuid;t uuid:=current_setting('d.t')::uuid;u uuid:=current_settin
 END $$;
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok((public.rpc_reports_financial_summary(current_setting('d.t')::uuid,'monthly')->>'total_revenue_ytd')::numeric=78787,'explicit exact consolidated set');
+SELECT pg_temp.ok(
+ jsonb_array_length(public.rpc_list_finance_invoices(current_setting('d.t')::uuid,
+  '{"direction":"ar","search":"AR-B","limit":200}'::jsonb)->'items')=1,
+ 'Finance list and view CSV include the matching invoice of the authorized second company');
+SELECT pg_temp.ok(
+ (SELECT sum((w->>'billed')::int)
+  FROM jsonb_array_elements(public.rpc_reports_tanda1(current_setting('d.t')::uuid)->'weekly') AS w)=2,
+ 'Tanda1 counts only issued records of the two consolidated companies');
 SELECT pg_temp.ok(jsonb_array_length(public.rpc_delivery_context(current_setting('d.t')::uuid)->'consolidations')=1,'only authorized consolidation advertised');
 RESET ROLE;
 UPDATE private.financial_principal_bindings SET status='revoked',revoked_at=now(),revoked_by=current_setting('d.u')::uuid
