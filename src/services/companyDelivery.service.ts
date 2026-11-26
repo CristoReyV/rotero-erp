@@ -43,9 +43,20 @@ export const RECEIVABLE_EXPORT_COLUMNS = [
     'created_at',
 ];
 
+const HISTORY_EXPORT_LABELS = {
+    reference_code: 'Folio WLS',
+    source_customer_name: 'Cliente',
+    source_carrier_name: 'Línea Transportista',
+    source_dispatch_crossing_date: 'Fecha de Despacho / Cruce',
+    source_sheet: 'Hoja',
+    source_row: 'Fila',
+};
+
+type DeliveryPageKind = 'operations' | 'receivables' | 'operations_history';
+
 export async function deliveryPage(
     tenantId: string,
-    kind: 'operations' | 'receivables',
+    kind: DeliveryPageKind,
     search = '',
     cursor: string | null = null,
     exporting = false,
@@ -67,7 +78,7 @@ export async function deliveryPage(
 
 export async function deliveryCsv(
     tenantId: string,
-    kind: 'operations' | 'receivables',
+    kind: DeliveryPageKind,
     search: string,
 ): Promise<string> {
     return scopedResponse(async () => {
@@ -88,6 +99,11 @@ export async function deliveryCsv(
             if (cursor) seen.add(cursor);
         } while (cursor);
         if (rows.length !== total) throw new Error('El listado cambió; vuelve a exportar.');
+        if (kind === 'operations_history') {
+            const labels = Object.entries(HISTORY_EXPORT_LABELS);
+            const projected = rows.map((row) => Object.fromEntries(labels.map(([key, label]) => [label, row[key]])));
+            return serializeCsv(projected, Object.values(HISTORY_EXPORT_LABELS));
+        }
         return serializeCsv(
             rows,
             kind === 'operations' ? OPERATION_EXPORT_COLUMNS : RECEIVABLE_EXPORT_COLUMNS,

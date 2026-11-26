@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { OperationsTable } from '@/components/operations/OperationsTable';
 import { Operation360Panel } from '@/components/operations/Operation360Panel';
+import { CompanyOperationHistory } from '@/components/operations/CompanyOperationHistory';
 import { deliveryCsv, type DeliveryPage, deliveryPage } from '@/services/companyDelivery.service';
 import { type DbOperation, mapDbOperationToUI } from '@/services/operationsContracts';
 import { useAuthStore } from '@/store/authStore';
@@ -13,6 +14,26 @@ import { AssignmentDrawer } from '@/components/operations/AssignmentDrawer';
 import { getOperation, transitionOperationStatus } from '@/services/operations.service';
 
 export default function CompanyOperationsPage() {
+    const [historical, setHistorical] = useState(false);
+    return (
+        <div className="space-y-4">
+            <nav aria-label="Vistas de Operaciones" className="flex flex-wrap gap-2">
+                {([false, true] as const).map((value) => (
+                    <button key={String(value)} type="button" aria-pressed={historical === value}
+                        className={historical === value
+                            ? 'rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white'
+                            : 'rounded-lg border bg-surface-card px-3 py-2 text-sm font-semibold'}
+                        onClick={() => setHistorical(value)}>
+                        {value ? 'Histórico' : 'Operaciones activas'}
+                    </button>
+                ))}
+            </nav>
+            {historical ? <CompanyOperationHistory /> : <ActiveCompanyOperations />}
+        </div>
+    );
+}
+
+function ActiveCompanyOperations() {
     const [params, setParams] = useSearchParams();
     const deepLink = params.get('operation_id') ?? params.get('operationId');
     const tenant = useAuthStore((state) => state.activeTenant);
